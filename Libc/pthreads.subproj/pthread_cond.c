@@ -78,7 +78,7 @@ int
 pthread_cond_broadcast(pthread_cond_t *cond)
 {
     kern_return_t kern_res;
-    int res, delta;
+    int res;
     if (cond->sig == _PTHREAD_COND_SIG_init) {
         if ((res = pthread_cond_init(cond, NULL)) != 0) {
             return (res);
@@ -89,17 +89,16 @@ pthread_cond_broadcast(pthread_cond_t *cond)
         return (EINVAL);
     }
     LOCK(cond->lock);
-    delta = cond->waiters - cond->sigspending;
-    if (delta <= 0) {
-        /* Avoid kernel call since there are not enough waiters... */
+    if (cond->sem == MACH_PORT_NULL) {
+        /* Avoid kernel call since there are no waiters... */
         UNLOCK(cond->lock);
         return (ESUCCESS);
     }
-    cond->sigspending += delta;
+    cond->sigspending++;
     UNLOCK(cond->lock);
     PTHREAD_MACH_CALL(semaphore_signal_all(cond->sem), kern_res);
     LOCK(cond->lock);
-    cond->sigspending -= delta;
+    cond->sigspending--;
     if (cond->waiters == 0 && cond->sigspending == 0) {
         restore_sem_to_pool(cond->sem);
         cond->sem = MACH_PORT_NULL;
@@ -128,7 +127,7 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
         return (EINVAL); /* Not a condition variable */
     }
     LOCK(cond->lock);
-    if (cond->waiters <= cond->sigspending) {
+    if (cond->sem == MACH_PORT_NULL) {
         /* Avoid kernel call since there are not enough waiters... */
         UNLOCK(cond->lock);
         return (ESUCCESS);

@@ -32,6 +32,7 @@
 				021C9E3C000BD0CF11CA285C,
 				021C9E3D000BD0CF11CA285C,
 				021C9E44000BD0CF11CA285C,
+				04EC4B3D00518F8311CA285C,
 			);
 			isa = PBXGroup;
 			name = IOSerialFamily;
@@ -126,7 +127,7 @@
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 1.0.4;
+				MODULE_VERSION = 1.0.5;
 				OPTIMIZATION_CFLAGS = "";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
@@ -167,11 +168,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.4</string>
+	<string>1.0.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.4</string>
+	<string>1.0.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -489,6 +490,12 @@
 		021C9E68000BD34611CA285C = {
 			isa = PBXTargetDependency;
 			target = 021C9E59000BD1ED11CA285C;
+		};
+		04EC4B3D00518F8311CA285C = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
 		};
 		0C1118D40014E0F911CA285C = {
 			buildRules = (
