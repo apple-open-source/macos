@@ -750,8 +750,140 @@ IOUSBPipe::SetPipePolicy(UInt16 maxPacketSize, UInt8 maxInterval)
 }
 
 
-OSMetaClassDefineReservedUnused(IOUSBPipe,  9);
-OSMetaClassDefineReservedUnused(IOUSBPipe,  10);
+OSMetaClassDefineReservedUsed(IOUSBPipe,  9);
+
+// Isochronous read with frame list updated at hardware interrupt time
+//
+IOReturn 
+IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
+                 UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *pFrames,
+                          IOUSBLowLatencyIsocCompletion *	completion, UInt32 updateFrequency)
+{
+    IOReturn	err = kIOReturnSuccess;
+
+    USBLog(7, "IOUSBPipe[%p]::Read (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %ld, update: %ld", this, buffer, completion, numFrames, updateFrequency);
+    if (_correctStatus == kIOUSBPipeStalled)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - invalid read on a stalled low latency isoch pipe", this);
+        return kIOUSBPipeStalled;
+    }
+
+    if (_endpoint.maxPacketSize == 0)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - no bandwidth on an low latency isoc pipe", this);
+        return kIOReturnNoBandwidth;
+    }
+
+    if (completion == 0)
+    {
+        // put in our own completion routine if none was specified to
+        // fake synchronous operation
+        //
+        IOUSBLowLatencyIsocCompletion	tap;
+        IOSyncer *		syncer;
+
+        syncer  = IOSyncer::create();
+
+        tap.target = (void *)syncer;
+        tap.action = (IOUSBLowLatencyIsocCompletionAction) &IOUSBSyncIsoCompletion;
+        tap.parameter = NULL;
+
+        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, &tap, updateFrequency);
+
+        if (err == kIOReturnSuccess) {
+            err = syncer->wait();
+
+            // any err coming back in the callback indicates a stalled pipe
+            //
+            if (err && (err != kIOUSBTransactionTimeout))
+            {
+                USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc)  - i/o err (0x%x) on sync call - stalling pipe", this, err);
+                _correctStatus = kIOUSBPipeStalled;
+            }
+        }
+        else {
+            syncer->release(); syncer->release();
+	}
+    }
+    else {
+        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
+    }
+
+    if (err == kIOUSBPipeStalled)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Read (Low Latency Isoc) - controller returned stalled pipe, changing status");
+        _correctStatus = kIOUSBPipeStalled;
+    }
+
+    return err;
+}                          
+
+
+OSMetaClassDefineReservedUsed(IOUSBPipe,  10);
+IOReturn 
+IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *pFrames, IOUSBLowLatencyIsocCompletion *completion, UInt32 updateFrequency)
+{
+    IOReturn	err = kIOReturnSuccess;
+
+    USBLog(7, "IOUSBPipe[%p]::Write (Low Latency Isoc) buffer: %p, completion: %p, numFrames: %ld, update: %ld", this, buffer, completion, numFrames, updateFrequency);
+    if (_correctStatus == kIOUSBPipeStalled)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Write (Low Latency Isoc) - invalid write on a stalled isoch pipe", this);
+        return kIOUSBPipeStalled;
+    }
+
+    if (_endpoint.maxPacketSize == 0)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Write (Low Latency Isoc) - no bandwidth on an isoc pipe", this);
+        return kIOReturnNoBandwidth;
+    }
+
+    if (completion == 0)
+    {
+        // put in our own completion routine if none was specified to
+        // fake synchronous operation
+        IOUSBIsocCompletion	tap;
+        IOSyncer *		syncer;
+
+        syncer  = IOSyncer::create();
+
+        tap.target = syncer;
+        tap.action = &IOUSBSyncIsoCompletion;
+        tap.parameter = NULL;
+
+        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, (IOUSBLowLatencyIsocCompletion *) &tap, updateFrequency);
+
+        if (err == kIOReturnSuccess)
+        {
+            err = syncer->wait();
+            // any err coming back in the callback indicates a stalled pipe
+            if (err && (err != kIOUSBTransactionTimeout))
+            {
+                USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - i/o err (0x%x) on sync call - stalling pipe", this, err);
+                _correctStatus = kIOUSBPipeStalled;
+            }
+        }
+        else {
+            syncer->release(); syncer->release();
+        }
+    }
+    else
+    {
+        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
+
+    }
+
+    if (err == kIOUSBPipeStalled)
+    {
+        USBLog(2, "IOUSBPipe[%p]::Write  (Low Latency Isoc) - controller returned stalled pipe, changing status");
+        _correctStatus = kIOUSBPipeStalled;
+    }
+
+    return err;
+}
+
+
+
 OSMetaClassDefineReservedUnused(IOUSBPipe,  11);
 OSMetaClassDefineReservedUnused(IOUSBPipe,  12);
 OSMetaClassDefineReservedUnused(IOUSBPipe,  13);

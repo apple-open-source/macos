@@ -1,12 +1,17 @@
 /*
- *  IOFireWireLibDCLPool.cpp
+ *  IOFireWireLibDCLCommandPool.cpp
  *  IOFireWireFamily
  *
  *  Created by NWG on Mon Mar 12 2001.
  *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
  *
  */
-
+/*
+	$Log: IOFireWireLibDCLCommandPool.cpp,v $
+	Revision 1.8  2002/08/26 20:08:34  niels
+	fix user space hang (when devices are unplugged and a DCL program is running)
+	
+*/
 #import "IOFireWireLibDCLCommandPool.h"
 #import <pthread.h>
 
@@ -487,9 +492,7 @@ namespace IOFireWireLib {
 	
 	void
 	DCLCommandPool::CoalesceFreeBlocks()
-	{
-		Lock() ;
-		
+	{		
 		UInt32			freeBlockCount	 	= CFArrayGetCount(mFreeBlocks) ;
 		UInt32			index				= 1 ;
 		IOByteCount		preceedingBlockSize = (IOByteCount) CFArrayGetValueAtIndex(mFreeBlockSizes, 0) ;
@@ -516,8 +519,6 @@ namespace IOFireWireLib {
 				preceedingBlockSize = blockSize ;
 			}
 		}
-		
-		Unlock() ;
 	}
 	
 	// ============================================================

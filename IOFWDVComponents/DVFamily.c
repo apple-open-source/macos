@@ -202,6 +202,10 @@ OSErr DVDoAVCTransaction( DVDeviceRefNum refNum, AVCTransactionParamsPtr pParams
     device_info *dev = &devices[refNum];
     //syslog(LOG_INFO, "DVDoAVCTransaction, open %d, interface %p\n", dev->fOpens, dev->fDevice.fAVCInterface);
     
+    if(!dev->fDevice->fSupportsFCP) {
+        return( -4162 ); // timeoutErr
+    }
+    
 	err = (*dev->fDevice->fAVCInterface)->AVCCommand(dev->fDevice->fAVCInterface,
                                     pParams->commandBufferPtr, pParams->commandLength,
                                     pParams->responseBufferPtr, &pParams->responseBufferSize);
@@ -318,6 +322,13 @@ OSErr DVGetDeviceStandard(DVDeviceRefNum refNum, UInt32 * pStandard )
     UInt32                 currentSignal, AVCStatus;
 
 //syslog(LOG_INFO, "DVGetDeviceStandard(0x%x)\n", refNum);
+    if(!devices[refNum].fDevice->fSupportsFCP) {
+            *pStandard = kNTSCStandard;
+            devices[refNum].frameSize = kNTSCCompressedBufferSize;
+            devices[refNum].fOutputMode = kAVCSignalModeSD525_60;
+            return( theErr );
+    }
+
     // fill up the avc frame
     avcFrame.cmdType_respCode  = kAVCStatusInquiryCommand;
     avcFrame.headerAddress     = 0x20;                        // for now

@@ -4329,13 +4329,13 @@ out:
   file up to the webdav server
 */
 
-int http_put(struct fetch_state *fs, void *array_elem)
+int http_put(struct fetch_state *fs, void *arg)
 {
 	struct iovec iov[NIOV];
 	struct http_state *https;
 	int local;									/* local file */
 	int n = 0;
-	struct file_array_element *file_array_elem = (struct file_array_element *)array_elem;
+	struct webdav_put_struct *putinfo = (struct webdav_put_struct *)arg;
 	struct msghdr msg;
 	int myreturn = 0;
 	size_t total_length;
@@ -4353,9 +4353,9 @@ int http_put(struct fetch_state *fs, void *array_elem)
 
 	/* Get the local file ready */
 
-	if (array_elem != (void *) - 1)
+	if (arg != (void *) - 1)
 	{
-		local = file_array_elem->fd;			/* originally opened in webdav_open() */
+		local = putinfo->fd;			/* originally opened in webdav_open() */
 
 		/* Find out the file's length */
 		local_len = lseek(local, 0, SEEK_END);
@@ -4406,10 +4406,10 @@ retry:
 	addstr(iov, n, https->http_host_header);
 	snprintf(lengthline, SHORT_HTTP_LINELEN, "Content-Length: %qd\r\n", local_len);
 	addstr(iov, n, lengthline);
-	if ((array_elem != (void *) - 1) && (file_array_elem->lockdata.locktoken))
+	if ((arg != (void *) - 1) && (putinfo->locktoken))
 	{
 		addstr(iov, n, "If:(<");
-		addstr(iov, n, file_array_elem->lockdata.locktoken);
+		addstr(iov, n, putinfo->locktoken);
 		addstr(iov, n, ">)\r\n");
 	}
 

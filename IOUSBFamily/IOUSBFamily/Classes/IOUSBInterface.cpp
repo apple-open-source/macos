@@ -309,6 +309,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
         return false;
     }
 
+    USBLog(6, "%s[%p]::handleOpen (device %s): successful", getName(), this, _device->getName());
     return true;
 }
 

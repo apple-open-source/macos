@@ -152,6 +152,7 @@ extern struct mbuf *m_dup(struct mbuf *, int);
 extern int my_frameout(struct mbuf **, struct ifnet *, char *, char *);
 extern int ether_attach_ip(struct ifnet *, unsigned long *, unsigned long *);
 extern int ether_attach_at(struct ifnet *, unsigned long *, unsigned long *);
+extern int ether_detach_at(struct ifnet *);
 extern void release_ifb(struct blueCtlBlock *);
 extern int si_send_eth_atalk(struct mbuf **, struct blueCtlBlock *);
 extern int si_send_eth_ipv4(struct mbuf **, struct blueCtlBlock *, struct ifnet *ifp);

@@ -36,6 +36,7 @@ lazy_install_source:: shadow_source
 		 $(CP) "$(Sources)/Makefile.ssl" "$(BuildDirectory)/Makefile.ssl";			\
 		 $(RM) "$(BuildDirectory)/crypto/opensslconf.h";					\
 		 $(CP) "$(Sources)/crypto/opensslconf.h" "$(BuildDirectory)/crypto/opensslconf.h";	\
+		 $(LN) -s ../../perlasm "$(BuildDirectory)/crypto/des/asm/perlasm";						\
 	      fi
 
 test:: build

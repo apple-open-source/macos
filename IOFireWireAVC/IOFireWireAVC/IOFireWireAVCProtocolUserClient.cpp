@@ -266,6 +266,10 @@ bool IOFireWireAVCProtocolUserClient::start(IOService *provider)
 
     if(!fInputPlugs || !fOutputPlugs)
         return false;
+    fPCRSpace = IOFireWirePCRSpace::getPCRAddressSpace(fDevice->getBus());
+    if(!fPCRSpace)
+        return false;
+    fPCRSpace->activate();
         
     registerService();
     
@@ -408,12 +412,6 @@ IOFireWireAVCProtocolUserClient::allocateInputPlug(OSAsyncReference asyncRef, vo
     PlugInfo info;
     OSData *data;
     
-    if(!fPCRSpace) {
-        fPCRSpace = IOFireWirePCRSpace::getPCRAddressSpace(fDevice->getBus());
-        if(!fPCRSpace)
-            return kIOReturnNoMemory;
-        fPCRSpace->activate();
-    }
     data = OSData::withCapacity(sizeof(info));
     if(!data)
         return kIOReturnNoMemory;
@@ -449,12 +447,6 @@ IOFireWireAVCProtocolUserClient::allocateOutputPlug(OSAsyncReference asyncRef, v
     PlugInfo info;
     OSData *data;
     
-    if(!fPCRSpace) {
-        fPCRSpace = IOFireWirePCRSpace::getPCRAddressSpace(fDevice->getBus());
-        if(!fPCRSpace)
-            return kIOReturnNoMemory;
-        fPCRSpace->activate();
-    }
     data = OSData::withCapacity(sizeof(info));
     if(!data)
         return kIOReturnNoMemory;

@@ -681,8 +681,8 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 
 
 /*
- * BulkTransaction:
- *   Send a USB bulk packet.
+ * Isoc Transaction:
+ *   Send a Isochronous packet.
  *
  */
 IOReturn 
@@ -691,7 +691,16 @@ IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd,
 {
     IOUSBController	*controller = (IOUSBController *)owner;
     IOUSBIsocCommand	*command  = (IOUSBIsocCommand *) cmd;
-    return(controller->IsocTransaction(command));
+    return controller->IsocTransaction(command);
+}
+
+IOReturn 
+IOUSBController::DoLowLatencyIsocTransfer(OSObject *owner, void *cmd,
+                        void */*field2*/, void */*field3*/, void */*field4*/)
+{
+    IOUSBController	*controller = (IOUSBController *)owner;
+    IOUSBIsocCommand	*command  = (IOUSBIsocCommand *) cmd;
+    return controller->LowLatencyIsocTransaction(command);
 }
 
 
@@ -716,6 +725,36 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
                 command->GetBuffer()	/*buffer*/,
                 command->GetNumFrames()	/*number of frames*/,
                 command->GetFrameList()	/*transfer for each frame*/);
+
+    if (err) {
+        USBLog(3,"IsocTransaction: error queueing isoc transfer (0x%x)", err);
+    }
+    return(err);
+}
+
+
+IOReturn 
+IOUSBController::LowLatencyIsocTransaction(IOUSBIsocCommand *command)
+{
+    IOUSBIsocCompletion	completion;
+    IOReturn		err = kIOReturnSuccess;
+
+
+    completion.target 	 = (void *)this;
+    completion.action 	 = (IOUSBIsocCompletionAction) &IOUSBController::IsocCompletionHandler;
+    completion.parameter = (void *)command;
+
+    err = UIMCreateIsochTransfer(
+                command->GetAddress()		/*functionAddress*/,
+                command->GetEndpoint()		/*endpointNumber*/,
+                completion  			/*completion*/,
+		command->GetDirection()		/*direction*/,
+                command->GetStartFrame()	/*Start frame */,
+                command->GetBuffer()		/*buffer*/,
+                command->GetNumFrames()		/*number of frames*/,
+                (IOUSBLowLatencyIsocFrame *) command->GetFrameList()		/*transfer for each frame*/,
+                command->GetUpdateFrequency()	/* How often do we update frameList*/
+                );
 
     if (err) {
         USBLog(3,"IsocTransaction: error queueing isoc transfer (0x%x)", err);
@@ -1748,10 +1787,14 @@ ErrorExit:
 // OSMetaClassDefineReservedUsed(IOUSBController,  13);
 
 // in AppleUSBOHCI_RootHub.cpp
-// OSMetaClassDefineReservedUnused(IOUSBController,  14);
+// OSMetaClassDefineReservedUsed(IOUSBController,  14);
 
-OSMetaClassDefineReservedUnused(IOUSBController,  15);
-OSMetaClassDefineReservedUnused(IOUSBController,  16);
+// in IOUSBController_Pipes.cpp
+//OSMetaClassDefineReservedUsed(IOUSBController,  15);
+
+// in AppleUSBOHCI_UIM.cpp
+//OSMetaClassDefineReservedUsed(IOUSBController,  16);
+
 OSMetaClassDefineReservedUnused(IOUSBController,  17);
 OSMetaClassDefineReservedUnused(IOUSBController,  18);
 OSMetaClassDefineReservedUnused(IOUSBController,  19);

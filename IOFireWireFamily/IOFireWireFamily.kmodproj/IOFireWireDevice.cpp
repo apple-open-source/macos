@@ -773,6 +773,13 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 
 		if( result == kIOFireWireConfigROMInvalid )
 			status = result;
+        if(result == kIOReturnSuccess) {
+            OSNumber *num = OSNumber::withNumber(vendorID, 32);
+            if(num) {
+                propTable->setObject( gFireWireVendor_ID,  num);
+                num->release();
+            }
+        }
 	}
 	
 	// model name

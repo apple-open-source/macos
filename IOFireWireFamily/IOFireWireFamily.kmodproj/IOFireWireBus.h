@@ -123,11 +123,14 @@ static const IORegistryPlane * gIOFireWirePlane;
 
     // Get address space object for given address, if any
     virtual IOFWAddressSpace *getAddressSpace(FWAddress address) = 0;
+
+    // Extract info about the async request - was the request ack'ed complete already?
+    virtual bool isCompleteRequest(IOFWRequestRefCon refcon) = 0;
     
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireBus, 0);
     OSMetaClassDeclareReservedUsed(IOFireWireBus, 1);
-    OSMetaClassDeclareReservedUnused(IOFireWireBus, 2);
+    OSMetaClassDeclareReservedUsed(IOFireWireBus, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 3);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 4);
     OSMetaClassDeclareReservedUnused(IOFireWireBus, 5);

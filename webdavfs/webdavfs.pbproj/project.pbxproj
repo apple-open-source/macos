@@ -562,6 +562,7 @@
 				D16EA8D3016932660BC915D5,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA5A0043263F11CA2A40 = {
 			fileRef = 0352AA020043263F11CA2A40;
@@ -661,6 +662,7 @@
 				D16EA8D5016932C50BC915D5,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA680043263F11CA2A40 = {
 			fileRef = 0352AA100043263F11CA2A40;
@@ -784,6 +786,7 @@
 				D16EA8DA016933140BC915D5,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA770043263F11CA2A40 = {
 			fileRef = 0352AA4B0043263F11CA2A40;
@@ -814,6 +817,7 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA7C0043263F11CA2A40 = {
 			isa = PBXTargetDependency;
@@ -855,8 +859,8 @@
 			productName = "webdav_fs (Bundle)";
 			productReference = 0352AA530043263F11CA2A40;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -875,11 +879,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -899,6 +903,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -909,6 +914,7 @@
 				0352AA810043263F11CA2A40,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA800043263F11CA2A40 = {
 			fileRef = 0352AA2D0043263F11CA2A40;
@@ -927,6 +933,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA830043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -936,6 +943,7 @@
 				0352AA860043263F11CA2A40,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA840043263F11CA2A40 = {
 			fileRef = 0352AA300043263F11CA2A40;
@@ -966,12 +974,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA880043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA890043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -982,6 +992,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -1024,6 +1035,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA8D0043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1031,6 +1043,7 @@
 				0352AA8E0043263F11CA2A40,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA8E0043263F11CA2A40 = {
 			fileRef = 0352AA3A0043263F11CA2A40;
@@ -1045,12 +1058,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA900043263F11CA2A40 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA910043263F11CA2A40 = {
 			isa = PBXTargetDependency;
@@ -1085,8 +1100,8 @@
 			productName = "webdavfs (Bundle)";
 			productReference = 0352AA550043263F11CA2A40;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -1116,11 +1131,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 </dict>
 </plist>
 ";
@@ -1131,6 +1146,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA940043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1138,6 +1154,7 @@
 				0352AA950043263F11CA2A40,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA950043263F11CA2A40 = {
 			fileRef = 0352AA410043263F11CA2A40;
@@ -1150,6 +1167,7 @@
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA970043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1157,6 +1175,7 @@
 				0352AA980043263F11CA2A40,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA980043263F11CA2A40 = {
 			fileRef = 0352AA4F0043263F11CA2A40;
@@ -1169,6 +1188,7 @@
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA9A0043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1180,6 +1200,7 @@
 				0352AA9D0043263F11CA2A40,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA9B0043263F11CA2A40 = {
 			fileRef = 0352AA520043263F11CA2A40;
@@ -1207,6 +1228,7 @@
 				0352AA9F0043263F11CA2A40,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		0352AA9F0043263F11CA2A40 = {
 			fileRef = 0352AA530043263F11CA2A40;
@@ -1293,6 +1315,7 @@
 				D15DE5600242C8440BC915D5,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D15DE5600242C8440BC915D5 = {
 			fileRef = D15DE55D0242C7F30BC915D5;

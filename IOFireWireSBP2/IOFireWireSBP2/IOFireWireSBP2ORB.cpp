@@ -622,8 +622,8 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffersAsRanges(  IOVirtualRange * ranges,
                                                         UInt32           withCount,
                                                         IODirection      withDirection,
                                                         task_t           withTask,
-                                                        UInt32	         offset = 0,
-                                                        UInt32	         length = 0 )
+                                                        UInt32	         offset,
+                                                        UInt32	         length )
 {
     IOReturn			status = kIOReturnSuccess;
     IOMemoryDescriptor *	memory = NULL;
@@ -1075,6 +1075,16 @@ bool IOFireWireSBP2ORB::isAppended( void )
 void IOFireWireSBP2ORB::setIsAppended( bool state )
 {
 	fIsAppended = state;
+}
+
+UInt32 IOFireWireSBP2ORB::getFetchAgentWriteRetries( void )
+{
+    return fFetchAgentWriteRetries;
+}
+
+void IOFireWireSBP2ORB::setFetchAgentWriteRetries( UInt32 retries )
+{
+    fFetchAgentWriteRetries = retries;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

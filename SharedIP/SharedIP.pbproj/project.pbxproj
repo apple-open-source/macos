@@ -117,7 +117,7 @@
 				MODULE_NAME = com.apple.nke.SharedIP;
 				MODULE_START = SIP_start;
 				MODULE_STOP = SIP_stop;
-				MODULE_VERSION = 1.2.0;
+				MODULE_VERSION = 1.2.1;
 				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
@@ -155,11 +155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>0xfeedface</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>

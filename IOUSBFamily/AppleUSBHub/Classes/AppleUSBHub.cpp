@@ -145,6 +145,9 @@ AppleUSBHub::start(IOService * provider)
     _address		= _device->GetAddress();
     _bus		= _device->GetBus();
 
+    // Merge any properties in the IOProviderMergeProperties dictionary into our 
+    // provider's dictionary
+    //
     providerDict = (OSDictionary*)getProperty("IOProviderMergeProperties");
     if (providerDict)
              provider->getPropertyTable()->merge(providerDict);		// merge will verify that this really is a dictionary
@@ -351,6 +354,15 @@ AppleUSBHub::ConfigureHub()
         goto ErrorExit;
     }
         
+    // Set the remote wakeup feature if it's supported
+    //
+    if (cd->bmAttributes & kUSBAtrRemoteWakeup)
+    {
+        USBLog(3,"%s[%p] Setting kUSBFeatureDeviceRemoteWakeup for Hub device (%p)", getName(), this, _device);
+        err = _device->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+        if ( err)
+            USBError(1,"[%p] %s::ConfigureHub SetFeature(kUSBFeatureDeviceRemoteWakeup) failed. Error 0x%x", this, getName(), err);
+    }
 
     // Find the interface for our hub -- there's only one
     //

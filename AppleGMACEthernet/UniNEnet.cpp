@@ -93,7 +93,8 @@ void UniNEnet::AllocateEventLog( UInt32 size )
 		kprintf( "AllocateEventLog - UniNEnet evLog allocation failed " );
 		return;
 	}
-	rc = IOSetProcessorCacheMode(	kernel_task,
+    IOUnmapPages( kernel_map, (vm_offset_t)fpELG, size );
+    rc = IOSetProcessorCacheMode(	kernel_task,
 									(IOVirtualAddress)fpELG,
 									size,
 									kIOMapWriteThruCache );

@@ -2166,8 +2166,6 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed (
 	
 	mechanicalCapabilities = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
 	bzero ( mechanicalCapabilities, actualSize );
-
-	use10Byte = ( GetANSIVersion ( ) == kINQUIRY_ANSI_VERSION_NoClaimedConformance ) ? true : false;
 	
 	status = GetModeSense ( bufferDesc,
 							kMechanicalCapabilitiesModePageCode,
@@ -3721,9 +3719,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 	
 	require_nonzero ( bufferDesc, ErrorExit );
 	*size = 0;
-	
-	use10Byte = ( GetANSIVersion ( ) == kINQUIRY_ANSI_VERSION_NoClaimedConformance ) ? true : false;
-	
+		
 	// Issue the mode sense commmand for the mechanical capabilities mode page.
 	status = GetModeSense ( bufferDesc,
 							kMechanicalCapabilitiesModePageCode,
@@ -3799,8 +3795,6 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities ( void )
 	
 	mechanicalCapabilities = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
 	bzero ( mechanicalCapabilities, actualSize );
-	
-	use10Byte = ( GetANSIVersion ( ) == kINQUIRY_ANSI_VERSION_NoClaimedConformance ) ? true : false;
 	
 	status = GetModeSense ( bufferDesc,
 							kMechanicalCapabilitiesModePageCode,

@@ -20,13 +20,25 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- *	IOFWUserClientPseudoAddressSpace.cpp
+ *	IOFWUserClientPsdAddrSpace.cpp
  *	IOFireWireFamily
  *
  *	Created by NWG on Wed Dec 06 2000.
- *	Copyright (c) 2000 Apple, Inc. All rights reserved.
+ *	Copyright (c) 2000-2002 Apple, Inc. All rights reserved.
  *
  */
+/*
+	$Log: IOFWUserClientPsdoAddrSpace.cpp,v $
+	Revision 1.21  2002/08/06 21:10:06  wgulland
+	Add IOfireWireBus::isCompleteRequest(reqrefcon)
+	
+	Revision 1.20  2002/08/06 19:44:57  niels
+	*** empty log message ***
+	
+	Revision 1.19  2002/08/06 19:42:54  niels
+	now send conflict response if user pseudo address space can't receive a write because the queue is full in cases where the hardware has not already responded 'ack complete'
+	
+*/
 
 #ifndef __IOFWUserClientPseuAddrSpace_H__
 #define __IOFWUserClientPseuAddrSpace_H__
@@ -474,7 +486,9 @@ IOFWUserPseudoAddressSpace::doPacket(
 						+ IOFWPacketHeaderGetSize(currentHeader)) ;
 	
 		if ( fBufferAvailable < len )
+        {
 			wontFit = true ;
+        }
 		else
 		{
 			if (len <= spaceAtEnd)
@@ -516,9 +530,13 @@ IOFWUserPseudoAddressSpace::doPacket(
 					currentHeader->CommonHeader.next,
 					destOffset,
 					& fSkippedPacketAsyncNotificationRef ) ;
+	
+		}
 
-	   }
-
+		// if we can't handle the packet, and the hardware hasn't already responded,
+		// send kFWResponseConflictError
+		if ( ! fUserClient->getOwner()->getController()->isCompleteRequest( reqrefcon ) )
+			response = kFWResponseConflictError ;
 	}
 	else
 	{

@@ -42,7 +42,7 @@ protected:
     };
 
     static IOCFPlugInInterface 		sIOCFPlugInInterfaceV1;
-    static IOUSBInterfaceInterface190  	sUSBInterfaceInterfaceV190;
+    static IOUSBInterfaceInterface192  	sUSBInterfaceInterfaceV192;
 
     struct InterfaceMap 	fUSBInterface;
     io_service_t 		fService;
@@ -114,6 +114,8 @@ public:
                                   IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, IOUSBIsocFrame *frameList,
                                   IOAsyncCallback1 callback, void *refcon);
+    virtual IOReturn LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
+    virtual IOReturn LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames, UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
     virtual IOReturn GetInterfaceStringIndex(UInt8 *intfSI);
 				  
 private:
@@ -189,6 +191,11 @@ protected:
     static IOReturn interfaceSetPipePolicy(void *self, UInt8 pipeRef, UInt16 maxPacketSize, UInt8 maxInterval);
     static IOReturn interfaceGetBandwidthAvailable(void *self, UInt32 *bandwidth);
     static IOReturn interfaceGetEndpointProperties(void *self, UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
+    // ----------------- added in 1.9.2
+    static IOReturn interfaceLowLatencyReadIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames,  
+                                    UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
+    static IOReturn interfaceLowLatencyWriteIsochPipeAsync(void *self, UInt8 pipeRef, void *buf, UInt64 frameStart, UInt32 numFrames,
+                                  UInt32 updateFrequency, IOUSBLowLatencyIsocFrame *frameList, IOAsyncCallback1 callback, void *refcon);
    
 };
 

@@ -1,8 +1,8 @@
 /*
 	File:		AppleUSBProKbd.c
 	Contains:	Driver for second Apple Pro USB Keyboard interface (multimedia keys)
-	Version:	2.0.0d1
-	Copyright:	й 2000-2002 by Apple, all rights reserved.
+	Version:	1.8.1
+	Copyright:	й 2000-2001 by Apple, all rights reserved.
 
 	File Ownership:
 
@@ -15,7 +15,7 @@
 		(JG)	Jason Giles
 
 	Change History (most recent first):
-		 <5>     3/14/02	AW		Change version number to conform to new standard
+
 		 <4>	03/13/01	JG		Don't auto-repeat on the mute or eject keys. Fix incorrect plist
 									info (matching to proper version of USB, made entries that
 									somehow became reals into integers).
@@ -37,21 +37,23 @@
 
 #include "AppleUSBProKbd.h"
 
+//#include <libkern/OSByteOrder.h>
+
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOService.h>
+#include <IOKit/IOMessage.h>
 
 #include <IOKit/hidsystem/ev_keymap.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include <IOKit/hidsystem/IOHIKeyboard.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
-#include <IOKit/hidsystem/IOHIDSystem.h>
+//#include <IOKit/hidsystem/IOHIDSystem.h>
 
 #include <IOKit/usb/IOUSBInterface.h>
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/USB.h>
-#include <IOKit/IOMessage.h>
+#include <IOKit/usb/IOUSBLog.h>
 
-#include <libkern/OSByteOrder.h>
 
 //====================================================================================================
 // Defines
@@ -70,6 +72,21 @@ OSDefineMetaClassAndStructors( AppleUSBProKbd, IOHIKeyboard )
 #pragma mark -
 #pragma mark еее inherited еее
 
+bool
+AppleUSBProKbd::init(OSDictionary *properties)
+{
+  if (!super::init(properties))  return false;
+  
+    mSoundUpIsPressed = false;
+    mSoundDownIsPressed = false;
+    mOutstandingIO = 0;
+    mNeedToClose = false;
+
+    return true;
+}
+
+
+
 //====================================================================================================
 // start
 //====================================================================================================
@@ -77,45 +94,51 @@ OSDefineMetaClassAndStructors( AppleUSBProKbd, IOHIKeyboard )
 bool AppleUSBProKbd::start( IOService * provider )
 {
     IOReturn			err = kIOReturnSuccess;
-
-	// Reset key state flags.
-
-	mSoundUpIsPressed		= FALSE;
-	mSoundDownIsPressed		= FALSE;
-	
-	// To start, call our super's start.
-	
-        if( !super::start( provider ) ) return( false );
+    IOWorkLoop			*wl;
 		
-	// Remember my interface info.
 	
-	mInterface			= OSDynamicCast(IOUSBInterface, provider);
-        if (!mInterface)
-            return false;
-	
-        // IOLog( "****AppleUSBProKbd::Pro keyboard product ID = %x\n", mInterface->GetDevice()->GetProductID() );
-	
-	// Open the interface.
-	
-	if( mInterface->open( this ) == false )
-	{
-            IOLog("****AppleUSBProKbd::start - interface open failed.\n");
-            return false;
-        }
-        
-	fTerminating = FALSE;
-	// Let's get the pipe on the interface so we can read from it.
-	
-	IOUSBFindEndpointRequest	endpointRequest;
+    USBLog(3, "%s[%p]::start - beginning - retain count = %d", getName(), this, getRetainCount());
+    mInterface = OSDynamicCast(IOUSBInterface, provider);
+    if (!mInterface)
+	return false;
+		    
+    if( mInterface->open( this ) == false )
+    {
+	USBError(1, "%s[%p]::start - unable to open provider. returning false", getName(), this);
+	return false;
+    }
+    
+    do {
+        mGate = IOCommandGate::commandGate(this);
 
+        if(!mGate)
+        {
+            USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
+            break;
+        }
+
+	wl = getWorkLoop();
+	if (!wl)
+	{
+            USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
+            break;
+	}
+	
+        if (wl->addEventSource(mGate) != kIOReturnSuccess)
+        {
+            USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
+            break;
+        }
+
+	IOUSBFindEndpointRequest	endpointRequest;
 	endpointRequest.type 		= kUSBInterrupt;
 	endpointRequest.direction	= kUSBIn;
-
 	mInterruptPipe = mInterface->FindNextPipe( NULL, &endpointRequest );
+	
 	if( !mInterruptPipe )
 	{
-    	IOLog( "****AppleUSBProKbd::start - could not get the interrupt pipe.\n" );
-         goto failedExit;
+            USBError(1, "%s[%p]::start - unable to get interrupt pipe", getName(), this);
+	    break;
 	}
 	
 	// Check for all the usages we expect to find on this device. If we don't find what we're
@@ -123,19 +146,17 @@ bool AppleUSBProKbd::start( IOService * provider )
 	
 	if( VerifyNewDevice() == false )
 	{
-       // Error!
-       IOLog("****AppleUSBProKbd::start - VerifyNewDevice was not successful. Ignoring this device.\n" );
-       
-         goto failedExit;
-    }
+            USBError(1, "%s[%p]::start - VerifyNewDevice was not successful. Ignoring this device", getName(), this);
+	    break;
+	}
 
 	// Setup the read buffer.
 	
 	mMaxPacketSize = endpointRequest.maxPacketSize;
-	mReadDataBuffer = IOBufferMemoryDescriptor::withCapacity( 8, kIODirectionIn );
+	mReadDataBuffer = IOBufferMemoryDescriptor::withCapacity( mMaxPacketSize, kIODirectionIn );
 		
 	mCompletionRoutine.target = (void *) this;
-	mCompletionRoutine.action = (IOUSBCompletionAction) AppleUSBProKbd::ReadHandler;
+	mCompletionRoutine.action = (IOUSBCompletionAction) AppleUSBProKbd::InterruptReadHandlerEntry;
 	mCompletionRoutine.parameter = (void *) 0;  // not used
 
 	mReadDataBuffer->setLength( mMaxPacketSize );
@@ -143,31 +164,45 @@ bool AppleUSBProKbd::start( IOService * provider )
 	// The way to set us up to recieve reads is to call it directly. Each time our read handler
 	// is called, we'll have to do another to make sure we get the next read.
 
-        retain();
-	if( err = mInterruptPipe->Read( mReadDataBuffer, &mCompletionRoutine ) )
+        IncrementOutstandingIO();
+	if( (err = mInterruptPipe->Read( mReadDataBuffer, &mCompletionRoutine )) )
 	{
-		IOLog("****AppleProUSBbd::start - failed to do a read from the interrupt pipe.\n" );
-                release();
-		goto failedExit;
+	    USBError(1, "%s[%p]::start - err (%x) in interrupt read, retain count %d after release", getName(), this, err, getRetainCount());
+            DecrementOutstandingIO();
+	    break;
 	}
 	
-	// Looks like we're OK, so return a success.
-	
-	return ( true );
-	
-failedExit:
+        USBError(1, "%s[%p]::start AppleUSBProKeyboard @ %d (0x%x)", getName(), this, mInterface->GetDevice()->GetAddress(), strtol(mInterface->GetDevice()->getLocation(), (char **)NULL, 16));
 
-	if( mPreparsedReportDescriptorData ) 
+	// OK- so this is not totally kosher in the IOKit world. You are supposed to call super::start near the BEGINNING
+	// of your own start method. However, the IOHIKeyboard::start method invokes registerService, which we don't want to
+	// do if we get any error up to this point. So we wait and call IOHIKeyboard::start here.
+	if( !super::start(mInterface))
 	{
-        HIDCloseReportDescriptor( mPreparsedReportDescriptorData );
-    }
-	
-	provider->close( this );
-    stop( provider );
-	
-	// Return that we failed if we get here.
+	    USBError(1, "%s[%p]::start - unable to start superclass. returning false", getName(), this);
+	    break;	// error
+	}
+	    
+        return true;
 
-    return( false );
+    } while (false);
+	
+    USBLog(3, "%s[%p]::start aborting.  err = 0x%x", getName(), this, err);
+
+    if( mPreparsedReportDescriptorData ) 
+        HIDCloseReportDescriptor( mPreparsedReportDescriptorData );
+	
+    if ( mInterruptPipe )
+    {
+	mInterruptPipe->Abort();
+	mInterruptPipe = NULL;
+    }
+
+    // stop will clean up everything else
+    stop( provider );
+    provider->close( this );
+	
+    return false;
 }
 
 //====================================================================================================
@@ -176,13 +211,22 @@ failedExit:
 
 void AppleUSBProKbd::stop( IOService * provider )
 {	
-	if( mPreparsedReportDescriptorData ) 
-	{
+    if( mPreparsedReportDescriptorData ) 
         HIDCloseReportDescriptor( mPreparsedReportDescriptorData );
-    }
 		
+    if (mGate)
+    {
+	IOWorkLoop	*wl = getWorkLoop();
+	if (wl)
+	    wl->removeEventSource(mGate);
+	mGate->release();
+	mGate = NULL;
+    }
+    
     super::stop( provider );
 }
+
+
 
 //====================================================================================================
 // eventFlags - IOHIKeyboard override. This is necessary because we will need to return the state
@@ -424,90 +468,86 @@ bool AppleUSBProKbd::VerifyNewDevice ()
 // ReadHandler
 //====================================================================================================
 
-void AppleUSBProKbd::ReadHandler( 	OSObject *	inTarget,
-										void * 		inParameter,
-										IOReturn	inStatus,
-										UInt32		inBufferSizeRemaining )
-{	
-	AppleUSBProKbd * obj = (AppleUSBProKbd*) inTarget;
- 
-	switch ( inStatus )
+void 
+AppleUSBProKbd::InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining)
+{
+    AppleUSBProKbd *	me = OSDynamicCast(AppleUSBProKbd, target);
+
+    if (!me)
+        return;
+    
+    me->InterruptReadHandler(status, bufferSizeRemaining);
+    me->DecrementOutstandingIO();
+}
+
+
+
+void
+AppleUSBProKbd::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining)
+{	 
+    bool		queueAnother = true;
+    IOReturn		err = kIOReturnSuccess;
+
+    switch ( status )
     {
-        case ( kIOReturnSuccess ):
-		{
-			// We got some good stuff, so jump right to our special
-			// button handler.
-            break;
-		}
-        case ( kIOReturnOverrun):
-		{
+        case kIOReturnOverrun:
+            USBLog(3, "%s[%p]::InterruptReadHandler kIOReturnOverrun error", getName(), this);
             // Not sure what to do with this error.  It means more data
             // came back than the size of a descriptor.  Hmmm.  For now
             // just ignore it and assume the data that did come back is
             // useful.
-			
-            IOLog("****AppleUSBProKbd: overrun error.  ignoring.\n" );
+	    // INTENTIONAL FALL THROUGH
+        case kIOReturnSuccess:
+	    // We got some good stuff, so jump right to our special
+	    // button handler.
+	    HandleSpecialButtons( (UInt8*) mReadDataBuffer->getBytesNoCopy(),((UInt32)mMaxPacketSize - bufferSizeRemaining) );
             break;
-		}
-        case ( kIOReturnNotResponding ):
-		{
-            // This probably means the device was unplugged.  Now
-            // we need to close the driver.
-			
-            // IOLog("****AppleUSBProKbd: Device unplugged.  Goodbye\n" );
-            goto errorExit;
-		}
- 	case kIOReturnAborted:
-	    // This generally means that we are done, because we were unplugged, but not always
-            if (obj->fTerminating)
-	    {
-		// IOLog("%s: Read aborted. We are terminating\n", obj->getName());
-		goto errorExit;
-	    }
-	    
-	    IOLog("%s: Read aborted. Don't know why. Trying again\n", obj->getName());
-	    goto queueAnother;
+
+        case kIOReturnNotResponding:
+            USBLog(3, "%s[%p]::InterruptReadHandler kIOReturnNotResponding error", getName(), this);
+            if ( isInactive() )
+            {
+                  queueAnother = false;
+            }
+	    // if we are not yet inactive, then we should just try again. if we are really disconnected, then
+	    // we will eventually be terminated and isInactive will return true
 	    break;
 
-       default:
+ 	case kIOReturnAborted:
+	    // This generally means that we are done, because we were unplugged, but not always
+            if (isInactive())
+	    {
+                USBLog(3,"%s[%p]::InterruptReadHandler Read aborted. We are terminating", getName(), this);
+		queueAnother = false;
+	    }
+	    else
+            {
+                USBLog(3,"%s[%p]::InterruptReadHandler Read aborted. Don't know why. Trying again", getName(), this);
+            }
+	    break;
+
+        default:
             // We should handle other errors more intelligently, but
             // for now just return and assume the error is recoverable.
-			
-            IOLog("****AppleUSBProKbd: error reading interrupt pipe\n" );
-            goto queueAnother;
+            USBLog(3, "%s[%p]::InterruptReadHandler error (0x%x) reading interrupt pipe", getName(), this, status);
+            break;
     }
-	
-	// Handle the data.
-	
-    obj->HandleSpecialButtons( (UInt8*) obj->mReadDataBuffer->getBytesNoCopy (),
-								((UInt32) obj->mMaxPacketSize - inBufferSizeRemaining) );
 
-queueAnother:
-
-    // Reset the buffer.
-	
-    obj->mReadDataBuffer->setLength( obj->mMaxPacketSize );
-
-    // Queue up another one before we leave.
-	
-    obj->retain();
-    if( (inStatus = obj->mInterruptPipe->Read( obj->mReadDataBuffer, &obj->mCompletionRoutine )) )
+    if (queueAnother)
     {
-        // This is bad.  We probably shouldn't continue on from here.
-		
-        IOLog( "****AppleUSBProKbd: immediate error %d queueing read\n", inStatus );
-        obj->release();
-        goto errorExit;
+	// Reset the buffer - i doubt this is really necessary
+	mReadDataBuffer->setLength( mMaxPacketSize );
+
+	// Queue up another one before we leave.
+        IncrementOutstandingIO();
+    	err = mInterruptPipe->Read( mReadDataBuffer, &mCompletionRoutine );
+        if ( err != kIOReturnSuccess)
+        {
+            // This is bad.  We probably shouldn't continue on from here.
+            USBError(1, "%s[%p]::InterruptReadHandler -  immediate error 0x%x queueing read\n", getName(), this, err);
+            DecrementOutstandingIO();
+        }
     }
-
-    obj->release();
-    return;
-
-errorExit:
-
-    obj->mInterface->close( obj );
-    obj->release();
-    return;
 }
 
 //====================================================================================================
@@ -531,8 +571,8 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 						 inBufferData, bufferSize );
 	if( err )
 	{
-		IOLog( "****AppleUSBProKbd::HandleSpecialButtons - HIDGetButtonsfailed. Error = %d.\n", (int) err );
-		return;
+            USBError(1, "%s[%p]::HandleSpecialButtons -  HIDGetButtons failed (0x%x)", getName(), this, err);
+            return;
 	}
 		
 	// Record current time for the keypress posting.
@@ -583,8 +623,7 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 					break;
 				}
 				default:
-					IOLog( "****AppleUSBProKbd::HandleSpecialButtons - no usage found for report. Usage = %d\n", 
-							(int) usageList[reportIndex].usagePage );
+                                    USBError(1, "%s[%p]::HandleSpecialButtons -  no usage found for report. Usage = %d", getName(), this, usageList[reportIndex].usagePage);
 					break;
 			}
 		}
@@ -617,10 +656,10 @@ void AppleUSBProKbd::HandleSpecialButtons(	UInt8 *	inBufferData,
 
 UInt32 AppleUSBProKbd::FindKeyboardsAndGetModifiers()
 {
-	OSIterator		*iterator 			= NULL;
+	OSIterator	*iterator = NULL;
 	OSDictionary	*matchingDictionary = NULL;
-	IOHIKeyboard	*device 			= NULL;
-	Boolean 		value				= false;
+	IOHIKeyboard	*device = NULL;
+	Boolean 	value = false;
 	OSObject 	*adbProperty;
 	const char 	*adbKey;
 	
@@ -633,7 +672,7 @@ UInt32 AppleUSBProKbd::FindKeyboardsAndGetModifiers()
 	matchingDictionary = IOService::serviceMatching( "IOHIKeyboard" );
 	if( !matchingDictionary )
 	{
-		IOLog( "****AppleUSBProKeyboard - could not get a matching dictionary.\n" );
+                USBError(1, "%s[%p]::FindKeyboardsAndGetModifiers -  could not get a matching dictionary", getName(), this);
 		goto exit;
 	}
 	
@@ -642,7 +681,7 @@ UInt32 AppleUSBProKbd::FindKeyboardsAndGetModifiers()
 	iterator = IOService::getMatchingServices( matchingDictionary );
 	if( !iterator )
 	{
-		IOLog( "***AppleUSBProKeyboard - getMatchingServices failed.\n" );
+                USBError(1, "%s[%p]::FindKeyboardsAndGetModifiers -  getMatchingServices failed", getName(), this);
 		goto exit;
 	}
 	
@@ -650,7 +689,9 @@ UInt32 AppleUSBProKbd::FindKeyboardsAndGetModifiers()
 	//
 	while( (device = (IOHIKeyboard*) iterator->getNextObject()) )
 	{		
+		
 		//Ignore the eventFlags of non-keyboard ADB devices such as audio buttons
+                //
 		adbProperty = device->getProperty("ADB Match");
 		if (adbProperty)
 		{
@@ -689,26 +730,142 @@ exit:
 // message
 //====================================================================================================
 
-IOReturn AppleUSBProKbd::message( UInt32 type, IOService * provider,  void * argument = 0 )
+IOReturn AppleUSBProKbd::message( UInt32 type, IOService * provider,  void * argument )
 {
     switch ( type )
     {
-		case kIOMessageServiceIsTerminated:
-			// IOLog("%s::message - service is terminated - aborting pipe\n", getName());
-			fTerminating = TRUE;		// this will cause us to close
-			if (mInterruptPipe)
-			mInterruptPipe->Abort();
-			break;
+	case kIOMessageServiceIsTerminated:
+	    USBLog(6, "%s[%p]::message - kIOMessageServiceIsTerminated - ignoring now", getName(), this);
+	    break;
 
-		case kIOMessageServiceIsSuspended:
-		case kIOMessageServiceIsResumed:
-		case kIOMessageServiceIsRequestingClose:
-		case kIOMessageServiceWasClosed: 
-		case kIOMessageServiceBusyStateChange:
-		default:
+	case kIOMessageServiceIsSuspended:
+	case kIOMessageServiceIsResumed:
+	case kIOMessageServiceIsRequestingClose:
+	case kIOMessageServiceWasClosed: 
+	case kIOMessageServiceBusyStateChange:
+	default:
             break;
     }
     
     return kIOReturnSuccess;
 }
+
+
+
+//====================================================================================================
+// willTerminate
+//====================================================================================================
+//
+bool
+AppleUSBProKbd::willTerminate( IOService * provider, IOOptionBits options )
+{
+    // this method is intended to be used to stop any pending I/O and to make sure that 
+    // we have begun getting our callbacks in order. by the time we get here, the 
+    // isInactive flag is set, so we really are marked as being done. we will do in here
+    // what we used to do in the message method (this happens first)
+    USBLog(5, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+    if (mReadDataBuffer) 
+    {
+	mReadDataBuffer->release();
+        mReadDataBuffer = NULL;
+    }
+    if (mInterruptPipe)
+    {
+	mInterruptPipe->Abort();
+	mInterruptPipe = NULL;
+    }
+    return super::willTerminate(provider, options);
+}
+
+
+//====================================================================================================
+// didTerminate
+//====================================================================================================
+//
+bool
+AppleUSBProKbd::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+    // this method comes at the end of the termination sequence. Hopefully, all of our outstanding IO is complete
+    // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
+    // hold on to the device and IOKit will terminate us when we close it later
+    USBLog(5, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), mOutstandingIO);
+    if (!mOutstandingIO)
+	mInterface->close(this);
+    else
+	mNeedToClose = true;
+    return super::didTerminate(provider, options, defer);
+}
+
+
+//====================================================================================================
+// DecrementOutstandingIO
+//====================================================================================================
+//
+void
+AppleUSBProKbd::DecrementOutstandingIO(void)
+{
+    if (!mGate)
+    {
+	if (!--mOutstandingIO && mNeedToClose)
+	{
+	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), mOutstandingIO);
+	    mInterface->close(this);
+	}
+	return;
+    }
+    mGate->runAction(ChangeOutstandingIO, (void*)-1);
+}
+
+
+//====================================================================================================
+// IncrementOutstandingIO
+//====================================================================================================
+//
+void
+AppleUSBProKbd::IncrementOutstandingIO(void)
+{
+    if (!mGate)
+    {
+	mOutstandingIO++;
+	return;
+    }
+    mGate->runAction(ChangeOutstandingIO, (void*)1);
+}
+
+
+//====================================================================================================
+// ChangeOutstandingIO
+//====================================================================================================
+//
+IOReturn
+AppleUSBProKbd::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+    AppleUSBProKbd *me = OSDynamicCast(AppleUSBProKbd, target);
+    UInt32	direction = (UInt32)param1;
+    
+    if (!me)
+    {
+	USBLog(1, "AppleUSBProKbd::ChangeOutstandingIO - invalid target");
+	return kIOReturnSuccess;
+    }
+    switch (direction)
+    {
+	case 1:
+	    me->mOutstandingIO++;
+	    break;
+	    
+	case -1:
+	    if (!--me->mOutstandingIO && me->mNeedToClose)
+	    {
+		USBLog(5, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->mOutstandingIO);
+		me->mInterface->close(me);
+	    }
+	    break;
+	    
+	default:
+	    USBLog(1, "%s[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
+    }
+    return kIOReturnSuccess;
+}
+
 

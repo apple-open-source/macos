@@ -450,3 +450,83 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
     return (err);
 }
 
+OSMetaClassDefineReservedUsed(IOUSBController,  15);
+IOReturn 
+IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
+                               UInt64 frameStart,
+                               UInt32 numFrames,
+                               IOUSBLowLatencyIsocFrame *frameList,
+                               USBDeviceAddress address,
+                               Endpoint * endpoint,
+                               IOUSBLowLatencyIsocCompletion * completion,
+                               UInt32 updateFrequency)
+{
+    IOReturn	 err = kIOReturnSuccess;
+    IOUSBIsocCommand *command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
+    
+    // If we couldn't get a command, increase the allocation and try again
+    //
+    if ( command == NULL )
+    {
+        IncreaseIsocCommandPool();
+        
+        command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
+        if ( command == NULL )
+        {
+            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBIsocCommand",getName(),this);
+            return kIOReturnNoResources;
+        }
+    }
+    
+    do
+    {
+        /* Validate the completion */
+        if (completion == 0)
+        {
+            err = kIOReturnNoCompletion;
+            break;
+        }
+
+        /* Set up direction */
+        if (endpoint->direction == kUSBOut) {
+            command->SetSelector(WRITE);
+            command->SetDirection(kUSBOut);
+	}
+        else if (endpoint->direction == kUSBIn) {
+            command->SetSelector(READ);
+            command->SetDirection(kUSBIn);
+	}
+	else {
+            err = kIOReturnBadArgument;
+            break;
+        }
+
+        command->SetAddress(address);
+        command->SetEndpoint(endpoint->number);
+        command->SetBuffer(buffer);
+        command->SetCompletion( * ((IOUSBIsocCompletion *) completion) );
+        command->SetStartFrame(frameStart);
+        command->SetNumFrames(numFrames);
+        command->SetFrameList( (IOUSBIsocFrame *) frameList);
+        command->SetStatus(kIOReturnBadArgument);
+        command->SetUpdateFrequency(updateFrequency);
+
+        if (_commandGate == 0)
+        {
+            err = kIOReturnInternalError;
+            break;
+        }
+
+        if ((err = _commandGate->runAction(DoLowLatencyIsocTransfer, command)))
+            break;
+
+        return err;
+
+    } while (0);
+
+    // Free/give back the command 
+    _freeUSBIsocCommandPool->returnCommand(command);
+
+    return err;
+}
+

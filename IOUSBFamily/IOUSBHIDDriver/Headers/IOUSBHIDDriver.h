@@ -31,6 +31,8 @@
 #include <IOKit/usb/USB.h>
 
 
+#define ENABLE_HIDREPORT_LOGGING	0
+
 // Report types from low level USB:
 //	from USBSpec.h:
 //    enum {
@@ -173,11 +175,11 @@ private:	// Should these be protected or virtual?
 	IOReturn SetReport(UInt8 outReportType, UInt8 outReportID, UInt8 *vOutBuf, UInt32 vOutSize);
 	IOReturn GetIndexedString(UInt8 index, UInt8 *vOutBuf, UInt32 *vOutSize, UInt16 lang = 0x409) const;
 
-	static void ReportCompletion(
-							void *			target,
-							void *			parameter,
-							IOReturn		status,
-							UInt32			bufferSizeRemaining);
+#if ENABLE_HIDREPORT_LOGGING
+    void LogBufferReport(char *report, UInt32 len);
+    void LogMemReport(IOBufferMemoryDescriptor * reportBuffer);
+    char GetHexChar(char hexChar);
+#endif
 
 public:
     OSMetaClassDeclareReservedUnused(IOUSBHIDDriver,  0);

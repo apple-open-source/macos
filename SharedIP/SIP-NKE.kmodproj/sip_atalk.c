@@ -363,16 +363,10 @@ atalk_attach_protofltr(struct ifnet *ifp, struct blueCtlBlock *ifb)
         retval= atalk_stop(ifb);
     if (retval)
         return (retval);
-    if ((retval = dlil_find_dltag(ifp->if_family, ifp->if_unit, PF_APPLETALK, &at_dltag)) != 0)
-        if (retval == EPROTONOSUPPORT) {
-            /* nobody registered AppleTalk on this i/f yet? */
-            ether_attach_at(ifp, &at_dltag, &aarp_dltag);
-            retval = 0;
-        }
+	ether_attach_at(ifp, &at_dltag, &aarp_dltag);
     aarp_dltag = at_dltag;
-    if (retval == 0)
-        retval= dlil_attach_protocol_filter(at_dltag, &atalk_pfilter,
-            &ifb->atalk_proto_filter_id, DLIL_LAST_FILTER);
+	retval= dlil_attach_protocol_filter(at_dltag, &atalk_pfilter,
+		&ifb->atalk_proto_filter_id, DLIL_LAST_FILTER);
 #if SIP_DEBUG
    log(LOG_WARNING, "atalk_attach_protofilter: dltag=%d filter_id=%d retval=%d\n",
 	   at_dltag, ifb->atalk_proto_filter_id, retval);
@@ -485,7 +479,7 @@ atalk_stop(struct blueCtlBlock *ifb)
 
     if (ifb == NULL)
         return(0);
-    
+
     ifb->atalk_stopping = 1;
     if (ifb->atalk_proto_filter_id) {
 #if SIP_DEBUG
@@ -493,6 +487,8 @@ atalk_stop(struct blueCtlBlock *ifb)
             ifb->atalk_proto_filter_id);
 #endif
         retval = dlil_detach_filter(ifb->atalk_proto_filter_id);
+
+		ether_detach_at(ndrv_get_ifp(ifb->ifb_so->so_pcb));
      }
      
      ifb->atalk_stopping = 0;

@@ -79,7 +79,8 @@ class IOFireWireController : public IOFireWireBus
 
 protected:
     enum busState {
-        kAsleep = 0,		// Link off, zzzzzz
+        kStarting = 0,		
+		kAsleep,			// Link off, zzzzzz
         kWaitingSelfIDs,	// Bus has been reset, no selfIDs yet
         kWaitingScan,		// Got selfIDs, waiting a bit before hitting lame devices
         kScanning,			// Reading node ROMs
@@ -183,6 +184,8 @@ protected:
 
     OSData * fAllocatedAddresses;
 
+	UInt32	fDevicePruneDelay;
+	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -362,6 +365,9 @@ public:
     
     virtual IOFWAddressSpace *getAddressSpace(FWAddress address);
     
+    // Extract info about the async request - was the request ack'ed complete already?
+    virtual bool isCompleteRequest(IOFWRequestRefCon refcon);
+
     // Are we currently scanning the bus?
     bool scanningBus() const;
 
@@ -383,6 +389,8 @@ protected:
 
     virtual IOReturn allocatePseudoAddress(FWAddress *addr, UInt32 lenDummy);
     virtual void freePseudoAddress(FWAddress addr, UInt32 lenDummy);
+	
+	virtual IORegistryEntry * createDummyRegistryEntry( IOFWNodeScan *scan );
 
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);

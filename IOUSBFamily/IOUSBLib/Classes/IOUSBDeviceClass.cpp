@@ -675,7 +675,7 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
         {
             case kUSBOut:
                 ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientDeviceRequestOutOOL, 
-                                (char *)req, sizeof(IOUSBDevRequest), NULL, &outSize);
+                                (char *)req, sizeof(IOUSBDevRequestTO), NULL, &outSize);
                 if(kIOReturnSuccess == ret)
                     req->wLenDone = req->wLength;
                 else
@@ -686,7 +686,7 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
                 mach_msg_type_number_t 	reqSize = req->wLength;
                 outSize = sizeof(reqSize);
                 ret = io_connect_method_structureI_structureO(fConnection, kUSBDeviceUserClientDeviceRequestInOOL, 
-                                (char *)&req, sizeof(IOUSBDevRequest), (char *)&reqSize, &outSize);
+                                (char *)&req, sizeof(IOUSBDevRequestTO), (char *)&reqSize, &outSize);
                 if(kIOReturnSuccess == ret)
                     req->wLenDone = reqSize;
                 break;

@@ -1,0 +1,86 @@
+{
+    IBClasses = (
+        {
+            CLASS = BusProbeClass; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {ov = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = IORegistryClass; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {ov = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                print = id; 
+                probeButtonPress = id; 
+                refreshIOReg = id; 
+                refreshItem = id; 
+                saveOutput = id; 
+                selectMainTabViewItemAtIndex = id; 
+                toggleAutorefresh = id; 
+                usbextensionsClear = id; 
+                usbextensionsGetVersions = id; 
+                usbextensionsSaveOutput = id; 
+            }; 
+            CLASS = mainController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                filteredLoggerOutput = id; 
+                ioregOutlineView = id; 
+                ioregPlanePopup = id; 
+                ioregRefreshButton = id; 
+                ioregistryAutoRefreshButton = id; 
+                loggerOutput = id; 
+                loggerStartButton = id; 
+                mainTabView = id; 
+                mainWindow = id; 
+                proberAutoRefreshButton = id; 
+                proberOutlineView = NSOutlineView; 
+                proberRefreshButton = id; 
+                usbLoggerLoggingLevel = id; 
+                usbextensionsModulesPopup = id; 
+                usbextensionsOutput = id; 
+                usbloggerFilterFreshButton = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {clearOutput = id; filterOutput = id; startLogging = id; timeStamp = id; }; 
+            CLASS = usbLoggerClass; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                filterAndOrSelector = id; 
+                filterTextField1 = id; 
+                filterTextField2 = id; 
+                loggingLevelPopup = id; 
+                startLoggingButton = id; 
+                usbloggerDumpToFile = id; 
+                usbloggerFilteredOutput = id; 
+                usbloggerOutput = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {clearOutput = id; filterOutput = id; startLogging = id; timeStamp = id; }; 
+            CLASS = usbLoggerController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                filterAndOrSelector = id; 
+                filterTextField1 = id; 
+                filterTextField2 = id; 
+                loggingLevelPopup = id; 
+                loggingScrollView = id; 
+                startLoggingButton = id; 
+                usbloggerDumpToFile = id; 
+                usbloggerFilteredOutput = id; 
+                usbloggerOutput = id; 
+            }; 
+            SUPERCLASS = mainController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

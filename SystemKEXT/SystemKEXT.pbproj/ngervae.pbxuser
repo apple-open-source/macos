@@ -1,0 +1,44 @@
+// !$*UTF8*$!
+{
+	01CA8CA1FFEFFEA711CA2A87 = {
+		activeExec = 0;
+	};
+	01CA8CC7FFEFFF1D11CA2A87 = {
+		activeExec = 0;
+	};
+	01CA8CCDFFEFFF1D11CA2A87 = {
+		activeExec = 0;
+	};
+	01CA8CD3FFEFFF1D11CA2A87 = {
+		activeExec = 0;
+	};
+	01CA8CD9FFEFFF1D11CA2A87 = {
+		activeExec = 0;
+	};
+	01E6439A000CE08211CA2A87 = {
+		activeExec = 0;
+	};
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
+		activeTarget = 089C1673FE841209C02AAC07;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 52857407;
+		};
+		projectwideBuildSettings = {
+		};
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	144283C4025146F802CA28EB = {
+		activeExec = 0;
+	};
+	144283CD0251470902CA28EB = {
+		activeExec = 0;
+	};
+	144283D60251473102CA28EB = {
+		activeExec = 0;
+	};
+}

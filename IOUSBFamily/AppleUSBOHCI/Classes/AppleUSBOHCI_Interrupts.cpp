@@ -171,4 +171,7 @@ void AppleUSBOHCI::InterruptHandler(OSObject *owner,
     // Finish pending transactions first.
     controller->finishPending();
     controller->PollInterrupts();
+    
+    controller->_filterInterruptCount = 0;
+    
 }

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOAudioFamily ;
-export deferred SRCROOT = /Volumes/Files/mark/releases/Jaguar/IOAudioFamily ;
+export deferred SRCROOT = /Volumes/Files/mark/releases/Red/IOAudioFamily/IOAudioFamily-130.2.10 ;
 
 # User-defined project-wide settings for project
 

@@ -35,7 +35,7 @@ OSDefineMetaClass( IOFireWireBus, IOService )
 OSDefineAbstractStructors(IOFireWireBus, IOService)
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 0);
 //OSMetaClassDefineReservedUnused(IOFireWireBus, 1);
-OSMetaClassDefineReservedUnused(IOFireWireBus, 2);
+//OSMetaClassDefineReservedUnused(IOFireWireBus, 2);
 OSMetaClassDefineReservedUnused(IOFireWireBus, 3);
 OSMetaClassDefineReservedUnused(IOFireWireBus, 4);
 OSMetaClassDefineReservedUnused(IOFireWireBus, 5);

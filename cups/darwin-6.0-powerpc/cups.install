@@ -1,0 +1,810 @@
+#!/bin/sh
+# Installation script for Common UNIX Printing System version 1.1.15.
+# Produced using ESP Package Manager v3.5.0; report problems to epm@easysw.com.
+#%product Common UNIX Printing System
+#%vendor Easy Software Products
+#%copyright 1993-2002 by Easy Software Products, All Rights Reserved.
+#%version 1.1.15 1011500
+#%rootsize 49
+#%usrsize 5302
+#
+PATH=/usr/xpg4/bin:/bin:/usr/bin:/usr/ucb:${PATH}
+SHELL=/bin/sh
+if test "`id -u`" -ne 0; then
+	echo Sorry, you must be root to install this software.
+	exit 1
+fi
+echo 'Copyright 1993-2002 by Easy Software Products, All Rights Reserved.'
+# Reset umask for install...
+umask 002
+# Determine correct echo options...
+if (echo "testing\c"; echo 1,2,3) | grep c >/dev/null; then
+	ac_n=-n
+	ac_c=
+else
+	ac_n=
+	ac_c='\c'
+fi
+# Determine correct extract options for the tar command...
+if test `uname` = Darwin; then
+	ac_tar="tar -xpPf"
+else if test "`tar --help 2>&1 | grep GNU`" = ""; then
+	ac_tar="tar -xpf"
+else
+	ac_tar="tar -xpPf"
+fi fi
+if test "$*" = "now"; then
+	echo Software license silently accepted via command-line option.
+else
+	echo ""
+	echo This installation script will install the 'Common UNIX Printing System'
+	echo software version '1.1.15' on your system.
+	echo ""
+	while true ; do
+		echo $ac_n "Do you wish to continue? $ac_c"
+		read yesno
+		case "$yesno" in
+			y | yes | Y | Yes | YES)
+			break
+			;;
+			n | no | N | No | NO)
+			exit 1
+			;;
+			*)
+			echo Please enter yes or no.
+			;;
+		esac
+	done
+	more cups.license
+	echo ""
+	while true ; do
+		echo $ac_n "Do you agree with the terms of this license? $ac_c"
+		read yesno
+		case "$yesno" in
+			y | yes | Y | Yes | YES)
+			break
+			;;
+			n | no | N | No | NO)
+			exit 1
+			;;
+			*)
+			echo Please enter yes or no.
+			;;
+		esac
+	done
+fi
+if test -x /etc/software/cups.remove; then
+	echo Removing old versions of cups software...
+	/etc/software/cups.remove now
+fi
+case `uname` in
+	AIX)
+	dfroot=`df -k / | tr '\n' ' '`
+	dfusr=`df -k /usr | tr '\n' ' '`
+	fsroot=`echo $dfroot | awk '{print $15}'`
+	sproot=`echo $dfroot | awk '{print $11}'`
+	fsusr=`echo $dfusr | awk '{print $15}'`
+	spusr=`echo $dfusr | awk '{print $11}'`
+	;;
+
+	HP-UX)
+	dfroot=`df -k / | tr '\n' ' '`
+	dfusr=`df -k /usr | tr '\n' ' '`
+	fsroot=`echo $dfroot | awk '{print $1}'`
+	sproot=`echo $dfroot | awk '{print $9}'`
+	fsusr=`echo $dfusr | awk '{print $1}'`
+	spusr=`echo $dfusr | awk '{print $9}'`
+	;;
+
+	IRIX*)
+	dfroot=`df -k / | tr '\n' ' '`
+	dfusr=`df -k /usr | tr '\n' ' '`
+	fsroot=`echo $dfroot | awk '{print $15}'`
+	sproot=`echo $dfroot | awk '{print $13}'`
+	fsusr=`echo $dfusr | awk '{print $15}'`
+	spusr=`echo $dfusr | awk '{print $13}'`
+	;;
+
+	SCO*)
+	dfroot=`df -k -B / | tr '\n' ' '`
+	dfusr=`df -k -B /usr | tr '\n' ' '`
+	fsroot=`echo $dfroot | awk '{print $13}'`
+	sproot=`echo $dfroot | awk '{print $11}'`
+	fsusr=`echo $dfusr | awk '{print $13}'`
+	spusr=`echo $dfusr | awk '{print $11}'`
+	;;
+
+	*)
+	dfroot=`df -k / | tr '\n' ' '`
+	dfusr=`df -k /usr | tr '\n' ' '`
+	fsroot=`echo $dfroot | awk '{print $13}'`
+	sproot=`echo $dfroot | awk '{print $11}'`
+	fsusr=`echo $dfusr | awk '{print $13}'`
+	spusr=`echo $dfusr | awk '{print $11}'`
+	;;
+esac
+
+temp=`ls -ln cups.sw | awk '{print $5}'`
+spsw=`expr $temp / 1024`
+
+temp=`ls -ln cups.ss | awk '{print $5}'`
+spss=`expr $temp / 1024`
+
+spall=`expr $spsw + $spss`
+
+if test x$sproot = x -o x$spusr = x; then
+	echo WARNING: Unable to determine available disk space; installing blindly...
+else
+	if test x$fsroot = x$fsusr; then
+		if test $spall -gt $sproot; then
+			echo Not enough free disk space for software:
+			echo You need $spall kbytes but only have $sproot kbytes available.
+			exit 1
+		fi
+	else
+		if test $spsw -gt $sproot; then
+			echo Not enough free disk space for software:
+			echo You need $spsw kbytes in / but only have $sproot kbytes available.
+			exit 1
+		fi
+
+		if test $spss -gt $spusr; then
+			echo Not enough free disk space for software:
+			echo You need $spss kbytes in /usr but only have $spusr kbytes available.
+			exit 1
+		fi
+	fi
+fi
+#%provides cupsys 0 2147483647
+#%provides cups-devel 0 2147483647
+#%provides cupsys-devel 0 2147483647
+#%provides libcups1 0 2147483647
+#%provides libcups.so.2 0 2147483647
+if test -w /usr ; then
+	echo Backing up old versions of shared files to be installed...
+	for file in /usr/bin/cancel /usr/bin/cups-config /usr/bin/disable /usr/bin/enable /usr/bin/lp \
+/usr/bin/lpoptions /usr/bin/lppasswd /usr/bin/lpq /usr/bin/lpr /usr/bin/lprm /usr/bin/lpstat \
+/usr/include/cups/cups.h /usr/include/cups/http.h /usr/include/cups/image.h /usr/include/cups/ipp.h \
+/usr/include/cups/language.h /usr/include/cups/md5.h /usr/include/cups/ppd.h /usr/include/cups/raster.h \
+/usr/lib/accept /usr/lib/libcups.2.dylib /usr/lib/libcups.a /usr/lib/libcups.dylib \
+/usr/lib/libcupsimage.2.dylib /usr/lib/libcupsimage.dylib /usr/lib/lpadmin /usr/lib/reject \
+/usr/libexec/cups/backend/http /usr/libexec/cups/backend/ipp /usr/libexec/cups/backend/lpd \
+/usr/libexec/cups/backend/socket /usr/libexec/cups/cgi-bin/admin.cgi /usr/libexec/cups/cgi-bin/classes.cgi \
+/usr/libexec/cups/cgi-bin/jobs.cgi /usr/libexec/cups/cgi-bin/printers.cgi /usr/libexec/cups/daemon/cups-lpd \
+/usr/libexec/cups/daemon/cups-polld /usr/libexec/cups/filter/hpgltops /usr/libexec/cups/filter/imagetops \
+/usr/libexec/cups/filter/imagetoraster /usr/libexec/cups/filter/pstops /usr/libexec/cups/filter/rastertodymo \
+/usr/libexec/cups/filter/rastertoepson /usr/libexec/cups/filter/rastertohp /usr/libexec/cups/filter/texttops \
+/usr/sbin/accept /usr/sbin/cupsaddsmb /usr/sbin/cupsd /usr/sbin/lpadmin /usr/sbin/lpc \
+/usr/sbin/lpinfo /usr/sbin/lpmove /usr/sbin/reject /usr/share/cups/banners/classified \
+/usr/share/cups/banners/confidential /usr/share/cups/banners/secret /usr/share/cups/banners/standard \
+/usr/share/cups/banners/topsecret /usr/share/cups/banners/unclassified /usr/share/cups/charsets/iso-8859-1 \
+/usr/share/cups/charsets/iso-8859-10 /usr/share/cups/charsets/iso-8859-13 /usr/share/cups/charsets/iso-8859-14 \
+/usr/share/cups/charsets/iso-8859-15 /usr/share/cups/charsets/iso-8859-2 /usr/share/cups/charsets/iso-8859-3 \
+/usr/share/cups/charsets/iso-8859-4 /usr/share/cups/charsets/iso-8859-5 /usr/share/cups/charsets/iso-8859-6 \
+/usr/share/cups/charsets/iso-8859-7 /usr/share/cups/charsets/iso-8859-8 /usr/share/cups/charsets/iso-8859-9 \
+/usr/share/cups/charsets/utf-8 /usr/share/cups/charsets/windows-1250 /usr/share/cups/charsets/windows-1251 \
+/usr/share/cups/charsets/windows-1252 /usr/share/cups/charsets/windows-1253 /usr/share/cups/charsets/windows-1254 \
+/usr/share/cups/charsets/windows-1255 /usr/share/cups/charsets/windows-1256 /usr/share/cups/charsets/windows-1257 \
+/usr/share/cups/charsets/windows-1258 /usr/share/cups/charsets/windows-874 /usr/share/cups/data/HPGLprolog \
+/usr/share/cups/data/psglyphs /usr/share/cups/data/testprint.ps /usr/share/cups/fonts/Courier \
+/usr/share/cups/fonts/Courier-Bold /usr/share/cups/fonts/Courier-BoldOblique /usr/share/cups/fonts/Courier-Oblique \
+/usr/share/cups/fonts/Symbol /usr/share/cups/model/deskjet.ppd /usr/share/cups/model/deskjet2.ppd \
+/usr/share/cups/model/dymo.ppd /usr/share/cups/model/epson24.ppd /usr/share/cups/model/epson9.ppd \
+/usr/share/cups/model/laserjet.ppd /usr/share/cups/model/okidat24.ppd /usr/share/cups/model/okidata9.ppd \
+/usr/share/cups/model/stcolor.ppd /usr/share/cups/model/stcolor2.ppd /usr/share/cups/model/stphoto.ppd \
+/usr/share/cups/model/stphoto2.ppd /usr/share/doc/cups/cmp.html /usr/share/doc/cups/cmp.pdf \
+/usr/share/doc/cups/cups.css /usr/share/doc/cups/cupsdoc.css /usr/share/doc/cups/documentation.html \
+/usr/share/doc/cups/idd.html /usr/share/doc/cups/idd.pdf /usr/share/doc/cups/images/accept-jobs.gif \
+/usr/share/doc/cups/images/add-class.gif /usr/share/doc/cups/images/add-printer.gif \
+/usr/share/doc/cups/images/cancel-job.gif /usr/share/doc/cups/images/cancel-jobs.gif \
+/usr/share/doc/cups/images/cancel.gif /usr/share/doc/cups/images/classes.gif /usr/share/doc/cups/images/config-printer.gif \
+/usr/share/doc/cups/images/continue.gif /usr/share/doc/cups/images/cups-bar.gif /usr/share/doc/cups/images/cups-block-diagram.gif \
+/usr/share/doc/cups/images/cups-large.gif /usr/share/doc/cups/images/cups-medium.gif \
+/usr/share/doc/cups/images/cups-small.gif /usr/share/doc/cups/images/delete-class.gif \
+/usr/share/doc/cups/images/delete-printer.gif /usr/share/doc/cups/images/draft.gif \
+/usr/share/doc/cups/images/hold-job.gif /usr/share/doc/cups/images/left.gif /usr/share/doc/cups/images/logo.gif \
+/usr/share/doc/cups/images/manage-classes.gif /usr/share/doc/cups/images/manage-jobs.gif \
+/usr/share/doc/cups/images/manage-printers.gif /usr/share/doc/cups/images/modify-class.gif \
+/usr/share/doc/cups/images/modify-printer.gif /usr/share/doc/cups/images/navbar.gif \
+/usr/share/doc/cups/images/print-test-page.gif /usr/share/doc/cups/images/printer-idle.gif \
+/usr/share/doc/cups/images/printer-processing.gif /usr/share/doc/cups/images/printer-stopped.gif \
+/usr/share/doc/cups/images/reject-jobs.gif /usr/share/doc/cups/images/release-job.gif \
+/usr/share/doc/cups/images/restart-job.gif /usr/share/doc/cups/images/right.gif /usr/share/doc/cups/images/show-active.gif \
+/usr/share/doc/cups/images/show-completed.gif /usr/share/doc/cups/images/start-class.gif \
+/usr/share/doc/cups/images/start-printer.gif /usr/share/doc/cups/images/stop-class.gif \
+/usr/share/doc/cups/images/stop-printer.gif /usr/share/doc/cups/index.html /usr/share/doc/cups/ipp.html \
+/usr/share/doc/cups/ipp.pdf /usr/share/doc/cups/overview.html /usr/share/doc/cups/overview.pdf \
+/usr/share/doc/cups/sam.html /usr/share/doc/cups/sam.pdf /usr/share/doc/cups/sdd.html \
+/usr/share/doc/cups/sdd.pdf /usr/share/doc/cups/spm.html /usr/share/doc/cups/spm.pdf \
+/usr/share/doc/cups/sps.html /usr/share/doc/cups/sps.pdf /usr/share/doc/cups/ssr.html \
+/usr/share/doc/cups/ssr.pdf /usr/share/doc/cups/stp.html /usr/share/doc/cups/stp.pdf \
+/usr/share/doc/cups/sum.html /usr/share/doc/cups/sum.pdf /usr/share/doc/cups/svd.html \
+/usr/share/doc/cups/svd.pdf /usr/share/doc/cups/translation.html /usr/share/doc/cups/translation.pdf \
+/usr/share/locale/C/cups_C /usr/share/locale/be/cups_be /usr/share/locale/cs/cups_cs \
+/usr/share/locale/de/cups_de /usr/share/locale/en/cups_en /usr/share/locale/es/cups_es \
+/usr/share/locale/fr/cups_fr /usr/share/locale/it/cups_it /usr/share/locale/ru_RU.cp1251/cups_ru_RU.cp1251 \
+/usr/share/locale/ru_RU.koi8r/cups_ru_RU.koi8r /usr/share/locale/sv/cups_sv /usr/share/locale/uk/cups_uk \
+/usr/share/locale/uk_UA.cp1251/cups_uk_UA.cp1251 /usr/share/locale/zh_CN/cups_zh_CN \
+/usr/share/man/cat1/backend.0 /usr/share/man/cat1/cancel.0 /usr/share/man/cat1/filter.0 \
+/usr/share/man/cat1/lp.0 /usr/share/man/cat1/lpoptions.0 /usr/share/man/cat1/lppasswd.0 \
+/usr/share/man/cat1/lpq.0 /usr/share/man/cat1/lpr.0 /usr/share/man/cat1/lprm.0 /usr/share/man/cat1/lpstat.0 \
+/usr/share/man/cat3/cups-config.0 /usr/share/man/cat5/classes.conf.0 /usr/share/man/cat5/cupsd.conf.0 \
+/usr/share/man/cat5/mime.convs.0 /usr/share/man/cat5/mime.types.0 /usr/share/man/cat5/printers.conf.0 \
+/usr/share/man/cat8/accept.0 /usr/share/man/cat8/cups-lpd.0 /usr/share/man/cat8/cups-polld.0 \
+/usr/share/man/cat8/cupsaddsmb.0 /usr/share/man/cat8/cupsd.0 /usr/share/man/cat8/disable.0 \
+/usr/share/man/cat8/enable.0 /usr/share/man/cat8/lpadmin.0 /usr/share/man/cat8/lpc.0 \
+/usr/share/man/cat8/lpinfo.0 /usr/share/man/cat8/lpmove.0 /usr/share/man/cat8/reject.0 \
+/usr/share/man/fr/cat1/backend.0 /usr/share/man/fr/cat1/cancel.0 /usr/share/man/fr/cat1/filter.0 \
+/usr/share/man/fr/cat1/lp.0 /usr/share/man/fr/cat1/lpoptions.0 /usr/share/man/fr/cat1/lppasswd.0 \
+/usr/share/man/fr/cat1/lpq.0 /usr/share/man/fr/cat1/lpr.0 /usr/share/man/fr/cat1/lprm.0 \
+/usr/share/man/fr/cat1/lpstat.0 /usr/share/man/fr/cat3/cups-config.0 /usr/share/man/fr/cat5/classes.conf.0 \
+/usr/share/man/fr/cat5/cupsd.conf.0 /usr/share/man/fr/cat5/mime.convs.0 /usr/share/man/fr/cat5/mime.types.0 \
+/usr/share/man/fr/cat5/printers.conf.0 /usr/share/man/fr/cat8/accept.0 /usr/share/man/fr/cat8/cups-lpd.0 \
+/usr/share/man/fr/cat8/cups-polld.0 /usr/share/man/fr/cat8/cupsaddsmb.0 /usr/share/man/fr/cat8/cupsd.0 \
+/usr/share/man/fr/cat8/disable.0 /usr/share/man/fr/cat8/enable.0 /usr/share/man/fr/cat8/lpadmin.0 \
+/usr/share/man/fr/cat8/lpc.0 /usr/share/man/fr/cat8/lpinfo.0 /usr/share/man/fr/cat8/lpmove.0 \
+/usr/share/man/fr/cat8/reject.0 /usr/share/man/fr/man1/backend. /usr/share/man/fr/man1/cancel. \
+/usr/share/man/fr/man1/filter. /usr/share/man/fr/man1/lp. /usr/share/man/fr/man1/lpoptions. \
+/usr/share/man/fr/man1/lppasswd. /usr/share/man/fr/man1/lpq. /usr/share/man/fr/man1/lpr. \
+/usr/share/man/fr/man1/lprm. /usr/share/man/fr/man1/lpstat. /usr/share/man/fr/man3/cups-config. \
+/usr/share/man/fr/man5/classes.conf. /usr/share/man/fr/man5/cupsd.conf. /usr/share/man/fr/man5/mime.convs. \
+/usr/share/man/fr/man5/mime.types. /usr/share/man/fr/man5/printers.conf. /usr/share/man/fr/man8/accept.8 \
+/usr/share/man/fr/man8/cups-lpd.8 /usr/share/man/fr/man8/cups-polld.8 /usr/share/man/fr/man8/cupsaddsmb.8 \
+/usr/share/man/fr/man8/cupsd.8 /usr/share/man/fr/man8/disable.8 /usr/share/man/fr/man8/enable.8 \
+/usr/share/man/fr/man8/lpadmin.8 /usr/share/man/fr/man8/lpc.8 /usr/share/man/fr/man8/lpinfo.8 \
+/usr/share/man/fr/man8/lpmove.8 /usr/share/man/fr/man8/reject.8 /usr/share/man/man1/backend. \
+/usr/share/man/man1/cancel. /usr/share/man/man1/filter. /usr/share/man/man1/lp. /usr/share/man/man1/lpoptions. \
+/usr/share/man/man1/lppasswd. /usr/share/man/man1/lpq. /usr/share/man/man1/lpr. /usr/share/man/man1/lprm. \
+/usr/share/man/man1/lpstat. /usr/share/man/man3/cups-config. /usr/share/man/man5/classes.conf. \
+/usr/share/man/man5/cupsd.conf. /usr/share/man/man5/mime.convs. /usr/share/man/man5/mime.types. \
+/usr/share/man/man5/printers.conf. /usr/share/man/man8/accept.8 /usr/share/man/man8/cups-lpd.8 \
+/usr/share/man/man8/cups-polld.8 /usr/share/man/man8/cupsaddsmb.8 /usr/share/man/man8/cupsd.8 \
+/usr/share/man/man8/disable.8 /usr/share/man/man8/enable.8 /usr/share/man/man8/lpadmin.8 \
+/usr/share/man/man8/lpc.8 /usr/share/man/man8/lpinfo.8 /usr/share/man/man8/lpmove.8 \
+/usr/share/man/man8/reject.8; do
+		if test -d $file -o -f $file -o -h $file; then
+			mv -f $file $file.O
+		fi
+	done
+fi
+echo Creating installation directories...
+if test ! -d /private/etc/cups -a ! -f /private/etc/cups -a ! -h /private/etc/cups; then
+	mkdir -p /private/etc/cups
+else
+	if test -f /private/etc/cups; then
+		echo Error: /private/etc/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /private/etc/cups
+chgrp sys /private/etc/cups
+chmod 555 /private/etc/cups
+if test ! -d /private/etc/cups/certs -a ! -f /private/etc/cups/certs -a ! -h /private/etc/cups/certs; then
+	mkdir -p /private/etc/cups/certs
+else
+	if test -f /private/etc/cups/certs; then
+		echo Error: /private/etc/cups/certs already exists as a regular file!
+		exit 1
+	fi
+fi
+chown daemon /private/etc/cups/certs
+chgrp admin /private/etc/cups/certs
+chmod 711 /private/etc/cups/certs
+if test ! -d /private/etc/cups/interfaces -a ! -f /private/etc/cups/interfaces -a ! -h /private/etc/cups/interfaces; then
+	mkdir -p /private/etc/cups/interfaces
+else
+	if test -f /private/etc/cups/interfaces; then
+		echo Error: /private/etc/cups/interfaces already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /private/etc/cups/interfaces
+chgrp sys /private/etc/cups/interfaces
+chmod 755 /private/etc/cups/interfaces
+if test ! -d /private/etc/cups/ppd -a ! -f /private/etc/cups/ppd -a ! -h /private/etc/cups/ppd; then
+	mkdir -p /private/etc/cups/ppd
+else
+	if test -f /private/etc/cups/ppd; then
+		echo Error: /private/etc/cups/ppd already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /private/etc/cups/ppd
+chgrp sys /private/etc/cups/ppd
+chmod 755 /private/etc/cups/ppd
+if test ! -d /private/var/log/cups -a ! -f /private/var/log/cups -a ! -h /private/var/log/cups; then
+	mkdir -p /private/var/log/cups
+else
+	if test -f /private/var/log/cups; then
+		echo Error: /private/var/log/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /private/var/log/cups
+chgrp sys /private/var/log/cups
+chmod 755 /private/var/log/cups
+if test ! -d /private/var/spool/cups -a ! -f /private/var/spool/cups -a ! -h /private/var/spool/cups; then
+	mkdir -p /private/var/spool/cups
+else
+	if test -f /private/var/spool/cups; then
+		echo Error: /private/var/spool/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown daemon /private/var/spool/cups
+chgrp sys /private/var/spool/cups
+chmod 700 /private/var/spool/cups
+if test ! -d /private/var/spool/cups/tmp -a ! -f /private/var/spool/cups/tmp -a ! -h /private/var/spool/cups/tmp; then
+	mkdir -p /private/var/spool/cups/tmp
+else
+	if test -f /private/var/spool/cups/tmp; then
+		echo Error: /private/var/spool/cups/tmp already exists as a regular file!
+		exit 1
+	fi
+fi
+chown daemon /private/var/spool/cups/tmp
+chgrp sys /private/var/spool/cups/tmp
+chmod 1700 /private/var/spool/cups/tmp
+if test ! -d /usr/include/cups -a ! -f /usr/include/cups -a ! -h /usr/include/cups; then
+	mkdir -p /usr/include/cups
+else
+	if test -f /usr/include/cups; then
+		echo Error: /usr/include/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/include/cups
+chgrp sys /usr/include/cups
+chmod 555 /usr/include/cups
+if test ! -d /usr/libexec/cups -a ! -f /usr/libexec/cups -a ! -h /usr/libexec/cups; then
+	mkdir -p /usr/libexec/cups
+else
+	if test -f /usr/libexec/cups; then
+		echo Error: /usr/libexec/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/libexec/cups
+chgrp sys /usr/libexec/cups
+chmod 555 /usr/libexec/cups
+if test ! -d /usr/libexec/cups/backend -a ! -f /usr/libexec/cups/backend -a ! -h /usr/libexec/cups/backend; then
+	mkdir -p /usr/libexec/cups/backend
+else
+	if test -f /usr/libexec/cups/backend; then
+		echo Error: /usr/libexec/cups/backend already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/libexec/cups/backend
+chgrp sys /usr/libexec/cups/backend
+chmod 555 /usr/libexec/cups/backend
+if test ! -d /usr/libexec/cups/cgi-bin -a ! -f /usr/libexec/cups/cgi-bin -a ! -h /usr/libexec/cups/cgi-bin; then
+	mkdir -p /usr/libexec/cups/cgi-bin
+else
+	if test -f /usr/libexec/cups/cgi-bin; then
+		echo Error: /usr/libexec/cups/cgi-bin already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/libexec/cups/cgi-bin
+chgrp sys /usr/libexec/cups/cgi-bin
+chmod 555 /usr/libexec/cups/cgi-bin
+if test ! -d /usr/libexec/cups/daemon -a ! -f /usr/libexec/cups/daemon -a ! -h /usr/libexec/cups/daemon; then
+	mkdir -p /usr/libexec/cups/daemon
+else
+	if test -f /usr/libexec/cups/daemon; then
+		echo Error: /usr/libexec/cups/daemon already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/libexec/cups/daemon
+chgrp sys /usr/libexec/cups/daemon
+chmod 555 /usr/libexec/cups/daemon
+if test ! -d /usr/libexec/cups/filter -a ! -f /usr/libexec/cups/filter -a ! -h /usr/libexec/cups/filter; then
+	mkdir -p /usr/libexec/cups/filter
+else
+	if test -f /usr/libexec/cups/filter; then
+		echo Error: /usr/libexec/cups/filter already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/libexec/cups/filter
+chgrp sys /usr/libexec/cups/filter
+chmod 555 /usr/libexec/cups/filter
+if test ! -d /usr/share/cups -a ! -f /usr/share/cups -a ! -h /usr/share/cups; then
+	mkdir -p /usr/share/cups
+else
+	if test -f /usr/share/cups; then
+		echo Error: /usr/share/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups
+chgrp sys /usr/share/cups
+chmod 555 /usr/share/cups
+if test ! -d /usr/share/cups/banners -a ! -f /usr/share/cups/banners -a ! -h /usr/share/cups/banners; then
+	mkdir -p /usr/share/cups/banners
+else
+	if test -f /usr/share/cups/banners; then
+		echo Error: /usr/share/cups/banners already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/banners
+chgrp sys /usr/share/cups/banners
+chmod 555 /usr/share/cups/banners
+if test ! -d /usr/share/cups/charsets -a ! -f /usr/share/cups/charsets -a ! -h /usr/share/cups/charsets; then
+	mkdir -p /usr/share/cups/charsets
+else
+	if test -f /usr/share/cups/charsets; then
+		echo Error: /usr/share/cups/charsets already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/charsets
+chgrp sys /usr/share/cups/charsets
+chmod 555 /usr/share/cups/charsets
+if test ! -d /usr/share/cups/data -a ! -f /usr/share/cups/data -a ! -h /usr/share/cups/data; then
+	mkdir -p /usr/share/cups/data
+else
+	if test -f /usr/share/cups/data; then
+		echo Error: /usr/share/cups/data already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/data
+chgrp sys /usr/share/cups/data
+chmod 555 /usr/share/cups/data
+if test ! -d /usr/share/cups/fonts -a ! -f /usr/share/cups/fonts -a ! -h /usr/share/cups/fonts; then
+	mkdir -p /usr/share/cups/fonts
+else
+	if test -f /usr/share/cups/fonts; then
+		echo Error: /usr/share/cups/fonts already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/fonts
+chgrp sys /usr/share/cups/fonts
+chmod 555 /usr/share/cups/fonts
+if test ! -d /usr/share/cups/model -a ! -f /usr/share/cups/model -a ! -h /usr/share/cups/model; then
+	mkdir -p /usr/share/cups/model
+else
+	if test -f /usr/share/cups/model; then
+		echo Error: /usr/share/cups/model already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/model
+chgrp sys /usr/share/cups/model
+chmod 555 /usr/share/cups/model
+if test ! -d /usr/share/cups/templates -a ! -f /usr/share/cups/templates -a ! -h /usr/share/cups/templates; then
+	mkdir -p /usr/share/cups/templates
+else
+	if test -f /usr/share/cups/templates; then
+		echo Error: /usr/share/cups/templates already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/cups/templates
+chgrp sys /usr/share/cups/templates
+chmod 555 /usr/share/cups/templates
+if test ! -d /usr/share/doc/cups -a ! -f /usr/share/doc/cups -a ! -h /usr/share/doc/cups; then
+	mkdir -p /usr/share/doc/cups
+else
+	if test -f /usr/share/doc/cups; then
+		echo Error: /usr/share/doc/cups already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/doc/cups
+chgrp sys /usr/share/doc/cups
+chmod 555 /usr/share/doc/cups
+if test ! -d /usr/share/doc/cups/images -a ! -f /usr/share/doc/cups/images -a ! -h /usr/share/doc/cups/images; then
+	mkdir -p /usr/share/doc/cups/images
+else
+	if test -f /usr/share/doc/cups/images; then
+		echo Error: /usr/share/doc/cups/images already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/doc/cups/images
+chgrp sys /usr/share/doc/cups/images
+chmod 555 /usr/share/doc/cups/images
+if test ! -d /usr/share/man -a ! -f /usr/share/man -a ! -h /usr/share/man; then
+	mkdir -p /usr/share/man
+else
+	if test -f /usr/share/man; then
+		echo Error: /usr/share/man already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man
+chgrp sys /usr/share/man
+chmod 555 /usr/share/man
+if test ! -d /usr/share/man/cat1 -a ! -f /usr/share/man/cat1 -a ! -h /usr/share/man/cat1; then
+	mkdir -p /usr/share/man/cat1
+else
+	if test -f /usr/share/man/cat1; then
+		echo Error: /usr/share/man/cat1 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/cat1
+chgrp sys /usr/share/man/cat1
+chmod 555 /usr/share/man/cat1
+if test ! -d /usr/share/man/cat3 -a ! -f /usr/share/man/cat3 -a ! -h /usr/share/man/cat3; then
+	mkdir -p /usr/share/man/cat3
+else
+	if test -f /usr/share/man/cat3; then
+		echo Error: /usr/share/man/cat3 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/cat3
+chgrp sys /usr/share/man/cat3
+chmod 555 /usr/share/man/cat3
+if test ! -d /usr/share/man/cat5 -a ! -f /usr/share/man/cat5 -a ! -h /usr/share/man/cat5; then
+	mkdir -p /usr/share/man/cat5
+else
+	if test -f /usr/share/man/cat5; then
+		echo Error: /usr/share/man/cat5 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/cat5
+chgrp sys /usr/share/man/cat5
+chmod 555 /usr/share/man/cat5
+if test ! -d /usr/share/man/cat8 -a ! -f /usr/share/man/cat8 -a ! -h /usr/share/man/cat8; then
+	mkdir -p /usr/share/man/cat8
+else
+	if test -f /usr/share/man/cat8; then
+		echo Error: /usr/share/man/cat8 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/cat8
+chgrp sys /usr/share/man/cat8
+chmod 555 /usr/share/man/cat8
+if test ! -d /usr/share/man/fr -a ! -f /usr/share/man/fr -a ! -h /usr/share/man/fr; then
+	mkdir -p /usr/share/man/fr
+else
+	if test -f /usr/share/man/fr; then
+		echo Error: /usr/share/man/fr already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr
+chgrp sys /usr/share/man/fr
+chmod 555 /usr/share/man/fr
+if test ! -d /usr/share/man/fr/cat1 -a ! -f /usr/share/man/fr/cat1 -a ! -h /usr/share/man/fr/cat1; then
+	mkdir -p /usr/share/man/fr/cat1
+else
+	if test -f /usr/share/man/fr/cat1; then
+		echo Error: /usr/share/man/fr/cat1 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/cat1
+chgrp sys /usr/share/man/fr/cat1
+chmod 555 /usr/share/man/fr/cat1
+if test ! -d /usr/share/man/fr/cat3 -a ! -f /usr/share/man/fr/cat3 -a ! -h /usr/share/man/fr/cat3; then
+	mkdir -p /usr/share/man/fr/cat3
+else
+	if test -f /usr/share/man/fr/cat3; then
+		echo Error: /usr/share/man/fr/cat3 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/cat3
+chgrp sys /usr/share/man/fr/cat3
+chmod 555 /usr/share/man/fr/cat3
+if test ! -d /usr/share/man/fr/cat5 -a ! -f /usr/share/man/fr/cat5 -a ! -h /usr/share/man/fr/cat5; then
+	mkdir -p /usr/share/man/fr/cat5
+else
+	if test -f /usr/share/man/fr/cat5; then
+		echo Error: /usr/share/man/fr/cat5 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/cat5
+chgrp sys /usr/share/man/fr/cat5
+chmod 555 /usr/share/man/fr/cat5
+if test ! -d /usr/share/man/fr/cat8 -a ! -f /usr/share/man/fr/cat8 -a ! -h /usr/share/man/fr/cat8; then
+	mkdir -p /usr/share/man/fr/cat8
+else
+	if test -f /usr/share/man/fr/cat8; then
+		echo Error: /usr/share/man/fr/cat8 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/cat8
+chgrp sys /usr/share/man/fr/cat8
+chmod 555 /usr/share/man/fr/cat8
+if test ! -d /usr/share/man/fr/man1 -a ! -f /usr/share/man/fr/man1 -a ! -h /usr/share/man/fr/man1; then
+	mkdir -p /usr/share/man/fr/man1
+else
+	if test -f /usr/share/man/fr/man1; then
+		echo Error: /usr/share/man/fr/man1 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/man1
+chgrp sys /usr/share/man/fr/man1
+chmod 555 /usr/share/man/fr/man1
+if test ! -d /usr/share/man/fr/man3 -a ! -f /usr/share/man/fr/man3 -a ! -h /usr/share/man/fr/man3; then
+	mkdir -p /usr/share/man/fr/man3
+else
+	if test -f /usr/share/man/fr/man3; then
+		echo Error: /usr/share/man/fr/man3 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/man3
+chgrp sys /usr/share/man/fr/man3
+chmod 555 /usr/share/man/fr/man3
+if test ! -d /usr/share/man/fr/man5 -a ! -f /usr/share/man/fr/man5 -a ! -h /usr/share/man/fr/man5; then
+	mkdir -p /usr/share/man/fr/man5
+else
+	if test -f /usr/share/man/fr/man5; then
+		echo Error: /usr/share/man/fr/man5 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/man5
+chgrp sys /usr/share/man/fr/man5
+chmod 555 /usr/share/man/fr/man5
+if test ! -d /usr/share/man/fr/man8 -a ! -f /usr/share/man/fr/man8 -a ! -h /usr/share/man/fr/man8; then
+	mkdir -p /usr/share/man/fr/man8
+else
+	if test -f /usr/share/man/fr/man8; then
+		echo Error: /usr/share/man/fr/man8 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/fr/man8
+chgrp sys /usr/share/man/fr/man8
+chmod 555 /usr/share/man/fr/man8
+if test ! -d /usr/share/man/man1 -a ! -f /usr/share/man/man1 -a ! -h /usr/share/man/man1; then
+	mkdir -p /usr/share/man/man1
+else
+	if test -f /usr/share/man/man1; then
+		echo Error: /usr/share/man/man1 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/man1
+chgrp sys /usr/share/man/man1
+chmod 555 /usr/share/man/man1
+if test ! -d /usr/share/man/man3 -a ! -f /usr/share/man/man3 -a ! -h /usr/share/man/man3; then
+	mkdir -p /usr/share/man/man3
+else
+	if test -f /usr/share/man/man3; then
+		echo Error: /usr/share/man/man3 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/man3
+chgrp sys /usr/share/man/man3
+chmod 555 /usr/share/man/man3
+if test ! -d /usr/share/man/man5 -a ! -f /usr/share/man/man5 -a ! -h /usr/share/man/man5; then
+	mkdir -p /usr/share/man/man5
+else
+	if test -f /usr/share/man/man5; then
+		echo Error: /usr/share/man/man5 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/man5
+chgrp sys /usr/share/man/man5
+chmod 555 /usr/share/man/man5
+if test ! -d /usr/share/man/man8 -a ! -f /usr/share/man/man8 -a ! -h /usr/share/man/man8; then
+	mkdir -p /usr/share/man/man8
+else
+	if test -f /usr/share/man/man8; then
+		echo Error: /usr/share/man/man8 already exists as a regular file!
+		exit 1
+	fi
+fi
+chown root /usr/share/man/man8
+chgrp sys /usr/share/man/man8
+chmod 555 /usr/share/man/man8
+echo Installing software...
+$ac_tar cups.sw
+if echo Write Test >/usr/.writetest 2>/dev/null; then
+	$ac_tar cups.ss
+fi
+if test -d /etc/software; then
+	rm -f /etc/software/cups.remove
+else
+	mkdir -p /etc/software
+fi
+cp cups.remove /etc/software
+chmod 544 /etc/software/cups.remove
+echo Updating file permissions...
+if test -f /usr/.writetest; then
+	rm -f /usr/.writetest
+	chown daemon /usr/bin/lppasswd
+	chgrp sys /usr/bin/lppasswd
+fi
+echo Checking configuration files...
+for file in /private/etc/cups/classes.conf /private/etc/cups/client.conf /private/etc/cups/cupsd.conf \
+/private/etc/cups/mime.convs /private/etc/cups/mime.types /private/etc/cups/printers.conf \
+/usr/share/cups/templates/add-class.tmpl /usr/share/cups/templates/add-printer.tmpl \
+/usr/share/cups/templates/admin-op.tmpl /usr/share/cups/templates/admin.tmpl /usr/share/cups/templates/choose-device.tmpl \
+/usr/share/cups/templates/choose-make.tmpl /usr/share/cups/templates/choose-members.tmpl \
+/usr/share/cups/templates/choose-model.tmpl /usr/share/cups/templates/choose-serial.tmpl \
+/usr/share/cups/templates/choose-uri.tmpl /usr/share/cups/templates/class-added.tmpl \
+/usr/share/cups/templates/class-confirm.tmpl /usr/share/cups/templates/class-deleted.tmpl \
+/usr/share/cups/templates/class-modified.tmpl /usr/share/cups/templates/classes.tmpl \
+/usr/share/cups/templates/config-printer.tmpl /usr/share/cups/templates/config-printer2.tmpl \
+/usr/share/cups/templates/error.tmpl /usr/share/cups/templates/header.tmpl /usr/share/cups/templates/job-cancel.tmpl \
+/usr/share/cups/templates/job-hold.tmpl /usr/share/cups/templates/job-op.tmpl /usr/share/cups/templates/job-release.tmpl \
+/usr/share/cups/templates/job-restart.tmpl /usr/share/cups/templates/jobs.tmpl /usr/share/cups/templates/modify-class.tmpl \
+/usr/share/cups/templates/modify-printer.tmpl /usr/share/cups/templates/option-boolean.tmpl \
+/usr/share/cups/templates/option-header.tmpl /usr/share/cups/templates/option-pickmany.tmpl \
+/usr/share/cups/templates/option-pickone.tmpl /usr/share/cups/templates/option-trailer.tmpl \
+/usr/share/cups/templates/printer-accept.tmpl /usr/share/cups/templates/printer-added.tmpl \
+/usr/share/cups/templates/printer-configured.tmpl /usr/share/cups/templates/printer-confirm.tmpl \
+/usr/share/cups/templates/printer-deleted.tmpl /usr/share/cups/templates/printer-modified.tmpl \
+/usr/share/cups/templates/printer-purge.tmpl /usr/share/cups/templates/printer-reject.tmpl \
+/usr/share/cups/templates/printer-start.tmpl /usr/share/cups/templates/printer-stop.tmpl \
+/usr/share/cups/templates/printers.tmpl /usr/share/cups/templates/test-page.tmpl \
+/usr/share/cups/templates/trailer.tmpl; do
+	if test ! -f $file; then
+		cp $file.N $file
+	fi
+done
+echo Setting up init scripts...
+rcdir=""
+for dir in /sbin/rc.d /sbin /etc/rc.d /etc ; do
+	if test -d $dir/rc2.d -o -h $dir/rc2.d -o -d $dir/rc3.d -o -h $dir/rc3.d; then
+		rcdir="$dir"
+	fi
+done
+if test "$rcdir" = "" ; then
+	if test -d /usr/local/etc/rc.d; then
+		for file in cups; do
+			rm -f /usr/local/src/rc.d/$file.sh
+			ln -s /etc/software/init.d/$file /usr/local/etc/rc.d/$file.sh
+		done
+	else
+		echo Unable to determine location of startup scripts!
+	fi
+else
+	for file in cups; do
+		if test -d $rcdir/init.d; then
+			rm -f $rcdir/init.d/$file
+			ln -s /etc/software/init.d/$file $rcdir/init.d/$file
+		else
+			if test -d /etc/init.d; then
+				rm -f /etc/init.d/$file
+				ln -s /etc/software/init.d/$file /etc/init.d/$file
+			fi
+		fi
+		if test -d $rcdir/rc0.d; then
+			rm -f $rcdir/rc0.d/K00$file
+			ln -s /etc/software/init.d/$file $rcdir/rc0.d/K00$file
+		fi
+		if test -d $rcdir/rc2.d; then
+			rm -f $rcdir/rc2.d/S99$file
+			ln -s /etc/software/init.d/$file $rcdir/rc2.d/S99$file
+		fi
+		if test -d $rcdir/rc3.d; then
+			rm -f $rcdir/rc3.d/S99$file
+			ln -s /etc/software/init.d/$file $rcdir/rc3.d/S99$file
+		fi
+		if test -d $rcdir/rc5.d; then
+			rm -f $rcdir/rc5.d/S99$file
+		ln -s /etc/software/init.d/$file $rcdir/rc5.d/S99$file
+		fi
+		if test -x /etc/chkconfig; then
+			/etc/chkconfig -f $file on
+		fi
+	done
+fi
+echo Running post-install commands...
+if test -f /private/etc/cups/passwd.md5; then
+chown daemon /private/etc/cups/passwd.md5
+fi
+/etc/software/init.d/cups start
+echo Installation is complete.

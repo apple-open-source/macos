@@ -478,7 +478,7 @@ AppleUSBOHCI::ResumeUSBBus()
                 _pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
                 IOSleep(3);			// wait the required 3 ms before turning on the lists
                 _pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
-                                                    | kOHCIHcControl_CLE | (_OptiOn ? 0 : kOHCIHcControl_BLE) 
+                                                    | kOHCIHcControl_CLE | (_OptiOn ? kOHCIHcControl_Zero : kOHCIHcControl_BLE) 
                                                     | kOHCIHcControl_PLE | kOHCIHcControl_IE);
                 break;
         default:

@@ -1,0 +1,7 @@
+README.fonts - 05/03/2002
+------------------------------
+
+In the standard CUPS distribution this directory contains fonts for the
+texttops filter. Replace the contents of this directory with the one
+from CUPS if you want to use these.
+

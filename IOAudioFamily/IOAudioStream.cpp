@@ -1263,7 +1263,6 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
         }
     } else {
         result = kIOReturnBadArgument;
-		IOLog ("!!! No client buffer in readInputSamples !!!\n");
     }
     
     return result;
@@ -1537,7 +1536,6 @@ IOReturn IOAudioStream::processOutputSamples(IOAudioClientBuffer *clientBuffer, 
         }
     } else {
         result = kIOReturnBadArgument;
-		IOLog ("!!! No clientBuffer in processOutputSample !!!");
     }
     
     return result;

@@ -149,34 +149,42 @@ protected:
     IOUSBIsocFrame *		_frameList;
     IOReturn			_status;
     
-    struct ExpansionData { /* */ };
+    struct ExpansionData { 
+    UInt32			_updateFrequency;
+    };
     ExpansionData * 		_expansionData;
+
+    // we override these OSObject method in order to allocate and release our expansion data
+    virtual bool init();
+    virtual void free();
 
 public:
     // static constructor
-    static IOUSBIsocCommand *NewCommand(void) {return new IOUSBIsocCommand;}
+    static IOUSBIsocCommand *NewCommand(void);
     
     // accessor methods
-    void SetSelector(usbCommand sel) {_selector = sel;}
-    void SetAddress(USBDeviceAddress addr) {_address = addr;}
-    void SetEndpoint(UInt8 ep) {_endpoint = ep;}
-    void SetDirection(UInt8 dir) {_direction = dir;}
-    void SetBuffer(IOMemoryDescriptor *buf) {_buffer = buf;}
-    void SetCompletion(IOUSBIsocCompletion completion) {_completion = completion;}
-    void SetStartFrame(UInt64 sf) {_startFrame = sf;}
-    void SetNumFrames(UInt32 nf) {_numFrames = nf;}
-    void SetFrameList(IOUSBIsocFrame *fl) {_frameList = fl;}
-    void SetStatus(IOReturn stat) {_status = stat;}
+    void 		SetSelector(usbCommand sel) 		{_selector = sel;}
+    void 		SetAddress(USBDeviceAddress addr) 	{_address = addr;}
+    void 		SetEndpoint(UInt8 ep) 			{_endpoint = ep;}
+    void 		SetDirection(UInt8 dir) 		{_direction = dir;}
+    void 		SetBuffer(IOMemoryDescriptor *buf) 	{_buffer = buf;}
+    void 		SetCompletion(IOUSBIsocCompletion completion) {_completion = completion;}
+    void 		SetStartFrame(UInt64 sf) 		{_startFrame = sf;}
+    void 		SetNumFrames(UInt32 nf) 		{_numFrames = nf;}
+    void 		SetFrameList(IOUSBIsocFrame *fl) 	{_frameList = fl;}
+    void 		SetStatus(IOReturn stat) 		{_status = stat;}
+    void		SetUpdateFrequency( UInt32 fr) 		{ _expansionData->_updateFrequency = fr;}
     
-    usbCommand GetSelector(void) {return _selector;}
-    USBDeviceAddress GetAddress(void) {return _address;}
-    UInt8 GetEndpoint(void) {return _endpoint;}
-    UInt8 GetDirection(void) {return _direction;}
-    IOMemoryDescriptor* GetBuffer(void) {return _buffer;}
-    IOUSBIsocCompletion GetCompletion(void) {return _completion;}
-    UInt64 GetStartFrame(void) {return _startFrame;}
-    UInt32 GetNumFrames(void) {return _numFrames;}
-    IOUSBIsocFrame* GetFrameList(void) {return _frameList;}
+    usbCommand 		GetSelector(void) 	{return _selector;}
+    USBDeviceAddress 	GetAddress(void) 	{return _address;}
+    UInt8 		GetEndpoint(void) 	{return _endpoint;}
+    UInt8 		GetDirection(void) 	{return _direction;}
+    IOMemoryDescriptor* GetBuffer(void) 	{return _buffer;}
+    IOUSBIsocCompletion GetCompletion(void) 	{return _completion;}
+    UInt64 		GetStartFrame(void) 	{return _startFrame;}
+    UInt32 		GetNumFrames(void) 	{return _numFrames;}
+    IOUSBIsocFrame* 	GetFrameList(void) 	{return _frameList;}
+    UInt32		GetUpdateFrequency(void){return _expansionData->_updateFrequency; };
 };
 
 

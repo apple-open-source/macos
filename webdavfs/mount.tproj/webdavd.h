@@ -36,7 +36,7 @@
  *
  *	@(#)webdavd.h	8.1 (Berkeley) 6/5/93
  *
- * $Id: webdavd.h,v 1.7 2002/06/16 23:47:19 lutherj Exp $
+ * $Id: webdavd.h,v 1.7.26.1 2002/08/28 00:04:07 lutherj Exp $
  */
 
 #include <sys/cdefs.h>
@@ -58,6 +58,12 @@
 #define RE_CHARS ".|()[]*+?\\^$"
 
 /* webdav process structures */
+
+struct webdav_put_struct
+{
+	int fd;
+	char *locktoken;
+};
 
 struct webdav_lock_struct
 {

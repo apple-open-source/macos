@@ -210,6 +210,8 @@ protected:
 	bool					fInProgress;
 	bool					fIsAppended;
 	
+    UInt32					fFetchAgentWriteRetries;
+    
     virtual IOReturn allocateResources( void );
     virtual void free( void );
 
@@ -452,7 +454,8 @@ protected:
 	
 	virtual bool isAppended( void );
 	virtual void setIsAppended( bool state );
-	
+	virtual UInt32 getFetchAgentWriteRetries( void );
+    virtual void setFetchAgentWriteRetries( UInt32 retries );
 };
     
 #endif
