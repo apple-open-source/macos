@@ -91,16 +91,21 @@ void LMBDiscoverer::DiscoverCurrentWorkgroups( void )
 	
 	if ( ourLMBs )
 	{
+		CFIndex		lmbCount = CFArrayGetCount(ourLMBs);
 		DBGLOG( "LMBDiscoverer::DiscoverCurrentWorkgroups getting info from %d LMBs we know about\n", (int)CFArrayGetCount(ourLMBs) );
-		for ( CFIndex i=CFArrayGetCount(ourLMBs)-1; i>=0 && !mCurrentSearchCanceled; i-- )
+		
+		for ( CFIndex i=0; i<lmbCount && !mCurrentSearchCanceled; i++ )
 		{
 			CFStringRef		lmbRef = (CFStringRef)CFArrayGetValueAtIndex( ourLMBs, i );
 			
 			// instead of firing off threads for each LMB, just query one at a time until we get a result (should be first one)
+			DBGLOG( "LMBDiscoverer::DiscoverCurrentWorkgroups get LMB Info from %@\n", lmbRef );
 			CFArrayRef lmbResults = GetLMBInfoFromLMB( NULL, lmbRef );
 
 			if ( lmbResults )
 			{
+				Boolean		gotResults = CFArrayGetCount(lmbResults) > 0;
+				
 				for ( CFIndex j=CFArrayGetCount(lmbResults)-2; j>=0; j-=2 )
 				{
 					CFStringRef		workgroupRef = (CFStringRef)CFArrayGetValueAtIndex(lmbResults, j);
@@ -112,7 +117,13 @@ void LMBDiscoverer::DiscoverCurrentWorkgroups( void )
 
 				CFRelease( lmbResults );
 				
-				break;		// just need one set of results
+				if ( gotResults )
+				{
+					DBGLOG( "LMBDiscoverer::DiscoverCurrentWorkgroups got info from %@, ignore the rest\n", lmbRef );
+					break;		// just need one set of results
+				}
+
+				DBGLOG( "LMBDiscoverer::DiscoverCurrentWorkgroups info from %@ was useless, try another\n", lmbRef );
 			}
 		}
 

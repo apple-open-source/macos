@@ -535,9 +535,6 @@ unprint_playlist(const char *pfname)
 		nentries++;
 	}
 
-	if (nentries < 1)
-		errx(1, "no input");
-
 	if ((error = BC_write_playlist(pfname, pc, nentries)) != 0)
 		errx(1, "could not create playlist");
 	

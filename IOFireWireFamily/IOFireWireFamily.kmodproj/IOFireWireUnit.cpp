@@ -181,6 +181,12 @@ IOReturn IOFireWireUnit::message( 	UInt32 		mess,
 		messageClients( mess );
 		return kIOReturnSuccess;
 	}
+
+	if( kIOFWMessageTopologyChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
 	
     return IOService::message(mess, provider, argument );
 }
@@ -284,6 +290,16 @@ UInt32 IOFireWireUnit::getNodeFlags( void )
 		return fDevice->getNodeFlags();
 	else
 		return 0;
+}
+
+// setMaxSpeed
+//
+//
+
+void IOFireWireUnit::setMaxSpeed( IOFWSpeed speed )
+{
+	if( fDevice )
+		fDevice->setMaxSpeed( speed );
 }
 
 #pragma mark -

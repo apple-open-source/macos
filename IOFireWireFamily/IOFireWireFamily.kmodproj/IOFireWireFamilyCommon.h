@@ -32,6 +32,18 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.50  2003/11/07 21:01:18  niels
+	*** empty log message ***
+	
+	Revision 1.49  2003/10/21 01:16:41  collin
+	*** empty log message ***
+	
+	Revision 1.48  2003/10/17 00:25:24  collin
+	*** empty log message ***
+	
+	Revision 1.47  2003/10/15 02:19:45  collin
+	*** empty log message ***
+	
 	Revision 1.46  2003/07/22 10:49:47  niels
 	*** empty log message ***
 	
@@ -206,17 +218,19 @@ in the kernel and in user space
 // e0008101
 #define kIOFireWireBogusDCLProgram						iokit_fw_err(257)
 
-// e0008102		// let's resume here...
- #define kIOFireWireTalkingAndListening					iokit_fw_err(258)
+// e0008102
+#define kIOFireWireTalkingAndListening					iokit_fw_err(258)
 
-// e0008103		// let's resume here...
-// #define ???											iokit_fw_err(259)
+// e0008103
+#define kIOFireWireHardwareSlept						iokit_fw_err(259)
+
+// e0008104		// let's resume here...
+// #define ???											iokit_fw_err(260)
 
 // e00087d0
 #define kIOFWMessageServiceIsRequestingClose 			(UInt32)iokit_fw_err(2000)
 #define kIOFWMessagePowerStateChanged 					(UInt32)iokit_fw_err(2001)
-#define kIOFWMessageTopologyChanged						(UInt32)iofit_fw_err(2002)
-
+#define kIOFWMessageTopologyChanged						(UInt32)iokit_fw_err(2002)
 // =================================================================
 // Pseudo address space response codes
 // =================================================================
@@ -864,7 +878,8 @@ enum
 {
     kIOFWDisablePhysicalAccess 		= (1 << 0),
 	kIOFWDisableAllPhysicalAccess 	= (1 << 1),
-	kIOFWEnableRetryOnAckD			= (1 << 2)
+	kIOFWEnableRetryOnAckD			= (1 << 2),
+	kIOFWLimitAsyncPacketSize			= (1 << 3)
 };
 
 //

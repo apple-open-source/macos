@@ -1,0 +1,8 @@
+  This is the Debian GNU/Linux prepackaged version of fetchmail -- an
+email-retrieval and forwarding utility.
+
+ Two files have been included (fetchmail-up and fetchmail-down, found in
+/usr/doc/fetchmail) that can be used in /etc/ppp/ip-up.d and ip-down.d.
+Until there's a clear policy about the ip-up.d and ip-down.d directories,
+this will have to be done manually.
+

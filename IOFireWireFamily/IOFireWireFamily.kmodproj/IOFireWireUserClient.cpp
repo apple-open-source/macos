@@ -31,6 +31,24 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.96  2003/11/14 01:00:53  collin
+	*** empty log message ***
+	
+	Revision 1.95  2003/11/07 21:24:28  niels
+	*** empty log message ***
+	
+	Revision 1.94  2003/11/07 21:01:18  niels
+	*** empty log message ***
+	
+	Revision 1.93  2003/11/05 00:29:42  niels
+	*** empty log message ***
+	
+	Revision 1.92  2003/11/03 19:11:35  niels
+	fix local config rom reading; fix 3401223
+	
+	Revision 1.91  2003/10/31 02:40:58  niels
+	*** empty log message ***
+	
 	Revision 1.90  2003/09/20 00:54:17  collin
 	*** empty log message ***
 	
@@ -512,8 +530,8 @@ const IOFireWireUserClient::ExternalMethod IOFireWireUserClient::sMethods[ kNumM
 	// --- isoch channel methods ------------------------- 56
 	
 	, { 1, (IOMethod) & IOFireWireUserClient :: isochChannel_Create, kIOUCScalarIScalarO, 3, 1 }
-	, { 0, (IOMethod) & IOFWUserIsochChannel :: userAllocateChannelBegin, kIOUCScalarIScalarO, 3, 2 }
-	, { 0, (IOMethod) & IOFWUserIsochChannel :: userReleaseChannelComplete, kIOUCScalarIScalarO, 0, 0 }
+	, { 1, (IOMethod) & IOFireWireUserClient :: isochChannel_AllocateChannelBegin, kIOUCScalarIScalarO, 4, 2 }
+	, { 0, (IOMethod) & IOFWUserIsochChannel :: releaseChannelComplete, kIOUCScalarIScalarO, 0, 0 }
 
 	// --- command objects ---------------------- 59
 	
@@ -546,6 +564,10 @@ const IOFireWireUserClient::ExternalMethod IOFireWireUserClient::sMethods[ kNumM
 	
 	, { 1, (IOMethod) & IOFireWireUserClient :: clipMaxRec2K, kIOUCScalarIScalarO, 1, 0 }
 	, { 0, (IOMethod) & IOFWLocalIsochPort :: setIsochResourceFlags, kIOUCScalarIScalarO, 1, 0 }
+	
+	// v7
+	
+	, { 1, (IOMethod) & IOFireWireUserClient::getSessionRef, kIOUCScalarIScalarO, 0, 1 }
 } ;
 
 const IOFireWireUserClient::ExternalAsyncMethod IOFireWireUserClient :: sAsyncMethods[ kNumAsyncMethods ] =
@@ -691,6 +713,7 @@ IOFireWireUserClient :: userOpen ()
 	
 	if ( getOwner()->open( this ) )
 	{
+		fSelfOpenCount = 1 ;
 		fOpenClient = this ;
 		error = kIOReturnSuccess ;
 	}
@@ -722,6 +745,11 @@ IOFireWireUserClient :: userOpenWithSessionRef ( IOService * sessionRef )
 				{
 					fOpenClient = sessionRef ;	// sessionRef is the originally passed in user object
 				
+					if ( fOpenClient == this )
+					{
+						++fSelfOpenCount ;
+					} 
+				
 					break ;
 				}
 				
@@ -751,10 +779,15 @@ IOFireWireUserClient :: userClose ()
 	{
 		if (fOpenClient == this)
 		{
-			fOwner->close(this) ;
+			if ( fSelfOpenCount > 0 )
+			{
+				if ( --fSelfOpenCount == 0 )
+				{
+					fOwner->close(this) ;
+					fOpenClient = NULL ;
+				}
+			}
 		}
-		
-		fOpenClient = NULL ;
 	}		
 	
 	return result ;
@@ -1104,14 +1137,20 @@ IOFireWireUserClient :: localConfigDirectory_addEntry_Buffer (
 {
 	IOLocalConfigDirectory * dir = OSDynamicCast ( IOLocalConfigDirectory, fExporter->lookupObject ( dirHandle ) ) ;
 	if ( ! dir )
+	{
 		return kIOReturnBadArgument ;
-
+	}
+	
 	IOReturn error = kIOReturnSuccess ;
-	OSData * data = OSData :: withBytes ( buffer, kr_size ) ;
+	OSData * data = OSData :: withCapacity( kr_size ) ;
 	if ( !data )
+	{
 		error = kIOReturnNoMemory ;
+	}
 	else
 	{
+		copyUserData( (IOVirtualAddress)buffer, (IOVirtualAddress)data->getBytesNoCopy(), kr_size ) ;
+	
 		OSString * desc = NULL ;
 		if ( descCString )
 		{
@@ -2125,6 +2164,30 @@ IOFireWireUserClient :: isochChannel_Create (
 }
 
 IOReturn
+IOFireWireUserClient::isochChannel_AllocateChannelBegin(
+	UserObjectHandle		channelRef,
+	UInt32 					speed,
+	UInt32 					chansHi,
+	UInt32 					chansLo,
+	UInt32 * 				outSpeed,
+	UInt32 * 				outChannel )
+{
+	IOFWUserIsochChannel * channel = OSDynamicCast( IOFWUserIsochChannel, fExporter->lookupObject( channelRef ) ) ;
+	if ( ! channel )
+	{
+		return kIOReturnBadArgument ;
+	}
+
+	UInt64 allowedChans = ((UInt64)chansHi << 32) | (UInt64)chansLo ;
+	IOReturn error = channel->allocateChannelBegin( (IOFWSpeed)speed, allowedChans, outChannel ) ;
+	*outSpeed = speed;
+	
+	channel->release() ;	// lookup retains object, so we have to release it.
+	
+	return error ;
+}
+
+IOReturn
 IOFireWireUserClient::setAsyncRef_IsochChannelForceStop(
 	OSAsyncReference		inAsyncRef,
 	UserObjectHandle		channelRef )
@@ -2544,4 +2607,19 @@ IOFireWireUserClient :: s_userBufferFillPacketProc(
 	IOVirtualRange				packets[],
 	unsigned					packetCount )
 {
+}
+
+IOReturn
+IOFireWireUserClient :: getSessionRef( IOFireWireSessionRef * sessionRef )
+{
+    IOReturn error = kIOReturnSuccess;
+
+    if( !fOwner->isOpen( this ) ) 
+	{
+		return kIOReturnNotOpen ;
+	}
+	
+	*sessionRef = (IOFireWireSessionRef)this;
+    
+	return error ;
 }

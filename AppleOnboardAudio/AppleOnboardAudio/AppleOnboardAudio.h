@@ -12,6 +12,7 @@
 
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOUserClient.h>
+#include <IOKit/IOSyncer.h>
 
 #include "AudioHardwareCommon.h"
 #include "AudioHardwareConstants.h"
@@ -31,6 +32,8 @@ enum invokeInternalFunctionSelectors {
 #define kACPowerDownDelayTime			300000000000ULL				/* 300 seconds == 5 minutes		*/
 #define kiSubMaxVolume					60
 #define kiSubVolumePercent				92
+
+#define	kAOAPropertyHeadphoneExclusive	'hpex'						/*	Needs to be added to IOAudioTypes.h and then removed from here	*/
 
 typedef struct {
 	UInt32			layoutID;			//	identify the target CPU
@@ -80,7 +83,7 @@ typedef struct AOAStateUserClientStruct {
 	UInt32				ucPramData;
 	UInt32				ucPramVolume;
 	UInt32				ucPowerState;
-	UInt32				ucReserved_3;
+	UInt32				ucLayoutID;
 	UInt32				ucReserved_4;
 	UInt32				ucReserved_5;
 	UInt32				ucReserved_6;
@@ -159,7 +162,9 @@ typedef struct AOAStateUserClientStruct {
 #define kLimiterThreshold				"Threshold"
 #define kLimiterGain					"Gain"
 #define kLimiterRatio					"Ratio"
+#define kLimiterRatioBelow				"RatioBelow"
 #define kLimiterLookahead				"Lookahead"
+#define kLimiterRunInHardware			"RunInHardware"
 
 #define kCrossover						"Crossover"
 #define kCrossoverFrequency				"Frequency"
@@ -249,6 +254,8 @@ protected:
 	bool								mHeadLineDigExclusive;
 	bool								mClockSelectInProcessSemaphore;
 	bool								mSampleRateSelectInProcessSemaphore;
+	OSString *							mInternalSpeakerOutputString;
+	OSString *							mExternalSpeakerOutputString;
 	
 	// we keep the engines around to have a cleaner initHardware
     AppleDBDMAAudio *					mDriverDMAEngine;
@@ -299,6 +306,7 @@ protected:
 	IOService *							mProvider;
 	
 	IOAudioSampleRate					mTransportSampleRate;
+	IOSyncer *							mSignal;
 	
 public:
 	// Classical Unix funxtions
@@ -459,8 +467,6 @@ protected:
 	UInt32				parseOutputDetectCollection (void);
 	UInt32				parseInputDetectCollection (void);
 	void				selectOutput (const UInt32 inSelection, const bool inMuteState, const bool inUpdateAll = TRUE);
-	void				muteAnalogOuts ();
-	void				setAnalogCodecMute (UInt32 inValue);
 
 	char *				getConnectionKeyFromCharCode (const SInt32 inSelection, const UInt32 inDirection);
 

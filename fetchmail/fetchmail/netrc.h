@@ -27,8 +27,8 @@ typedef struct _netrc_entry {
   /* The exact host name given in the .netrc, NULL if default. */
   char *host;
 
-  /* The login name of the user. */
-  char *login;
+  /* The name of the account. */
+  char *account;
 
   /* Password for the account (NULL, if none). */
   char *password;

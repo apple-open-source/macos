@@ -44,6 +44,7 @@
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/SCSICommandDefinitions.h>
 #include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 #include <IOKit/scsi/IOSCSIProtocolInterface.h>
 
 

@@ -136,8 +136,13 @@ struct SubQTOCInfo
 {
 	
 	UInt8		sessionNumber;
-	UInt8		address:4;
-	UInt8		control:4;
+#ifdef __LITTLE_ENDIAN__
+    UInt8		control:4;
+    UInt8		address:4;
+#else /* !__LITTLE_ENDIAN__ */
+    UInt8		address:4;
+    UInt8		control:4;
+#endif /* !__LITTLE_ENDIAN__ */
 	UInt8		tno;
 	UInt8		point;
 	UInt8		ATIP[3];
@@ -187,27 +192,6 @@ struct SubQTOCInfo
 	
 };
 typedef struct SubQTOCInfo SubQTOCInfo;
-typedef struct SubQTOCInfo * SubQTOCInfoPtr;
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	QTOCDataFormat10 - 	Structure which describes the QTOCDataFormat10 defined in
-//					¥ MMC-2 NCITS T10/1228D SCSI MultiMedia Commands Version 2
-//					  rev 9.F April 1, 1999, p. 215				
-//					¥ ATAPI SFF-8020 rev 1.2 Feb 24, 1994, p. 149
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-
-struct QTOCDataFormat10
-{
-	
-	UInt16			TOCDataLength;
-	UInt8			firstSessionNumber;
-	UInt8			lastSessionNumber;
-	SubQTOCInfo		trackDescriptors[1];
-};
-typedef struct QTOCDataFormat10 QTOCDataFormat10;
-typedef struct QTOCDataFormat10 * QTOCDataFormat10Ptr;
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -233,7 +217,7 @@ static IOReturn
 PrintTOCForBSDNode ( const char * bsdNode );
 
 static void
-PrintTOCData ( QTOCDataFormat10Ptr TOCInfoPtr, OptionBits options );
+PrintTOCData ( CDTOC * TOCInfo, OptionBits options );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -373,7 +357,7 @@ PrintTOCForDisc ( io_object_t cdMedia )
 	
 	IOReturn				error 		= kIOReturnSuccess;
 	CFMutableDictionaryRef	properties 	= 0;
-	UInt8 *					TOCInfoPtr	= NULL;
+	UInt8 *					TOCInfo		= NULL;
 	CFDataRef     			data     	= NULL;
 	
 	error = IORegistryEntryCreateCFProperties ( cdMedia,
@@ -389,14 +373,14 @@ PrintTOCForDisc ( io_object_t cdMedia )
 												CFSTR ( kIOCDMediaTOCKey ) );
 	require ( ( data != NULL ), ReleaseProperties );
 	
-	TOCInfoPtr = CreateBufferFromCFData ( data );
-	require ( ( TOCInfoPtr != NULL ), ReleaseProperties );
+	TOCInfo = CreateBufferFromCFData ( data );
+	require ( ( TOCInfo != NULL ), ReleaseProperties );
 	
 	// Print the TOC
-	PrintTOCData ( ( QTOCDataFormat10Ptr ) TOCInfoPtr, 0 );
+	PrintTOCData ( ( CDTOC * ) TOCInfo, 0 );
 	
 	// free the memory
-	free ( ( char * ) TOCInfoPtr );
+	free ( ( char * ) TOCInfo );
 	
 	
 ReleaseProperties:
@@ -518,47 +502,40 @@ CreateBufferFromCFData ( CFDataRef theData )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
-PrintTOCData ( QTOCDataFormat10Ptr TOCInfoPtr, OptionBits options )
+PrintTOCData ( CDTOC * TOCInfo, OptionBits options )
 {
 	
-	SubQTOCInfoPtr			trackDescriptorPtr	= NULL;
-	UInt16					length				= 0;
+	SubQTOCInfo *			trackDescriptorPtr	= NULL;
 	UInt16					numberOfDescriptors = 0;
 	
-	if ( TOCInfoPtr != NULL )
+	if ( TOCInfo != NULL )
 	{
 		
-		// Grab the length and advance
-		length = TOCInfoPtr->TOCDataLength;
+		numberOfDescriptors = CDTOCGetDescriptorCount ( TOCInfo );
 		
-		length -= ( sizeof ( TOCInfoPtr->firstSessionNumber ) +
-					sizeof ( TOCInfoPtr->lastSessionNumber ) );
-		
-		numberOfDescriptors = length / ( sizeof ( SubQTOCInfo ) );
-		
-		printf ( "//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ\n" );
-		printf ( "//QTOCDataFormat10 info\n" );
-		printf ( "//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ\n\n" );
+		printf ( "//---------------------------------------\n" );
+		printf ( "//CDTOC info\n" );
+		printf ( "//---------------------------------------\n\n" );
 
 		printf ( "Number of descriptors\t= %d\n", numberOfDescriptors );
 		
 		if ( numberOfDescriptors <= 0 )
 		{
-
+			
 			printf ( "No tracks on this CD...\n" );
-
+			
 		}
 		
-		printf ( "TOCDataLength\t\t\t= %d\n",		TOCInfoPtr->TOCDataLength );
-		printf ( "firstSessionNumber\t\t= %d\n",	TOCInfoPtr->firstSessionNumber );
-		printf ( "lastSessionNumber\t\t= %d\n\n",	TOCInfoPtr->lastSessionNumber );
+		printf ( "length\t\t\t= %d\n",		OSSwapBigToHostInt16 ( TOCInfo->length ) );
+		printf ( "sessionFirst\t\t= %d\n",	TOCInfo->sessionFirst );
+		printf ( "sessionLast\t\t= %d\n\n",	TOCInfo->sessionLast );
 		
-		trackDescriptorPtr = TOCInfoPtr->trackDescriptors;
+		trackDescriptorPtr = ( SubQTOCInfo * ) TOCInfo->descriptors;
 		
 		while ( numberOfDescriptors > 0 )
 		{
 			
-			printf ( "//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ\n" );
+			printf ( "//---------------------------------------\n" );
 			if ( trackDescriptorPtr->point < 100 )
 			{
 				
@@ -573,13 +550,13 @@ PrintTOCData ( QTOCDataFormat10Ptr TOCInfoPtr, OptionBits options )
 			
 			}
 			
-			printf ( "//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ\n\n" );
+			printf ( "//---------------------------------------\n\n" );
 
-			printf ( "sessionNumber\t= %d\n", 		trackDescriptorPtr->sessionNumber );
+			printf ( "sessionNumber\t\t= %d\n", 	trackDescriptorPtr->sessionNumber );
 			printf ( "address\t\t\t= %d\n", 		trackDescriptorPtr->address );
 			printf ( "control\t\t\t= %d\t", 		trackDescriptorPtr->control );
 			printf ( "%s\n", 						( trackDescriptorPtr->control & kDigitalDataMask || ( trackDescriptorPtr->point < 1 || trackDescriptorPtr->point > 99 ) ) ? kDataTrackString : kAudioTrackString );
-			printf ( "tno\t\t\t\t= %d\n", 			trackDescriptorPtr->tno );
+			printf ( "tno\t\t\t= %d\n", 			trackDescriptorPtr->tno );
 			printf ( "ATIP[0]\t\t\t= %d\n", 		trackDescriptorPtr->ATIP[0] );
 			printf ( "ATIP[1]\t\t\t= %d\n", 		trackDescriptorPtr->ATIP[1] );
 			printf ( "ATIP[2]\t\t\t= %d\n", 		trackDescriptorPtr->ATIP[2] );
@@ -589,7 +566,7 @@ PrintTOCData ( QTOCDataFormat10Ptr TOCInfoPtr, OptionBits options )
 			{
 				
 				case 0xA0:
-					printf ( "firstTrackNum\t= %d\n", 	trackDescriptorPtr->PMSF.A0PMSF.firstTrackNum );
+					printf ( "firstTrackNum\t\t= %d\n", 	trackDescriptorPtr->PMSF.A0PMSF.firstTrackNum );
 					printf ( "discType\t\t= %d\t", 			trackDescriptorPtr->PMSF.A0PMSF.discType );
 					switch ( trackDescriptorPtr->PMSF.A0PMSF.discType )
 					{
@@ -612,7 +589,7 @@ PrintTOCData ( QTOCDataFormat10Ptr TOCInfoPtr, OptionBits options )
 					break;
 
 				case 0xA1:
-					printf ( "lastTrackNum\t= %d\n", 	trackDescriptorPtr->PMSF.A1PMSF.lastTrackNum );
+					printf ( "lastTrackNum\t\t= %d\n", 	trackDescriptorPtr->PMSF.A1PMSF.lastTrackNum );
 					printf ( "reserved[0]\t\t= %d\n", 	trackDescriptorPtr->PMSF.A1PMSF.reserved[0] );
 					printf ( "reserved[1]\t\t= %d\n", 	trackDescriptorPtr->PMSF.A1PMSF.reserved[1] );
 					break;

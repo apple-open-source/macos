@@ -1073,7 +1073,7 @@ void AppleDBDMAAudio::chooseInputConversionRoutinePtr()
 
 IOReturn AppleDBDMAAudio::clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-	IOReturn result;
+	IOReturn result = kIOReturnSuccess;
  
  	// if the DMA went bad restart it
 	if (mNeedToRestartDMA) {
@@ -1083,8 +1083,10 @@ IOReturn AppleDBDMAAudio::clipOutputSamples(const void *mixBuf, void *sampleBuf,
 
 	startTiming();
 
-	// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
-	result = (*this.*mClipAppleDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+	if (0 != numSampleFrames) {
+		// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
+		result = (*this.*mClipAppleDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+	}
 
 	endTiming();
 
@@ -2010,6 +2012,7 @@ void AppleDBDMAAudio::resetOutputClipOptions() {
 	fNeedsRightChanDelay = false;
 	fNeedsRightChanMixed = false;
 	fNeedsBalanceAdjust = false;
+	chooseOutputClippingRoutinePtr();
 }
 
 void AppleDBDMAAudio::resetInputClipOptions() {
@@ -2032,7 +2035,7 @@ void AppleDBDMAAudio::setEqualizationFromDictionary (OSDictionary * inDictionary
 	Boolean							runInSoftware;
 	UInt32							filtersInSoftwareCount;
 	
-	debug2IOLog ("AppleDBDMAAudio::setEqualizationFromDictionary (%p)\n", inDictionary);
+	debug2IOLog ("+ AppleDBDMAAudio::setEqualizationFromDictionary (%p)\n", inDictionary);
 
 	collectionIterator = OSCollectionIterator::withCollection (inDictionary);
 	FailIf (NULL == collectionIterator, Exit);
@@ -2110,7 +2113,7 @@ void AppleDBDMAAudio::setEqualizationFromDictionary (OSDictionary * inDictionary
 			debug3IOLog ("mCurrentEQStructPtr->b2[%ld] = 0x%lx\n", index, *((UInt32 *)&(mCurrentEQStructPtr->b2[index])));
 			debug3IOLog ("mCurrentEQStructPtr->a1[%ld] = 0x%lx\n", index, *((UInt32 *)&(mCurrentEQStructPtr->a1[index])));
 			debug3IOLog ("mCurrentEQStructPtr->a2[%ld] = 0x%lx\n", index, *((UInt32 *)&(mCurrentEQStructPtr->a2[index])));
-			
+
 		}
 	}
 
@@ -2120,11 +2123,12 @@ void AppleDBDMAAudio::setEqualizationFromDictionary (OSDictionary * inDictionary
 	mCurrentEQStructPtr->bypassAll = false;
 
 	// set hardware EQ in non-realtime mode
-	(ourProvider->getCurrentOutputPlugin ())->setEQ ((void *)mCurrentEQStructPtr, FALSE);
+	(ourProvider->getCurrentOutputPlugin ())->setEQProcessing ((void *)mCurrentEQStructPtr, FALSE);
 	
 	collectionIterator->release ();
 
 Exit:
+	debug2IOLog ("- AppleDBDMAAudio::setEqualizationFromDictionary (%p)\n", inDictionary);
 	return;   	
 }	
 
@@ -2249,6 +2253,7 @@ void AppleDBDMAAudio::setLimiterFromDictionary (OSDictionary * inDictionary)
 	UInt32							typeCode;
 	UInt32							bandIndex;
 	UInt32							count;
+	OSBoolean *						theBoolean;
 	
 	debug2IOLog ("AppleDBDMAAudio::setLimiterFromDictionary (%p)\n", inDictionary);
 
@@ -2278,14 +2283,14 @@ void AppleDBDMAAudio::setLimiterFromDictionary (OSDictionary * inDictionary)
 
 		if (NULL != theLimiterDict) {
 			typeNumber = OSDynamicCast (OSNumber, theLimiterDict->getObject (kLimiterType));
-			debug2IOLog ("typeNumber = %p\n", typeNumber);
+			debug2IOLog ("kLimiterType typeNumber = %p\n", typeNumber);
 			FailIf (NULL == typeNumber, Exit);
 			typeCode = typeNumber->unsigned32BitValue ();
 			debug2IOLog ("limiter type = %4s\n", (char *)&typeCode);
 			limiterParams.type = (LimiterType)typeCode;
 
 			bandIndexNumber = OSDynamicCast (OSNumber, theLimiterDict->getObject (kLimiterBandIndex));
-			debug2IOLog ("bandIndexNumber = %p\n", bandIndexNumber);
+			debug2IOLog ("kLimiterBandIndex bandIndexNumber = %p\n", bandIndexNumber);
 			FailIf (NULL == bandIndexNumber, Exit);
 			bandIndex = bandIndexNumber->unsigned32BitValue ();
 			debug2IOLog ("band index = %ld\n", bandIndex);
@@ -2294,31 +2299,43 @@ void AppleDBDMAAudio::setLimiterFromDictionary (OSDictionary * inDictionary)
 
 			parameterData = OSDynamicCast (OSData, theLimiterDict->getObject (kLimiterAttackTime));
 			FailIf (NULL == parameterData, Exit);
-			debug2IOLog ("parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
+			debug2IOLog ("kLimiterAttackTime parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
 			memcpy (&(limiterParams.attack), parameterData->getBytesNoCopy (), 4);
 
 			parameterData = OSDynamicCast (OSData, theLimiterDict->getObject (kLimiterReleaseTime));
 			FailIf (NULL == parameterData, Exit);
-			debug2IOLog ("parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
+			debug2IOLog ("kLimiterReleaseTime parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
 			memcpy (&(limiterParams.release), parameterData->getBytesNoCopy (), 4);
 
 			parameterData = OSDynamicCast (OSData, theLimiterDict->getObject (kLimiterThreshold));
 			FailIf (NULL == parameterData, Exit);
-			debug2IOLog ("parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
+			debug2IOLog ("kLimiterThreshold parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
 			memcpy (&(limiterParams.threshold), parameterData->getBytesNoCopy (), 4);
 
 			parameterData = OSDynamicCast (OSData, theLimiterDict->getObject (kLimiterRatio));
 			FailIf (NULL == parameterData, Exit);
-			debug2IOLog ("parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
+			debug2IOLog ("kLimiterRatio parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
 			memcpy (&(limiterParams.ratio), parameterData->getBytesNoCopy (), 4);
+
+			parameterData = OSDynamicCast (OSData, theLimiterDict->getObject (kLimiterRatioBelow));
+			FailIf (NULL == parameterData, Exit);
+			debug2IOLog ("kLimiterRatioBelow parameterData = %lx\n", *(UInt32 *)(parameterData->getBytesNoCopy ()));
+			memcpy (&(limiterParams.ratioBelow), parameterData->getBytesNoCopy (), 4);
 
 			parameterNumber = OSDynamicCast (OSNumber, theLimiterDict->getObject (kLimiterLookahead));
 			FailIf (NULL == parameterNumber, Exit);
-			debug2IOLog ("parameterNumber = %x\n", parameterNumber->unsigned32BitValue ());
+			debug2IOLog ("kLimiterLookahead parameterNumber = %x\n", parameterNumber->unsigned32BitValue ());
 			limiterParams.lookahead = parameterNumber->unsigned32BitValue ();
 
+			theBoolean = OSDynamicCast (OSBoolean, theLimiterDict->getObject (kLimiterRunInHardware));
+			if (NULL != theBoolean) {
+				limiterParams.runInHardware = theBoolean->getValue ();
+			} else {
+				limiterParams.runInHardware = FALSE;
+			}
+			
 			// FIX: only use member structure, and not this local variable once this works...
-			memcpy (&(mLimiterParams[index]), &limiterParams, sizeof(LimiterParamStruct));
+			memcpy (&(mLimiterParams[bandIndex]), &limiterParams, sizeof(LimiterParamStruct));
 
 			setLimiterCoefficients (&limiterParams, mCurrentLimiterStructPtr, bandIndex, sampleRate.whole);
 
@@ -2340,6 +2357,12 @@ void AppleDBDMAAudio::setLimiterFromDictionary (OSDictionary * inDictionary)
 	debug2IOLog ("mCurrentLimiterStructPtr->numLimiters = %ld\n", mCurrentLimiterStructPtr->numLimiters);
 
 	mCurrentLimiterStructPtr->bypassAll = false;
+
+	if ( mLimiterParams[kHardwareLimiterIndex].runInHardware ) {
+		(ourProvider->getCurrentOutputPlugin ())->setDRCProcessing ((void*)&mLimiterParams[kHardwareLimiterIndex], FALSE);
+	} else {
+		(ourProvider->getCurrentOutputPlugin ())->setDRCProcessing ((void*)NULL, FALSE);
+	}
 
 	collectionIterator->release ();
 
@@ -2396,12 +2419,12 @@ void AppleDBDMAAudio::setCrossoverFromDictionary (OSDictionary * inDictionary)
 		debug2IOLog ("mCurrentCrossoverStructPtr->outBufferPtr[1] = %p\n", mCurrentCrossoverStructPtr->outBufferPtr[1]);
 			
 	}
-	
+#if 0	
 	if (mCurrentLimiterStructPtr->numLimiters != crossoverParams.numBands) {
 		IOLog ("AppleDBDMAAudio: bad info plist - mismatched number of limiters (%ld) for specified crossover (%ld bands).\n", mCurrentLimiterStructPtr->numLimiters, crossoverParams.numBands);
 		crossoverParams.numBands = 0;
 	}
-
+#endif
 Exit:
 	return;   	
 }
@@ -2949,7 +2972,7 @@ IOReturn AppleDBDMAAudio::applySoftwareProcessingState (SetSoftProcUserClientStr
 		mCurrentCrossoverStructPtr = secondaryCrossoverPtr;
 	
 		// Send latest state to current output hardware in realtime mode
-		(ourProvider->getCurrentOutputPlugin ())->setEQ ((void *)secondaryEQPtr, TRUE);
+		(ourProvider->getCurrentOutputPlugin ())->setEQProcessing ((void *)secondaryEQPtr, TRUE);
 		
 	} else {
 		debugIOLog ("inputProcessing enabled.\n");
@@ -3119,7 +3142,7 @@ void AppleDBDMAAudio::updateDSPForSampleRate (UInt32 inSampleRate) {
 			#endif
 		}
 		// update hardware EQ in non-realtime mode
-		(ourProvider->getCurrentOutputPlugin ())->setEQ ((void *)mCurrentEQStructPtr, FALSE);
+		(ourProvider->getCurrentOutputPlugin ())->setEQProcessing ((void *)mCurrentEQStructPtr, FALSE);
 	}
 
 	#ifdef LOG_SOFT_DSP

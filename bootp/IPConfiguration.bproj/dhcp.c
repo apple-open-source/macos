@@ -201,6 +201,7 @@ static u_char dhcp_static_default_params[] = {
     dhcptag_slp_directory_agent_e,
     dhcptag_slp_service_scope_e,
     dhcptag_ldap_url_e,
+    dhcptag_proxy_auto_discovery_url_e,
 };
 static int	n_dhcp_static_default_params 
 	= sizeof(dhcp_static_default_params) / sizeof(dhcp_static_default_params[0]);
@@ -1971,7 +1972,7 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  dhcp_lease_t 		lease = SUGGESTED_LEASE_LENGTH;
 	  bootp_receive_data_t *pkt = (bootp_receive_data_t *)event_data;
 	  dhcp_msgtype_t	reply_msgtype = dhcp_msgtype_none_e;
-	  struct in_addr	server_ip;
+	  struct in_addr	server_ip = { 0 };
 
 	  if (verify_packet(pkt, dhcp->xid, if_p, &reply_msgtype,
 			    &server_ip, &is_dhcp) == FALSE
@@ -1981,6 +1982,11 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 
 	  if (reply_msgtype == dhcp_msgtype_nak_e) {
+	      if (server_ip.s_addr == 0 
+		  || server_ip.s_addr != dhcp->saved.server_ip.s_addr) {
+		  /* reject the packet */
+		  break; /* out of switch */
+	      }
 	      /* clean-up anything that might have come before */
 	      dhcp_cancel_pending_events(service_p);
 

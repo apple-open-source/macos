@@ -4748,11 +4748,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 </dict>
 </plist>
 ";
@@ -5207,7 +5207,7 @@
 			refType = 4;
 		};
 		F68A745003A1B10001DF2EE2 = {
-			fileEncoding = 30;
+			fileEncoding = 10;
 			isa = PBXFileReference;
 			name = English;
 			path = "Drivers/L2TP/L2TP-plugin/English.lproj/InfoPlist.strings";
@@ -6185,11 +6185,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>PPPPluginType</key>
 	<string>Link</string>
 </dict>
@@ -6282,7 +6282,7 @@
 				MODULE_NAME = com.apple.nke.lttp;
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.3.1;
 				OTHER_CFLAGS = "-I/System/Library/Frameworks/System.framework/PrivateHeaders";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -6319,11 +6319,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>

@@ -24,12 +24,6 @@ static const double kOneOverSqrtOf2 			= 0.7071067811865475;
 
 static const float kFourDotTwentyScaleFactor 	= 1048576.0f;
 
-//static const float kDefaultLimiterThreshold 	= -0.01660964f;					// -0.1 dB in log2, -0.083048202f = -0.5dB in log2
-//static const float kDefaultOneMinusOneOverRatio = 1.0f;							// 1 - 1/ratio, set for ratio = infinity
-//static const float kDefaultTa 					= 1.0f - 0.977579425f;			// 1 ms
-//static const float kDefaultTr 					= 1.0f - 0.999244427f;			// 30 ms
-static const float kDefaultLookahead 			= 30; 							// 333 us @ 44.1kHz
-
 static const float kMixingToMonoScale 			= 0.5f;
 
 static const float kOneOver65535 				= 1.0f/65535.0f;
@@ -421,8 +415,7 @@ void mixAndMuteRightChannel(float* inFloatBufferPtr, UInt32 numSamples)
 	}
 }
 
-void equalizer(float *inBuf, UInt32 numSamples, EQStructPtr inEQ) {	
-	return;
+void equalizer(float *inBuf, UInt32 numSamples, EQStructPtr inEQ) {
 }
 
 IOReturn limiter(float* inFloatBufferPtr, UInt32 inNumSamples, LimiterStructPtr ioLimiterState, UInt32 index)
@@ -441,19 +434,17 @@ void multibandLimiter(float *inFloatBufferPtr, UInt32 numSamples, CrossoverStruc
 #pragma mark ••• Processing State
 #pragma mark ------------------------ 
 
-void setLimiterCoefficients(LimiterParamStructPtr inParams, LimiterStructPtr ioLimiter, UInt32 index, UInt32 inSampleRate) {
+void setLimiterCoefficients(LimiterParamStructPtr inParams, LimiterStructPtr ioLimiter, UInt32 index, UInt32 inSampleRate) {	
 	return;
 }
 
 void setEQCoefficients(EQParamStructPtr inParams, EQStructPtr ioEQ, UInt32 index, UInt32 inSampleRate) {
 }
 
-void setCrossoverCoefficients(CrossoverParamStructPtr inParams, CrossoverStructPtr ioCrossover, UInt32 inSampleRate)
-{
+void setCrossoverCoefficients(CrossoverParamStructPtr inParams, CrossoverStructPtr ioCrossover, UInt32 inSampleRate) {
 }
 
 void resetLimiter (LimiterStructPtr ioLimiter) {
-	return;
 }
 
 void resetEQ (EQStructPtr inEQ) {

@@ -22,7 +22,6 @@ typedef enum HardwarePluginType {
 	kCodec_TAS3004,
 	kCodec_CS8406,
 	kCodec_CS8420,
-	kCodec_PCM3052,
 	kCodec_CS8416
 } ;
 

@@ -252,7 +252,7 @@ struct vop_lookup_args {
 	
 	
 	// Determine if we're looking for a resource fork.
-	// note: this could cause a read off the end of the component name buffer in some rare cases.
+	// NB: this could cause a read off the end of the component name buffer in some rare cases.
 	if ( ( flags & ISLASTCN ) == 0 && bcmp ( &compNamePtr->cn_nameptr[compNamePtr->cn_namelen],
 											 _PATH_RSRCFORKSPEC,
 											 sizeof ( _PATH_RSRCFORKSPEC ) - 1 ) == 0 )
@@ -344,9 +344,7 @@ struct vop_lookup_args {
 	}
 	
 	// Now check for the name of the root directory (usually "Audio CD", but could be anything)
-	if ( !strncmp ( &compNamePtr->cn_nameptr[1],
-		 parentCDDANodePtr->u.directory.name,
-		 strlen ( parentCDDANodePtr->u.directory.name ) ) )
+	if ( strcmp ( &compNamePtr->cn_nameptr[0], parentCDDANodePtr->u.directory.name ) == 0 )
 	{
 		
 		DebugLog ( ( "The root directory was requested by name = %s\n", parentCDDANodePtr->u.directory.name ) );
@@ -736,7 +734,8 @@ struct vop_read_args {
 			
 		}
 		
-		if ( uio->uio_resid > 0 )
+		if ( ( uio->uio_resid > 0  ) &&
+			 ( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 		{
 			
 			// Adjust offset by the header size so we have a true offset into the media.
@@ -751,8 +750,9 @@ struct vop_read_args {
 			if ( sectorOffset != 0 )
 			{
 				
-				// Clip to requested transfer count.
+				// Clip to requested transfer count and end of file.
 				count = ulmin ( uio->uio_resid, ( kPhysicalMediaBlockSize - sectorOffset ) );
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
 				
 				// Read the one sector
 				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
@@ -788,7 +788,8 @@ struct vop_read_args {
 			// We will read multiple disc blocks up to MAXBSIZE bytes in a loop until we hit a chunk which
 			// is less than one block size. That will be read in the third part.
 			
-			while ( uio->uio_resid > kPhysicalMediaBlockSize )
+			while ( ( uio->uio_resid > kPhysicalMediaBlockSize ) &&
+					( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
 				UInt32		blocksToRead = 0;
@@ -821,6 +822,8 @@ struct vop_read_args {
 					
 				}
 				
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
+				
 				// Move the data from the block into the buffer
 				uiomove ( bufPtr->b_data, count, uio );
 				
@@ -839,10 +842,11 @@ struct vop_read_args {
 			// Part 3
 			// Now that we have read everything, we read the tail end which is a partial sector.
 			// Sometimes we don't need to execute this step since there isn't a tail.
-			if ( uio->uio_resid > 0 )
+			if ( ( uio->uio_resid > 0  ) &&
+				 ( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				count = uio->uio_resid;
+				count = ulmin ( uio->uio_resid, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
 				
 				// Read the one sector
 				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
@@ -874,7 +878,7 @@ struct vop_read_args {
 	DebugLog ( ( "CDDA_Read: exiting.\n" ) );
 	
 	return ( error );
-		
+	
 }
 
 
@@ -1297,7 +1301,8 @@ struct vop_pagein_args {
 			
 		}
 		
-		if ( residual > 0 )
+		if ( ( residual > 0 ) &&
+			 ( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 		{
 			
 			// Adjust offset by the header size so we have a true offset into the media.
@@ -1312,8 +1317,9 @@ struct vop_pagein_args {
 			if ( sectorOffset != 0 )
 			{
 				
-				// Clip to requested transfer count.
+				// Clip to requested transfer count and end of file.
 				count = ulmin ( residual, ( kPhysicalMediaBlockSize - sectorOffset ) );
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
 				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
@@ -1353,7 +1359,8 @@ struct vop_pagein_args {
 			// We will read multiple disc blocks up to MAXBSIZE bytes in a loop until we hit a chunk which
 			// is less than one block size. That will be read in the third part.
 			
-			while ( residual > kPhysicalMediaBlockSize )
+			while ( ( residual > kPhysicalMediaBlockSize ) &&
+					( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
 				UInt32		blocksToRead = 0;
@@ -1385,7 +1392,9 @@ struct vop_pagein_args {
 					return ( error );
 					
 				}
-
+				
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
+				
 				// Copy the data
 				bcopy ( bufPtr->b_data, ( void * ) vmOffsetPtr + offset + headerSize, count );
 				
@@ -1408,10 +1417,11 @@ struct vop_pagein_args {
 			// Part 3
 			// Now that we have read everything, we read the tail end which is a partial sector.
 			// Sometimes we don't need to execute this step since there isn't a tail.
-			if ( residual > 0 )
+			if ( ( residual > 0  ) &&
+				 ( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				count = residual;
+				count = ulmin ( residual, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
 				error = bread ( cddaNodePtr->blockDeviceVNodePtr,

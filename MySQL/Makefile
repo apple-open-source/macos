@@ -13,7 +13,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	= MySQL
-MYSQL_VERSION	= mysql-4.0.14
+MYSQL_VERSION	= mysql-4.0.16
 BUILD_DIR	= /usr
 STAGING_DIR 	:= $(shell mktemp -d /tmp/mysql-tmp-XXXXXX)
 SHARE_DIR	= /usr/share

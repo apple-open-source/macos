@@ -211,6 +211,57 @@ void K2Platform::free()
 	debugIOLog ("- K2Platform::free()\n");
 }
 
+//	--------------------------------------------------------------------------------
+//	Leave the interrupts running on K2 because it appears that interrupts cannot be
+//	re-enabled after being disabled.
+IOReturn K2Platform::performPlatformSleep ( void ) {
+	return kIOReturnSuccess;
+}
+
+
+//	--------------------------------------------------------------------------------
+//	Since K2 is not unregistering interrupts on sleep, re-registration of the interrupts
+//	upon wake is avoided.  Registration would have invoked each of the interrupt handlers
+//	so that task is performed here.
+IOReturn K2Platform::performPlatformWake ( IOService * device ) {
+	FailIf (NULL == device, Exit );
+
+	if ( kGPIO_Unknown != getHeadphoneConnected() ) {
+		headphoneDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getSpeakerConnected() ) {
+		speakerDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getLineInConnected() ) {
+		lineInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getLineOutConnected() ) {
+		lineOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getDigitalInConnected() && kGPIO_Unknown == getComboInJackTypeConnected() ) {
+		digitalInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getDigitalOutConnected() && kGPIO_Unknown == getComboOutJackTypeConnected() ) {
+		digitalOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+
+	if ( kGPIO_Unknown != getCodecInterrupt() ) {
+		codecInterruptHandler ( device, NULL, 0, 0 );
+	}
+	
+	if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
+		codecErrorInterruptHandler ( device, NULL, 0, 0 );
+	}
+Exit:
+	return kIOReturnSuccess;
+}
+
+
 #pragma mark ---------------------------
 #pragma mark Codec Methods	
 #pragma mark ---------------------------

@@ -1,0 +1,30 @@
+This package was first debianized by Paul Haggart <phaggart@debian.org> on
+Mon, 18 Nov 1996 16:58:49 -0500.
+
+It was downloaded from:
+	ftp://ftp.ccil.org/pub/esr/fetchmail/fetchmail-*.tar.gz
+
+Copyright:
+
+The code in the fetchmail distribution is Copyright 1996 by Eric S. Raymond.
+Portions are also copyrighted by Carl Harris, 1993 and 1995.  Copyright
+retained for the purpose of protecting free redistribution of source.
+
+			NO-VIRUS CLAUSE
+
+The intent of this license is to protect free redistribution and reuse of the
+source of the licensed distribution, not to prejudice the authorship
+rights of programmers of other code to control their original inventions.
+
+No portion of this license is to be interpreted as forbidding the reuse of
+this code or its constituent parts, algorithms, or inventions in commercial
+products.
+
+Nor shall such inclusion be construed to require the GPLing or disclosure of
+any portions of said commercial products other than those falling under
+the copyright of the licensed distribution.
+
+-------------------------------------------------------------------------------
+
+  Standard GNU GPL follows.. see /usr/doc/copyright/GPL
+

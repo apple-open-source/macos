@@ -93,6 +93,7 @@ protected:
     virtual const char*			GetLocalNodeString		( void );		// this is the user's "Local" location
     virtual Boolean 			IsLocalNode				( const char *inNode );
     
+	virtual	UInt32				GetTimeBetweenNodeLookups	( void );
     virtual void				NewNodeLookup			( void );		// this should fire off some threads in the subclass
     virtual	void				NewServiceLookup		( char* serviceType, CNSLDirNodeRep* nodeDirRep );
     virtual Boolean				OKToOpenUnPublishedNode	( const char* parentNodeName );   
@@ -118,6 +119,7 @@ private:
 			Boolean					mInitialSearch;
 			Boolean					mNeedFreshLookup;
 			Boolean					mCurrentSearchCanceled;
+			UInt32					mTimeBetweenLookups;
 			
 			LMBDiscoverer*			mLMBDiscoverer;
 };

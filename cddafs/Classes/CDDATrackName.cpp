@@ -49,6 +49,10 @@
 #define PRINT(x)
 #endif
 
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING "CDDATrackName"
+#include <AssertMacros.h>
+
+
 #define kCDDAFSUtilBundlePath	"/System/Library/Filesystems/cddafs.fs"
 #define kArtistString			"Artist"
 #define kTitleString			"Title"

@@ -112,7 +112,7 @@ public:
 protected:
 	// handles IRM and channel determination and allocation.
 	// called by both user and kernel isoch channels
-	IOReturn					allocateChannelBegin( IOFWSpeed speed, UInt64 allowedChans, UInt32& channel ) ;
+	IOReturn					allocateChannelBegin( IOFWSpeed speed, UInt64 allowedChans, UInt32 * channel = NULL ) ;
 
 	// handles IRM and channel allocation.
 	// called by both user and kernel isoch channels

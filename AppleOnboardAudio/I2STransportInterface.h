@@ -149,6 +149,9 @@ public:
 	
 	virtual UInt32		transportGetSampleRate ( void );
 
+	IOReturn			transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue );
+	UInt32				transportGetPeakLevel ( UInt32 channelTarget );
+	
 	//	------------------------------
 	//	USER CLIENT
 	//	------------------------------

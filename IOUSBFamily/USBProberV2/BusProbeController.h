@@ -45,3 +45,4 @@
 - (void)busProberInformationDidChange:(BusProber *)aProber;
 - (void)expandOutlineViewItems;
 
+@end

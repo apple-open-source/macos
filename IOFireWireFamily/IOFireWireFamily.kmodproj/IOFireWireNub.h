@@ -110,6 +110,8 @@ class IOFireWireNub : public IOService
 
     friend class IOFireWireController;
     friend class IOFireWireNubAux;
+	friend class IOFireWireDeviceAux;
+	friend class IOFireWireUnitAux;
    
 /*------------------Useful info about device (also available in the registry)--------*/
 protected:

@@ -77,6 +77,7 @@ void Apple02Audio::free()
 	if (NULL != mPowerThread) {
 		thread_call_free (mPowerThread);
 	}
+	CLEAN_RELEASE(mSignal);
 
     super::free();
     DEBUG_IOLOG("- Apple02Audio::free, (void)\n");
@@ -281,6 +282,8 @@ bool Apple02Audio::initHardware (IOService * provider) {
 
 	result = FALSE;
 
+	mSignal = IOSyncer::create (FALSE);
+
 	mInitHardwareThread = thread_call_allocate ((thread_call_func_t)Apple02Audio::initHardwareThread, (thread_call_param_t)this);
 	FailIf (NULL == mInitHardwareThread, Exit);
 
@@ -436,6 +439,7 @@ IOReturn Apple02Audio::protectedInitHardware (IOService * provider) {
 	}
 
 	sndHWPostThreadedInit (provider); // [3284411]
+	mSignal->signal (kIOReturnSuccess, FALSE);
 	gExpertMode = FALSE;
 
 	result = TRUE;
@@ -1392,6 +1396,8 @@ void Apple02Audio::performPowerStateChangeThread (Apple02Audio * aoa, thread_cal
 	IOCommandGate *			cg;
 
 	FailIf (NULL == aoa, Exit);
+
+	aoa->mSignal->wait (FALSE);
 
 	FailIf (TRUE == aoa->mTerminating, Exit);	
 	cg = aoa->getCommandGate ();

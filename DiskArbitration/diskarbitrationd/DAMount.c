@@ -553,16 +553,16 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      * terminated.
      */
 
-    CFStringRef                argument     = NULL;
-    va_list                    arguments    = { 0 };
-    Boolean                    automatic    = FALSE;
-    __DAMountCallbackContext * context      = NULL;
-    CFIndex                    count        = 0;
-    DAFileSystemRef            filesystem   = DADiskGetFileSystem( disk );
-    CFIndex                    index        = 0;
-    CFDictionaryRef            map          = NULL;
-    CFMutableStringRef         options      = NULL;
-    int                        status       = 0;
+    CFStringRef                argument   = NULL;
+    va_list                    arguments  = { 0 };
+    Boolean                    automatic  = FALSE;
+    __DAMountCallbackContext * context    = NULL;
+    CFIndex                    count      = 0;
+    DAFileSystemRef            filesystem = DADiskGetFileSystem( disk );
+    CFIndex                    index      = 0;
+    CFDictionaryRef            map        = NULL;
+    CFMutableStringRef         options    = NULL;
+    int                        status     = 0;
 
     /*
      * Initialize our minimal state.
@@ -897,10 +897,9 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->options         = options;
 
 ///w:start
-    if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN ||
-         ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "cd9660" ) ) == FALSE &&
-           CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs"    ) ) == FALSE &&
-           CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "ufs"    ) ) == FALSE ) )
+    if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "cd9660" ) ) == FALSE &&
+         CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs"    ) ) == FALSE &&
+         CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "ufs"    ) ) == FALSE )
     {
         DAFileSystemMountWithArguments( DADiskGetFileSystem( disk ),
                                         DADiskGetDevice( disk ),

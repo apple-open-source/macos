@@ -46,6 +46,7 @@
 #define kDefaultGroupName			"WORKGROUP"
 
 #define	kMaxNumLMBsForAggressiveSearch	0		// more than 10 LMBs in your subnet, we take it easy.
+#define	kInitialTimeBetweenNodeLookups	60		// look again in a minute if we haven't found any LMBs
 
 const char* GetCodePageStringForCurrentSystem( void );
 
@@ -92,6 +93,7 @@ CSMBPlugin::CSMBPlugin( void )
 	mInitialSearch = true;
 	mNeedFreshLookup = true;
 	mCurrentSearchCanceled = false;
+	mTimeBetweenLookups = kInitialTimeBetweenNodeLookups;
 }
 
 CSMBPlugin::~CSMBPlugin( void )
@@ -711,6 +713,7 @@ sInt32 CSMBPlugin::HandleNetworkTransition( sHeader *inData )
 		mNeedFreshLookup = true;
 		mCurrentSearchCanceled = true;
 		ZeroLastNodeLookupStartTime();		// force this to start again
+		mTimeBetweenLookups = kInitialTimeBetweenNodeLookups;
 		
 		siResult = CNSLPlugin::HandleNetworkTransition( inData );
 	}
@@ -917,6 +920,23 @@ void CSMBPlugin::NodeLookupIsCurrent( void )
 	UnLockNodeState();
 }
 
+UInt32 CSMBPlugin::GetTimeBetweenNodeLookups( void )
+{
+	if ( mTimeBetweenLookups < kOncePerDay )	// are we still in a situation where we haven't found any LMBs?
+	{
+		CFDictionaryRef		knownLMBDictionary = OurLMBDiscoverer()->GetAllKnownLMBs();
+		
+		if ( knownLMBDictionary && CFDictionaryGetCount( knownLMBDictionary ) > 0 )
+			mTimeBetweenLookups = kOncePerDay;
+		else
+			mTimeBetweenLookups *= 2;			// we still haven't found any LMBs, back off node discovery
+	}
+	else if ( mTimeBetweenLookups > kOncePerDay )
+		mTimeBetweenLookups = kOncePerDay;
+	
+	return mTimeBetweenLookups;
+}
+
 void CSMBPlugin::NewNodeLookup( void )
 {
 	DBGLOG( "CSMBPlugin::NewNodeLookup\n" );
@@ -962,31 +982,22 @@ void CSMBPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep
 			
 			CFArrayRef listOfLMBs = OurLMBDiscoverer()->CopyBroadcastResultsForLMB( workgroupRef );
 			
-			if ( listOfLMBs )
+			if ( listOfLMBs || !GetWinsServer() )
 			{
 				char	workgroup[256];
 				CFStringGetCString( nodeDirRep->GetNodeName(), workgroup, sizeof(workgroup), kCFStringEncodingUTF8 );
-				DBGLOG( "CSMBPlugin::NewServiceLookup doing lookup on %ld LMBs responsible for %s\n", CFArrayGetCount(listOfLMBs), workgroup );
-				for ( CFIndex i=CFArrayGetCount(listOfLMBs)-1; i>=0; i-- )
-				{
-					CFStringRef lmbNameRef = (CFStringRef)CFArrayGetValueAtIndex( listOfLMBs, i );
+				DBGLOG( "CSMBPlugin::NewServiceLookup doing lookup on %ld LMBs responsible for %s\n", (listOfLMBs)?CFArrayGetCount(listOfLMBs):0, workgroup );
 
-//					if ( !OurLMBDiscoverer()->IsLMBOnBadList( lmbNameRef ) )
-					{
-						CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, lmbNameRef );
+				CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs );
 				
 						// if we have too many threads running, just queue this search object and run it later
 						if ( OKToStartNewSearch() )
 							newLookup->Resume();
 						else
 							QueueNewSearch( newLookup );
-
-						// just fire off the one search
-						break;
-					}
-				}
 				
-				CFRelease( listOfLMBs ); // release the list now that we're done with it
+				if ( listOfLMBs )
+					CFRelease( listOfLMBs ); // release the list now that we're done with it
 			}
 			else if ( GetWinsServer() )	// if we have a WINS server, go ahead and try with a cached name, this may get resolved properly and not be on our subnet
 			{
@@ -994,18 +1005,25 @@ void CSMBPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep
 
 				if ( cachedLMB )
 				{
-					CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, cachedLMB );
+					CFArrayRef listOfLMBs = CFArrayCreate( NULL, &cachedLMB, 1, &kCFTypeArrayCallBacks );
+					
+					if ( listOfLMBs )
+					{
+						CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, listOfLMBs );
 			
 					// if we have too many threads running, just queue this search object and run it later
 					if ( OKToStartNewSearch() )
 						newLookup->Resume();
 					else
 						QueueNewSearch( newLookup );
+						
+						CFRelease( listOfLMBs );
+					}
 					
 					CFRelease( cachedLMB );
 				}
 				else
-					syslog( LOG_INFO, "CSMBPlugin::NewServiceLookup, no cached LMB\n" );
+					DBGLOG( "CSMBPlugin::NewServiceLookup, no cached LMB\n" );
 			}
         }
         else if ( serviceType )

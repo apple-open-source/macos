@@ -543,6 +543,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 			buff = (UInt32 *)IOMalloc(bufLen);
 			cmd = fOwner->createReadQuadCommand( FWAddress(kCSRRegisterSpaceBaseAddressHi, kFWBIBHeaderAddress+romLength),
 												buff, bufLen/sizeof(UInt32), NULL, NULL, true );
+			cmd->setMaxSpeed( kFWSpeed100MBit );
 			cmd->setGeneration( generation );
 			status = cmd->submit();
 			cmd->release();

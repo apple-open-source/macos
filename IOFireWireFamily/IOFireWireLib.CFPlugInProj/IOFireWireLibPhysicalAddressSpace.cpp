@@ -47,9 +47,9 @@ namespace IOFireWireLib {
 		& PhysicalAddressSpace::SGetPhysicalSegment,
 		& PhysicalAddressSpace::SGetPhysicalAddress,
 		
-		NULL,
-		NULL,
-		NULL
+		SGetFWAddress,
+		SGetBuffer,
+		SGetBufferSize
 	} ;
 	
 	HRESULT

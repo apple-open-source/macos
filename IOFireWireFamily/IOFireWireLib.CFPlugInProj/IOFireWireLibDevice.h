@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibDevice.h,v $
+ *	Revision 1.7  2003/11/07 21:24:28  niels
+ *	*** empty log message ***
+ *	
  *	Revision 1.6  2003/09/15 22:17:10  niels
  *	*** empty log message ***
  *	
@@ -331,6 +334,8 @@ namespace IOFireWireLib {
 			IOReturn 				GetSpeedBetweenNodes( UInt32 checkGeneration, UInt16 srcNodeID, UInt16 destNodeID,  IOFWSpeed* outSpeed) ;
 			IOReturn				GetIRMNodeID( UInt32 checkGeneration, UInt16* irmNodeID ) ;
 			IOReturn				ClipMaxRec2K( Boolean clipMaxRec ) ;
+			IOFireWireSessionRef	GetSessionRef() ;
+
 			static inline MethodSelector	MakeSelectorWithObject( MethodSelector selector, UserObjectHandle obj )		{ return (MethodSelector)( (UInt32)obj << 16 | selector & 0xFFFF ) ; }		
 	} ;
 	
@@ -680,5 +685,6 @@ namespace IOFireWireLib {
 			static IOFireWireLibNuDCLPoolRef				S_CreateNuDCLPool( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
 			static IOFireWireLibBufferFillIsochPortRef		S_CreateBufferFillIsochPort( IOFireWireLibDeviceRef self, UInt32 interruptMicroseconds, UInt32 numRanges, IOVirtualRange* ranges, REFIID iid ) ;
 
+			static IOFireWireSessionRef						S_GetSessionRef( IOFireWireLibDeviceRef self ) ;
 	} ;
 } // namespace

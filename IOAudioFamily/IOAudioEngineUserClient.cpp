@@ -1718,7 +1718,11 @@ void IOAudioEngineUserClient::sendFormatChangeNotification(IOAudioStream *audioS
             IOLog("IOAudioEngineUserClient[%p]::sendFormatChangeNotification() - ERROR - unable to export stream object for notification - notification not sent\n", this);
         }
     } else {
-        IOLog("IOAudioEngineUserClient[%p]::sendFormatChangeNotification() - ERROR - notification not sent - audioStream = %p - notificationMessage = %p - port = %ld\n", this, audioStream, notificationMessage, (UInt32)notificationMessage->messageHeader.msgh_remote_port);
+		if (notificationMessage) {
+			IOLog("IOAudioEngineUserClient[%p]::sendFormatChangeNotification() - ERROR - notification not sent - audioStream = %p - notificationMessage = %p - port = %ld\n", this, audioStream, notificationMessage, (UInt32)notificationMessage->messageHeader.msgh_remote_port);
+		} else {
+			IOLog("IOAudioEngineUserClient[%p]::sendFormatChangeNotification() - ERROR - notification not sent - audioStream = %p - notificationMessage = %p\n", this, audioStream, notificationMessage);
+		}
     }
 }
 

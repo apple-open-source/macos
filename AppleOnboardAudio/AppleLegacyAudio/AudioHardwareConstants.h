@@ -143,7 +143,10 @@ typedef enum {
 	kPostDMAEngineInit,
 	kRestartTransport,
 	kRunPollTask,
-	kSetSampleType
+	kSetSampleType,
+	kSetMuteState,
+	kSetAnalogMuteState,										//	[3435307]	
+	kSetDigitalMuteState										//	[3435307]	
 } ActionSelector;
 
 // Machine layout constants. All NewWorld machines have a device-id property
@@ -203,6 +206,12 @@ enum{
     kDACAHardwareType,
     kTexas3001HardwareType,
     kTexas3004HardwareType
+};
+
+//	[3435307]	rbm
+enum {
+	kAnalogAudioSelector			=	'aaud',
+	kDigitalAudioSelector			=	'daud'
 };
 
 // Kind of devices
@@ -367,5 +376,27 @@ typedef struct {
 	UInt32			coefficientOrder[1];			//	this array is of size 'numCoefficientsPerBiquad' and holds OSTypes describing the coefficient
 } BiquadInfoList;
 typedef BiquadInfoList * BiquadInfoListPtr;
+
+enum {
+	// Regular, actually addressable streams (i.e. data can be streamed to and/or from these).
+	// As such, these streams can be used with get and set current stream map;
+	// get and set relative volume min, max, and current; and 
+	// get hardware stream map
+	kStreamFrontLeft			= 'fntl',	// front left speaker
+	kStreamFrontRight			= 'fntr',	// front right speaker
+	kStreamSurroundLeft			= 'surl',	// surround left speaker
+	kStreamSurroundRight		= 'surr',	// surround right speaker
+	kStreamCenter				= 'cntr',	// center channel speaker
+	kStreamLFE					= 'lfe ',	// low frequency effects speaker
+	kStreamHeadphoneLeft		= 'hplf',	// left headphone
+	kStreamHeadphoneRight		= 'hprt',	// right headphone
+	kStreamLeftOfCenter			= 'loc ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[in front]
+	kStreamRightOfCenter		= 'roc ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[in front]
+	kStreamSurround				= 'sur ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[rear]
+	kStreamSideLeft				= 'sidl',	//	see usb audio class spec. v1.0, section 3.7.2.3	[left wall]
+	kStreamSideRight			= 'sidr',	//	see usb audio class spec. v1.0, section 3.7.2.3	[right wall]
+	kStreamTop					= 'top ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[overhead]
+	kStreamMono					= 'mono'	//	for usb devices with a spatial configuration of %0000000000000000
+};
 
 #endif

@@ -204,29 +204,39 @@ void AppleTopazAudio::postDMAEngineInit () {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool AppleTopazAudio::getMute () {
-	return ( mCurMuteState );	
+IOReturn AppleTopazAudio::setCodecMute (bool muteState) {
+	return setMute ( muteState, kDigitalAudioSelector );	//	[3435307]	
 }
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-IOReturn AppleTopazAudio::setMute (bool muteState) {
+// --------------------------------------------------------------------------
+//	[3435307]	
+IOReturn AppleTopazAudio::setCodecMute (bool muteState, UInt32 streamType) {
 	UInt8			data;
-	IOReturn		result;
+	IOReturn		result = kIOReturnSuccess;
 	
-	result = kIOReturnSuccess;
-	debug2IOLog ( "+ AppleTopazAudio::setMute ( %d )\n", muteState );
+	debug3IOLog("+ AppleTopazAudio::setMute (%d, %4s)\n", muteState, (char*)&streamType);
 
-	data = kCS8420_CODEC == mCodecID ? kMISC_CNTRL_1_INIT_8420 : kMISC_CNTRL_1_INIT_8406 ;
-	data &= ~( 1 << baMuteAES );
-	data |= muteState ? ( muteAES3 << baMuteAES ) : ( normalAES3 << baMuteAES ) ;
-	result = CODEC_WriteRegister ( map_MISC_CNTRL_1, data );
-	FailIf ( kIOReturnSuccess != result, Exit );
-
-	mCurMuteState = muteState;
+	switch ( streamType ) {
+		case kDigitalAudioSelector:
+			data = kCS8420_CODEC == mCodecID ? kMISC_CNTRL_1_INIT_8420 : kMISC_CNTRL_1_INIT_8406 ;
+			data &= ~( 1 << baMuteAES );
+			data |= muteState ? ( muteAES3 << baMuteAES ) : ( normalAES3 << baMuteAES ) ;
+			result = CODEC_WriteRegister ( map_MISC_CNTRL_1, data );
+			break;
+		default:
+			result = kIOReturnError;
+			break;
+	}
 	
-Exit:
-	debug3IOLog ( "-AppleTopazAudio::setMute ( %d ) result %d\n", muteState, result );
-	return ( result );	
+	debug4IOLog("- AppleTopazAudio::setMute (%d, %4s) returns %X\n", muteState, (char*)&streamType, result);
+	return result;
+}
+
+// --------------------------------------------------------------------------
+//	[3435307]	
+bool AppleTopazAudio::hasDigitalMute ()
+{
+	return true;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -596,7 +606,7 @@ IOReturn	AppleTopazAudio::makeClockSelect ( UInt32 clockSource ) {
 	//	Unmute the coded output
 	data = mShadowRegs[map_MISC_CNTRL_1];
 	data &= ~( kCS84XX_BIT_MASK << baMuteAES );
-	if ( mCurMuteState ) {
+	if ( mDigitalMuteState ) {
 		data |= ( muteAES3 << baMuteAES );
 	} else {
 		data |= ( normalAES3 << baMuteAES );

@@ -210,8 +210,9 @@ AppleUSBHub::start(IOService * provider)
         _resetPortZeroThread = thread_call_allocate((thread_call_func_t)ResetPortZeroEntry, (thread_call_param_t)this);
         _hubDeadCheckThread = thread_call_allocate((thread_call_func_t)CheckForDeadHubEntry, (thread_call_param_t)this);
         _clearFeatureEndpointHaltThread = thread_call_allocate((thread_call_func_t)ClearFeatureEndpointHaltEntry, (thread_call_param_t)this);
+        _clearDevZeroLockThread = thread_call_allocate((thread_call_func_t)ClearDevZeroLockForPort, (thread_call_param_t)this);
         
-        if ( !_workThread || !_resetPortZeroThread || !_hubDeadCheckThread || !_clearFeatureEndpointHaltThread )
+        if ( !_workThread || !_resetPortZeroThread || !_hubDeadCheckThread || !_clearFeatureEndpointHaltThread || !_clearDevZeroLockThread )
         {
             USBError(1, "%s[%p] could not allocate all thread functions.  Aborting start", getName(), this);
             goto ErrorExit;
@@ -312,13 +313,18 @@ AppleUSBHub::stop(IOService * provider)
         thread_call_cancel(_hubDeadCheckThread);
         thread_call_free(_hubDeadCheckThread);
     }
-    
+
     if (_clearFeatureEndpointHaltThread)
     {
         thread_call_cancel(_clearFeatureEndpointHaltThread);
         thread_call_free(_clearFeatureEndpointHaltThread);
     }
-
+    if (_clearDevZeroLockThread)
+    {
+        thread_call_cancel(_clearDevZeroLockThread);
+        thread_call_free(_clearDevZeroLockThread);
+    }
+    
     if (_device)
     {
         // Set it to NULL, since our provider will go away after this stop call
@@ -1659,23 +1665,13 @@ AppleUSBHub::DoDeviceRequest(IOUSBDevRequest *request)
 {
     IOReturn err;
     
-    // If the device is closed, we should not attempt to send any requests to it
-    //
-    if ( _device && !_device->isOpen(this) )
-    {
-        err = kIOReturnNoDevice;
-        goto exit;
-    }
-    
     // Paranoia:  if we don't have a device ('cause it was stop'ped), then don't send
     // the request.
     //
-    if ( _device )
+    if ( _device && !_device->isInactive() && _device->isOpen(this))
         err = _device->DeviceRequest(request, 5000, 0);
     else
         err = kIOReturnNoDevice;
-
-exit:
         
     return err;
 }
@@ -1889,6 +1885,10 @@ AppleUSBHub::ClearFeatureEndpointHalt( )
 void 
 AppleUSBHub::ResetMyPort()
 {
+    // Call willTerminate on ourselves
+    //
+    willTerminate(this, 0);
+
     // Abort any pending transactions in the interrupt pipe.  Null the pipe because the
     // device reset is going to end up terminating the interface from under us.  (Need 
     // to review that once we change device reset to not terminate interfaces)
@@ -1928,7 +1928,9 @@ AppleUSBHub::requestTerminate( IOService * provider, IOOptionBits options )
 bool
 AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
 {
-    IOReturn	err;
+    int			currentPort;
+    AppleUSBHubPort * 	port;
+    IOReturn		err;
     
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
     if ( _interruptPipe )
@@ -1941,7 +1943,26 @@ AppleUSBHub::willTerminate( IOService * provider, IOOptionBits options )
            
 	// _interruptPipe = NULL;
     }
-    
+
+    // JRH 09/19/2003 rdar://problem/3290312
+    // make sure that none of our ports has the dev zero lock held. if they do, it is safe to go ahead
+    // and release it since the hub is now gone (we are terminating)
+    if ( _ports)
+    {
+        for (currentPort = 1; currentPort <= _hubDescriptor.numPorts; currentPort++)
+        {
+            port = _ports[currentPort-1];
+            if (port)
+            {
+                if (port->_devZero)
+                {
+                    USBLog(1, "%s[%p]::StopPorts - port %d had the dev zero lock", getName(), this, currentPort);
+                }
+                thread_call_enter1(_clearDevZeroLockThread, (thread_call_param_t) port);
+            }
+        }
+    }
+
     // We are going to be terminated, so clean up! Make sure we don't get any more status change interrupts.
     // Note that if we are terminated before we set up our interrupt pipe, then we better not call it!
     //
@@ -2082,4 +2103,23 @@ AppleUSBHub::ChangeOutstandingIO(OSObject *target, void *param1, void *param2, v
     return kIOReturnSuccess;
 }
 
+
+
+//=============================================================================================
+//
+//  ClearDevZeroLockForPort
+//
+//=============================================================================================
+//
+void
+AppleUSBHub::ClearDevZeroLockForPort(OSObject *target, thread_call_param_t thePort)
+{
+    AppleUSBHub *	me = OSDynamicCast(AppleUSBHub, target);
+    AppleUSBHubPort *	port = (AppleUSBHubPort *) thePort;
+
+    if (!me || !port)
+        return;
+
+    port->willTerminate(me, 0);
+}
 

@@ -61,3 +61,4 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString);
 void FreeString(char * cstr);
 UInt16 Swap16(void *p);
 UInt32	Swap32(void *p);
+UInt64	Swap64(void *p);

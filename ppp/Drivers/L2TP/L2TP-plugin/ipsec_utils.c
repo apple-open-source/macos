@@ -57,6 +57,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <syslog.h>
@@ -204,15 +205,38 @@ start_racoon(CFBundleRef bundle, char *filename)
 int 
 racoon_pid()
 {
-    int   	pid = 0;
+    int   	pid = 0, err, name[3];
     FILE 	*f;
-
+    size_t	namelen, infolen;
+    struct kinfo_proc	info;
+    
     f = fopen("/var/run/racoon.pid", "r");
     if (f) {
         fscanf(f, "%d", &pid);
         fclose(f);
+
+        /* 
+            check the pid is valid, 
+            verify if process is running and is racoon
+        */
+        name[0] = CTL_KERN;
+        name[1] = KERN_PROC;
+        name[2] = KERN_PROC_PID;
+        name[3] = pid;
+        namelen = 4;
+
+        bzero(&info, sizeof(info));
+        infolen = sizeof(info);
+        
+        err = sysctl(name, namelen, &info, &infolen, 0, 0);
+
+        if (err == 0 && !strcmp("racoon", info.kp_proc.p_comm)) {
+            /* process exist and is called racoon */
+            return pid;
+        }
     }
-    return pid;
+
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------

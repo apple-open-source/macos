@@ -7,7 +7,7 @@
 #define BC_BOOT_STATFILE	"/tmp/BootCache.statistics"
 #define BC_BOOT_HISTFILE	"/tmp/BootCache.history"
 #define BC_BOOT_LOGFILE		"/tmp/BootCache.log"
-#define BC_CONTROL_TOOL		"/System/Library/Extensions/BootCache.kext/Contents/Resources/BootCacheControl"
+#define BC_CONTROL_TOOL		"/usr/sbin/BootCacheControl"
 #define BC_KEXTUNLOAD		"/sbin/kextunload"
 #define BC_BUNDLE_ID		"com.apple.BootCache"
 
@@ -48,6 +48,18 @@ struct BC_command {
  * bc_param is set to the blocksize for which the playlist has
  * been computed.
  */
+
+/*
+ * On-disk playlist header, also used in the preload case.
+ */
+struct BC_playlist_header {
+	int	ph_magic;
+#define PH_MAGIC_0	0xa1b2c3d4	/* old format with no blocksize */
+#define PH_MAGIC_1	0xa1b2c3d5	/* blocksize, offsets in bytes */
+#define PH_MAGIC	0xa1b2c3d6	/* added flags field */
+	int	ph_entries;
+	int	ph_blocksize;
+};
 
 /*
  * Playlist entries represent regions of disk to be cached.

@@ -117,8 +117,8 @@ typedef struct {
 	UInt32					peakLevelSfSel;
 	UInt32					peakLevelIn0;
 	UInt32					peakLevelIn1;
-	UInt32					reserved_11;
-	UInt32					reserved_12;
+	UInt32					newPeakLevelIn0;
+	UInt32					newPeakLevelIn1;
 	UInt32					reserved_13;
 	UInt32					reserved_14;
 	UInt32					reserved_15;
@@ -258,9 +258,12 @@ public:
 	virtual bool			init(IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex);
 	virtual void			free (void);
 	virtual bool			registerInterrupts ( IOService * device );
+	virtual void			unregisterInterrupts ( void );
 	virtual void			poll ( void ) { return; }
-	
+	virtual IOReturn		performPlatformSleep ( void ) { return kIOReturnError; }
+	virtual IOReturn		performPlatformWake ( IOService * device ) { return kIOReturnError; }
 	virtual	void			setWorkLoop(IOWorkLoop* inWorkLoop) {return;}					
+
 	//
 	// Codec Methods
 	//
@@ -302,6 +305,10 @@ public:
 
 	virtual IOReturn		setI2SIOMIntControl(UInt32 intCntrl) {return kIOReturnError;}
 	virtual UInt32			getI2SIOMIntControl() {return 0;}
+	
+	virtual IOReturn		setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) { return kIOReturnError; }
+	virtual UInt32			getPeakLevel ( UInt32 channelTarget ) { return 0; }
+	
 	//
 	// GPIO Methods
 	//

@@ -52,6 +52,7 @@ class IOHIDevice : public IOService
 public:
   virtual bool init(OSDictionary * properties = 0);
   virtual void free();
+  virtual bool start(IOService * provider);
   virtual bool open(  IOService *    forClient,
                       IOOptionBits   options = 0,
                       void *         arg = 0 );

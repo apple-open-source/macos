@@ -27,6 +27,7 @@
 #ifndef _IOKIT_SCSI_TASK_H_
 #define _IOKIT_SCSI_TASK_H_
 
+
 #if KERNEL
 #include <IOKit/IOTypes.h>
 #else
@@ -244,14 +245,6 @@ enum
 // Libkern includes
 #include <libkern/c++/OSObject.h>
 
-// Generic IOKit related headers
-#include <IOKit/IOCommand.h>
-#include <IOKit/IOReturn.h>
-#include <IOKit/IOMemoryDescriptor.h>
-
-// SCSI Architecture Model Family includes
-#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
-
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Constants used inside the kernel only
@@ -268,7 +261,7 @@ typedef enum SCSITaskMode
 } SCSITaskMode;
 
 /* This is an opaque object that represents a task.  This is used
- * so that driver for both the SCSI Protocol Layer and the SCSI 
+ * so that drivers for both the SCSI Protocol Layer and the SCSI 
  * Application Layer cannot modify the SCSITask object directly but must
  * instead use the inherited methods to do so.  This prevents changing
  * of properties that are not allowed to be changed by a given layer.

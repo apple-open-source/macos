@@ -848,7 +848,7 @@ void Apple02DBDMAAudioDMAEngine::chooseInputConversionRoutinePtr()
 
 IOReturn Apple02DBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-	IOReturn result;
+	IOReturn result = kIOReturnSuccess;
  
  	// if the DMA went bad restart it
 	if (mNeedToRestartDMA) {
@@ -858,8 +858,10 @@ IOReturn Apple02DBDMAAudioDMAEngine::clipOutputSamples(const void *mixBuf, void 
 
 	startTiming();
 
-	// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
-	result = (*this.*mClipAppleLegacyDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+	if (0 != numSampleFrames) {
+		// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
+		result = (*this.*mClipAppleLegacyDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
+	}
 
 	endTiming();
 

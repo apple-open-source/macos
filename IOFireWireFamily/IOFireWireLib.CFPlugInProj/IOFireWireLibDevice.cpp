@@ -153,6 +153,10 @@ namespace IOFireWireLib {
 				// v6
 				
 				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v6 )
+
+				// v7
+				
+				|| CFEqual( interfaceID, kIOFireWireDeviceInterfaceID_v7 )
 			)
 		{
 			*ppv = & GetInterface() ;
@@ -1292,6 +1296,17 @@ namespace IOFireWireLib {
 		
 		return error ;
 	}
+
+	IOFireWireSessionRef
+	Device::GetSessionRef()
+	{
+		IOFireWireSessionRef sessionRef = 0 ;
+		IOReturn error = ::IOConnectMethodScalarIScalarO( mConnection, kGetSessionRef, 0, 1, & sessionRef ) ;
+
+		DebugLogCond( error, "Device::GetSessionRef error=%x\n", error ) ;
+
+		return sessionRef;
+	}
 	
 #pragma mark -
 	const IOFireWireDeviceInterface DeviceCOM::sInterface = 
@@ -1403,7 +1418,12 @@ namespace IOFireWireLib {
 		
 		,& DeviceCOM::S_ClipMaxRec2K
 		,& DeviceCOM::S_CreateNuDCLPool
-//		,& DeviceCOM::S_CreateBufferFillIsochPort
+		
+		//
+		// v7
+		//
+		
+		, & DeviceCOM::S_GetSessionRef
 	} ;
 	
 	DeviceCOM::DeviceCOM( CFDictionaryRef propertyTable, io_service_t service )
@@ -1993,4 +2013,10 @@ namespace IOFireWireLib {
 		return result ;
 	}
 
+	IOFireWireSessionRef
+	DeviceCOM::S_GetSessionRef( IOFireWireLibDeviceRef self )
+	{
+		return IOFireWireIUnknown::InterfaceMap<DeviceCOM>::GetThis(self)->GetSessionRef() ;
+	}
+	
 } // namespace

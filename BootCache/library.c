@@ -22,15 +22,6 @@
 
 #include "BootCache.h"
 
-struct playlist_header {
-	int	ph_magic;
-#define PH_MAGIC_0	0xa1b2c3d4	/* old format with no blocksize */
-#define PH_MAGIC_1	0xa1b2c3d5	/* blocksize, offsets in bytes */
-#define PH_MAGIC	0xa1b2c3d6	/* added flags field */
-	int	ph_entries;
-	int	ph_blocksize;
-};
-
 /*
  * The blocksize is initialised from the first playlist read, the statistics
  * structure, or it can be pre-set by the caller.  Once set, only playlists with
@@ -53,7 +44,7 @@ int
 BC_read_playlist(const char *pfname, struct BC_playlist_entry **ppc, int *pnentries)
 {
 	struct BC_playlist_entry *pc;
-	struct playlist_header ph;
+	struct BC_playlist_header ph;
 	int error, fd;
 
 	error = 0;
@@ -114,7 +105,7 @@ out:
 int
 BC_write_playlist(const char *pfname, const struct BC_playlist_entry *pc, int nentries)
 {
-	struct playlist_header ph;
+	struct BC_playlist_header ph;
 	char *tfname;
 	int error, fd;
 
@@ -138,7 +129,7 @@ BC_write_playlist(const char *pfname, const struct BC_playlist_entry *pc, int ne
 		error = ENAMETOOLONG;
 		goto out;
 	}
-	if ((tfname = malloc(strlen(pfname) + 7)) == NULL) {
+	if ((tfname = malloc(strlen(pfname) + 8)) == NULL) {
 		warn("could not allocate %d bytes for playlist filename", strlen(pfname));
 		error = errno;
 		goto out;
@@ -161,7 +152,7 @@ BC_write_playlist(const char *pfname, const struct BC_playlist_entry *pc, int ne
 	/*
 	 * Write the playlist entries.
 	 */
-	if (write(fd, pc, sizeof(*pc) * nentries) != (sizeof(*pc) * nentries)) {
+	if (nentries && write(fd, pc, sizeof(*pc) * nentries) != (sizeof(*pc) * nentries)) {
 		warn("could not write entry to temporary playlist file");
 		error = errno;
 		goto out;
@@ -326,8 +317,10 @@ BC_fetch_statistics(struct BC_statistics **pss)
 	bc.bc_length = sizeof(ss);
 	error = sysctlbyname(BC_SYSCTL, NULL, NULL, &bc, sizeof(bc));
 	if (error != 0) {
-		warn("could not fetch cache statistics");
-		return(ENOENT);
+		/* ENOENT means the kext is unloaded, that's OK */
+		if (errno != ENOENT)
+			warn("could not fetch cache statistics");
+		return(error);
 	}
 	*pss = &ss;
 	if (BC_blocksize == 0)

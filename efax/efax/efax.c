@@ -1168,12 +1168,14 @@ int getfr ( TFILE *mf, uchar *buf, int getcmd )
   }
   
   if ( ! err ) 
+  {
     err = receive_frame_data ( mf, buf, MAXFRLEN, &frlen ) ;
   
   if ( ! err && frlen < 3 ) 
     err = msg ( "E3received short frame (%d bytes)", frlen ) ;
 
   logfr ( "received", frname ( buf [ 2 ] ), buf, frlen ) ;
+  }
 
   if ( ! err ) {
 

@@ -1880,7 +1880,7 @@ bad:
 		thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	}
 	
-	if ( error == 0 ) 
+	if ( error == 0 || error == EAGAIN) 
 	{
 		/* If this request failed because of the connection problem, retry */
 		if ( retryrequest )

@@ -30,17 +30,19 @@
 
 // Libkern includes
 #include <libkern/OSByteOrder.h>
+#include <libkern/OSAtomic.h>
 
 // General IOKit includes
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 
 // SCSI Architecture Model Family includes
+#include "IOSCSIProtocolServices.h"
 #include <IOKit/scsi/IOSCSITargetDevice.h>
-#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 #include "SCSITaskDefinition.h"
 
+#define fSemaphore	fIOSCSIProtocolServicesReserved->fSemaphore
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -95,30 +97,24 @@ static IOPMPowerState sPowerStates[kSCSIProtocolLayerNumDefaultStates] =
 	{ 1, (IOPMDeviceUsable | IOPMMaxPerformance), IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 
+enum
+{
+	kSCSITaskQueueBusyBit		= 0,
+	kSCSITaskQueueCompletionBit	= 1
+};
+
+enum
+{
+	kSCSITaskQueueBusyMask			= ( 1 << kSCSITaskQueueBusyBit ),
+	kSCSITaskQueueCompletionMask	= ( 1 << kSCSITaskQueueCompletionBit )
+};
+
 
 #if 0
 #pragma mark -
 #pragma mark ¥ Public Methods
 #pragma mark -
 #endif
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ init - Initialization method.						 			   [PUBLIC]
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-bool
-IOSCSIProtocolServices::init ( OSDictionary * propTable )
-{
-	
-	if ( super::init ( propTable ) == false )
-	{
-		return false;
-	}
-	
-	return true;
-	
-}
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -129,12 +125,13 @@ bool
 IOSCSIProtocolServices::start ( IOService * provider )
 {
 	
-	OSDictionary *  dict = NULL;	
+	OSDictionary *  dict 	= NULL;	
+	bool			result	= false;
 	
-	if ( !super::start ( provider ) )
-	{
-		return false;
-	}
+	result = super::start ( provider );
+	require ( result, ErrorExit );
+	
+	result = false;
 	
 	// Setup to allow service requests
 	fAllowServiceRequests = true;
@@ -142,9 +139,15 @@ IOSCSIProtocolServices::start ( IOService * provider )
 	// Initialize the head pointer for the SCSI Task Queue.
 	fSCSITaskQueueHead = NULL;
 	
+	fIOSCSIProtocolServicesReserved = IONew ( IOSCSIProtocolServicesExpansionData, 1 );
+	require_nonzero ( fIOSCSIProtocolServicesReserved, ErrorExit );
+	
+	// Zero the reserved data section.
+	bzero ( fIOSCSIProtocolServicesReserved, sizeof ( IOSCSIProtocolServicesExpansionData ) );
+	
 	// Allocate the mutex for accessing the SCSI Task Queue.
 	fQueueLock = IOSimpleLockAlloc ( );
-	require ( fQueueLock, PanicNow );
+	require_nonzero ( fQueueLock, FreeReserved );
 	
 	// If the provider has a Protocol Characteristics dictionary, copy
 	// it to the Protocol Services object.
@@ -152,23 +155,31 @@ IOSCSIProtocolServices::start ( IOService * provider )
 	if ( dict != NULL )
 	{
 		
-		OSDictionary *	protocolDict = NULL;
+		OSDictionary *	protocolDict 	= NULL;
 		
 		protocolDict = OSDictionary::withDictionary ( dict );
 		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
 		protocolDict->release ( );
 		
-	}
+	}	
 	
-	return true;
+	result = true;
+	
+	return result;
 	
 	
-PanicNow:
+FreeReserved:
 	
 	
-	IOPanic ( "SCSIProtcolServices: Could not allocate simple lock for task queue\n" );
+	require_nonzero_quiet ( fIOSCSIProtocolServicesReserved, ErrorExit );
+	IODelete ( fIOSCSIProtocolServicesReserved, IOSCSIProtocolServicesExpansionData, 1 );
+	fIOSCSIProtocolServicesReserved = NULL;
 	
-	return false;
+	
+ErrorExit:
+	
+	
+	return result;
 	
 }
 
@@ -187,6 +198,14 @@ IOSCSIProtocolServices::free ( void )
 		// Free the SCSI Task queue mutex.
 		IOSimpleLockFree ( fQueueLock );
 		fQueueLock = NULL;
+		
+	}
+	
+	if ( fIOSCSIProtocolServicesReserved != NULL )
+	{
+		
+		IODelete ( fIOSCSIProtocolServicesReserved, IOSCSIProtocolServicesExpansionData, 1 );
+		fIOSCSIProtocolServicesReserved = NULL;
 		
 	}
 	
@@ -984,27 +1003,56 @@ void
 IOSCSIProtocolServices::SendSCSITasksFromQueue ( void )
 {
 	
-	bool			cmdAccepted = false;
-	SCSITask *		nextVictim;
-	
-	do 
+	// Is there anything in the queue?
+	while ( fSCSITaskQueueHead != NULL ) 
 	{
 		
-		SCSIServiceResponse 	serviceResponse;
-		SCSITaskStatus			taskStatus;
+		bool	qDrained = false;
 		
-		// get the next command from the request queue
-		nextVictim = RetrieveNextSCSITaskFromQueue ( );
-		if ( nextVictim != NULL )
+		// Do we need to drive the queue?
+		if ( OSBitOrAtomic ( kSCSITaskQueueBusyMask, &fSemaphore ) & kSCSITaskQueueBusyMask )
 		{
+			
+			// Someone else is driving the queue, break out and let them do it.
+			break;
+			
+		}
+		
+		// Send as many commands as there are in the queue, or upto the point
+		// the transport driver tells us it can't handle any more.
+		
+		while ( true )
+		{
+			
+			SCSIServiceResponse 	serviceResponse;
+			SCSITaskStatus			taskStatus;
+			SCSITask *				nextVictim	= NULL;
+			bool					cmdAccepted = false;
+			
+			// We're sending a command down, so clear the completion bit so
+			// we know if a completion occurred while we were sending a command.
+			OSBitAndAtomic ( ~kSCSITaskQueueCompletionMask, &fSemaphore );
+			
+			// Get the next command from the request queue
+			nextVictim = RetrieveNextSCSITaskFromQueue ( );
+			if ( nextVictim == NULL )
+			{
+				
+				// No command in the queue, break out of the loop because
+				// we drained the queue.
+				qDrained = true;
+				break;
+				
+			}
 			
 			cmdAccepted = SendSCSICommand ( nextVictim, &serviceResponse, &taskStatus );
 			if ( cmdAccepted == false )
 			{
 				
 				// The subclass can not process the command at this time,
-				// add it to the queue and try again at CommandComplete time.
+				// add it to the queue and try again later.
 				AddSCSITaskToHeadOfQueue ( nextVictim );
+				break;
 				
 			}
 			
@@ -1020,8 +1068,23 @@ IOSCSIProtocolServices::SendSCSITasksFromQueue ( void )
 			
 		}
 		
-	} while ( ( cmdAccepted == true ) && ( nextVictim != NULL ) );
-
+		// We aren't driving the queue any more. Mark that we aren't doing so.
+		OSBitAndAtomic ( ~kSCSITaskQueueBusyMask, &fSemaphore );
+		
+		// We broke out of the while loop above either because there are no more
+		// commands to process, or the transport driver cannot handle any more at
+		// this time. Check if any completions occurred since we released the queue
+		// driving privilege. If so, we attempt to keep processing the queue.
+		if ( ( qDrained == false ) && ( ( fSemaphore & kSCSITaskQueueCompletionMask ) == 0 ) )
+		{
+			// No completions, break out.
+			break;
+		}
+		
+		// A completion did occur. Start over...
+		
+	}
+	
 }
 
 
@@ -1201,6 +1264,8 @@ IOSCSIProtocolServices::CommandCompleted ( 	SCSITaskIdentifier 	request,
 		return;
 		
 	}
+	
+	OSBitOrAtomic ( kSCSITaskQueueCompletionMask, &fSemaphore );
 	
 	ProcessCompletedTask ( request, serviceResponse, taskStatus );
 	

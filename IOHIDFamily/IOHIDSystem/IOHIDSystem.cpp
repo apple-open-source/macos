@@ -136,10 +136,17 @@ static bool keySwitchNotificationHandler(void *target, void *refCon, IOService *
 
 // RY: Consume any keyboard events that come in before the
 // dealine after the system wakes up or if the keySwitch is locked
-#define SHOULD_CONSUME_EVENT(absTimeStamp)	\
-    ( keySwitchLocked || 			\
-    (CMP_ABSOLUTETIME(&absTimeStamp, &stateChangeDeadline) <= 0))
+bool static inline ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadline)
+{
+    if ( AbsoluteTime_to_scalar(&ts) == 0 )
+        clock_get_uptime(&ts);
 
+    if ( keySwitchLocked || 
+            (CMP_ABSOLUTETIME(&ts, &deadline) <= 0))
+        return true;
+
+    return false;
+}
 
 #define TICKLE_DISPLAY 				\
 {						\
@@ -1885,7 +1892,7 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
 #endif
     bool haveVBL;
 
-    if(SHOULD_CONSUME_EVENT(ts))
+    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
         
     CachedMouseEventStruct *cachedMouseEvent;
@@ -2145,7 +2152,7 @@ void IOHIDSystem::absolutePointerEventGated(int        buttons,
         NXTabletPointData 	tabletData;
         CachedMouseEventStruct	*cachedMouseEvent = 0;
 
-        if(SHOULD_CONSUME_EVENT(ts))
+        if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
             return;
         
         TICKLE_DISPLAY;
@@ -2286,7 +2293,7 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
 {
     NXEventData wheelData;
 
-    if(SHOULD_CONSUME_EVENT(ts))
+    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
 
     TICKLE_DISPLAY;
@@ -2350,7 +2357,7 @@ void IOHIDSystem::tabletEventGated(NXEventData *tabletData,
                                     OSObject * sender)
 {
 
-    if(SHOULD_CONSUME_EVENT(ts))
+    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
                 
 #if 0  // FIXME - NX_TABLETPOINTER has been deprecated.
@@ -2407,7 +2414,7 @@ void IOHIDSystem::proximityEventGated(NXEventData *proximityData,
                                         OSObject * sender)
 {
 
-    if(SHOULD_CONSUME_EVENT(ts))
+    if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
             
 #if 0  // FIXME - NX_TABLETPROXIMITY has been deprecated.
@@ -2523,7 +2530,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
 {         
 	NXEventData	outData;
         
-        if(SHOULD_CONSUME_EVENT(ts))
+        if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
             return;
                 
         if ( ! (displayState & IOPMDeviceUsable) ) {	// display is off, consume the keystroke
@@ -2648,7 +2655,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
 	NXEventData	outData;
 	int		level = -1;
 
-        if(SHOULD_CONSUME_EVENT(ts))
+        if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
             return;
 
         TICKLE_DISPLAY;

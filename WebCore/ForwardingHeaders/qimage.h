@@ -1,1 +1,0 @@
-#include "KWQImage.h"

@@ -551,3 +551,4 @@ struct OHCIIsochTransferDescriptorShared
 #define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)
 
+#endif

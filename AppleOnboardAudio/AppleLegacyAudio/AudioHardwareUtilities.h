@@ -34,6 +34,13 @@
 #ifndef __AUDIOHARDWAREUTILITIES__
 #define __AUDIOHARDWAREUTILITIES__
 
+//#define	LOG_FAIL
+#ifdef DEBUG
+#ifndef LOG_FAIL
+#define	LOG_FAIL
+#endif
+#endif
+
 #define	kDebugIOSleepDelay		20
 // Debugging help
 #ifdef DEBUGLOG
@@ -132,7 +139,7 @@
     IOLog( SoundAssertionMessage( cond, file, line, handler ));
 
 //	-----------------------------------------------------------------
-#ifdef DEBUG
+#ifdef LOG_FAIL
 #define	FailIf( cond, handler )										\
     if( cond ){														\
         SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
@@ -145,8 +152,7 @@
     }
 #endif
 
-#ifdef DEBUG
-
+#ifdef LOG_FAIL
 #define	FAIL_IF( cond, handler )										\
     if( cond ){														\
         SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
@@ -161,7 +167,7 @@
 
 
 //	-----------------------------------------------------------------
-#ifdef DEBUG
+#ifdef LOG_FAIL
 #define	FailWithAction( cond, action, handler )						\
     if( cond ){														\
         SoundAssertionFailed( cond, __FILE__, __LINE__, handler )	\
@@ -177,7 +183,7 @@
 #endif
 
 //	-----------------------------------------------------------------
-#ifdef DEBUG
+#ifdef LOG_FAIL
 #define FailMessage(cond)		if (cond) SoundAssertionFailed(cond, __FILE__, __LINE__, handler)
 #else
 #define FailMessage(cond)		{}

@@ -82,54 +82,36 @@ sigchld_handler (int sig)
     lastsig = SIGCHLD;
 }
 
-RETSIGTYPE null_signal_handler(int sig) { }
-
-SIGHANDLERTYPE set_signal_handler(int sig, SIGHANDLERTYPE handler)
 /* 
  * This function is called by other parts of the program to
- * setup the signal handler after a change to the signal context.
+ * setup the sigchld handler after a change to the signal context.
  * This is done to improve robustness of the signal handling code.
- * It has the same prototype as signal(2).
  */
+void deal_with_sigchld(void)
 {
-  SIGHANDLERTYPE rethandler;
+  RETSIGTYPE sigchld_handler(int);
 #ifdef HAVE_SIGACTION
-  struct sigaction sa_new, sa_old;
+  struct sigaction sa_new;
 
   memset (&sa_new, 0, sizeof sa_new);
   sigemptyset (&sa_new.sa_mask);
-  sa_new.sa_handler = handler;
-  sa_new.sa_flags = 0;
+  /* sa_new.sa_handler = SIG_IGN;     pointless */
+
+  /* set up to catch child process termination signals */ 
+  sa_new.sa_handler = sigchld_handler;
 #ifdef SA_RESTART	/* SunOS 4.1 portability hack */
-  /* system call should restart on all signals except SIGALRM */
-  if (sig != SIGALRM)
-      sa_new.sa_flags |= SA_RESTART;
+  sa_new.sa_flags = SA_RESTART | SA_NOCLDSTOP;
 #endif
-#ifdef SA_NOCLDSTOP	/* SunOS 4.1 portability hack */
-  if (sig == SIGCHLD)
-      sa_new.sa_flags |= SA_NOCLDSTOP;
-#endif
-  sigaction(sig, &sa_new, &sa_old);
-  rethandler = sa_old.sa_handler;
+  sigaction (SIGCHLD, &sa_new, NULL);
 #if defined(SIGPWR)
-  if (sig == SIGCHLD)
-     sigaction(SIGPWR, &sa_new, NULL);
+  sigaction (SIGPWR, &sa_new, NULL);
 #endif
 #else /* HAVE_SIGACTION */
-  rethandler = signal(sig, handler);
+  signal(SIGCHLD, sigchld_handler); 
 #if defined(SIGPWR)
-  if (sig == SIGCHLD)
-      signal(SIGPWR, handler);
+  signal(SIGPWR, sigchld_handler); 
 #endif
-  /* system call should restart on all signals except SIGALRM */
-  siginterrupt(sig, sig == SIGALRM);
 #endif /* HAVE_SIGACTION */
-  return rethandler;
-}
-
-void deal_with_sigchld(void)
-{
-  set_signal_handler(SIGCHLD, sigchld_handler);
 }
 
 int
@@ -138,6 +120,9 @@ daemonize (const char *logfile, void (*termhook)(int))
 {
   int fd;
   pid_t childpid;
+#ifdef HAVE_SIGACTION
+  struct sigaction sa_new;
+#endif /* HAVE_SIGACTION */
 
   /* if we are started by init (process 1) via /etc/inittab we needn't 
      bother to detach from our process group context */
@@ -146,14 +131,34 @@ daemonize (const char *logfile, void (*termhook)(int))
     goto nottyDetach;
 
   /* Ignore BSD terminal stop signals */
+#ifdef HAVE_SIGACTION
+  memset (&sa_new, 0, sizeof sa_new);
+  sigemptyset (&sa_new.sa_mask);
+  sa_new.sa_handler = SIG_IGN;
+#ifdef SA_RESTART	/* SunOS 4.1 portability hack */
+  sa_new.sa_flags = SA_RESTART;
+#endif
+#endif /* HAVE_SIGACTION */
 #ifdef 	SIGTTOU
-  set_signal_handler(SIGTTOU, SIG_IGN);
+#ifndef HAVE_SIGACTION
+  signal(SIGTTOU, SIG_IGN);
+#else
+  sigaction (SIGTTOU, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 #ifdef	SIGTTIN
-  set_signal_handler(SIGTTIN, SIG_IGN);
+#ifndef HAVE_SIGACTION
+  signal(SIGTTIN, SIG_IGN);
+#else
+  sigaction (SIGTTIN, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 #ifdef	SIGTSTP
-  set_signal_handler(SIGTSTP, SIG_IGN);
+#ifndef HAVE_SIGACTION
+  signal(SIGTSTP, SIG_IGN);
+#else
+  sigaction (SIGTSTP, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 #endif
 
   /* In case we were not started in the background, fork and let
@@ -194,7 +199,11 @@ daemonize (const char *logfile, void (*termhook)(int))
 #endif
   
   /* lose controlling tty */
-  set_signal_handler(SIGHUP, SIG_IGN);
+#ifndef HAVE_SIGACTION
+  signal(SIGHUP, SIG_IGN);
+#else
+  sigaction (SIGHUP, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
   if ((childpid = fork()) < 0) {
     report(stderr, "fork (%s)\n", strerror(errno));
     return(PS_IOERR);

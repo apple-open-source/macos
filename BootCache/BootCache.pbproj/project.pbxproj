@@ -9,11 +9,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -23,8 +19,13 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-DDEBUG";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -34,6 +35,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -42,11 +45,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -66,6 +65,8 @@
 				06AA1262FFB20DD611CA28AA,
 				06AA1263FFB20DD611CA28AA,
 				9F5A0934020227470ECA2C3D,
+				450A734104C7578800391849,
+				450A734404C7578D00391849,
 			);
 			hasScannedForEncodings = 1;
 			isa = PBXProject;
@@ -110,7 +111,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 16.1;
+				MODULE_VERSION = 17.5;
 				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -146,11 +147,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>16.1</string>
+	<string>17.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>16.1</string>
+	<string>17.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>BootCache</key>
@@ -186,7 +187,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				9F30F63C01B745E90ECA2C3D,
-				9F5A0937020229A60ECA2C3D,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -303,7 +303,6 @@
 				9F30F63B01B745E90ECA2C3D,
 				9F67ED4101B842340ECA2C3D,
 				9F47C34001F78EE30ECA2C3D,
-				9F5A0931020226E00ECA2C3D,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -315,6 +314,32 @@
 //242
 //243
 //244
+//450
+//451
+//452
+//453
+//454
+		450A734104C7578800391849 = {
+			buildRules = (
+			);
+			buildSettings = {
+			};
+			isa = PBXBuildStyle;
+			name = BuildStyle;
+		};
+		450A734404C7578D00391849 = {
+			buildRules = (
+			);
+			buildSettings = {
+			};
+			isa = PBXBuildStyle;
+			name = "BuildStyle-1";
+		};
+//450
+//451
+//452
+//453
+//454
 //9F0
 //9F1
 //9F2
@@ -438,11 +463,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>16</string>
+	<string>17.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>16</string>
+	<string>17.5</string>
 	<key>NSMainNibFile</key>
 	<string>BootCacheLoginPlugin</string>
 	<key>NSPrincipalClass</key>
@@ -652,12 +677,6 @@
 			isa = PBXTargetDependency;
 			target = 9F547E8002BA93BA0ECA2C3D;
 		};
-		9F5A0931020226E00ECA2C3D = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			path = playlist.h;
-			refType = 4;
-		};
 		9F5A0933020227470ECA2C3D = {
 			isa = PBXTargetDependency;
 			target = 9F67ED4301B842340ECA2C3D;
@@ -675,22 +694,10 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\n#\n# If we have a playlist, regenerate playlist.h\n#\nif [ -r ${SRCROOT}/playlist ]; then\n    echo Generating ${SRCROOT}/playlist.h from ${SRCROOT}/playlist\n    ${BUILT_PRODUCTS_DIR}/BootCacheControl -cf ${SRCROOT}/playlist print > ${SRCROOT}/playlist.h\nelse\n    echo Generating default ${SRCROOT}/playlist.h\n    cp ${SRCROOT}/default_playlist.h ${SRCROOT}/playlist.h\nfi";
-		};
-		9F5A0937020229A60ECA2C3D = {
-			fileRef = 9F5A0931020226E00ECA2C3D;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
 		};
 		9F67ED4101B842340ECA2C3D = {
 			fileEncoding = 30;
@@ -711,7 +718,7 @@
 				9F67ED4701B842340ECA2C3D,
 			);
 			buildSettings = {
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/BootCache.kext/Contents/Resources/";
+				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "-no-cpp-precomp -Wall";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -724,7 +731,7 @@
 			);
 			isa = PBXToolTarget;
 			name = BootCacheControl;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/BootCache.kext/Contents/Resources/";
+			productInstallPath = /usr/sbin;
 			productName = SmartReadaheadControl;
 			productReference = 9F67ED4201B842340ECA2C3D;
 		};
@@ -775,11 +782,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/sh\n#\n# Clean out playlist.h\n#\nrm -f ${SRCROOT}/playlist.h";

@@ -386,11 +386,11 @@ IOReturn IOConfigDirectory::getIndexType(int index, IOConfigKeyType &type)
 	}
 	
 	if( status == kIOReturnSuccess )
-	{
+	{	
 		const UInt32 * data = lockData();
 		entry = data[fStart + 1 + index];
 		unlockData();
-	
+
 		type = (IOConfigKeyType)((entry & kConfigEntryKeyType) >> kConfigEntryKeyTypePhase);
     }
 	

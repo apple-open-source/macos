@@ -1061,6 +1061,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		} 
 		else 	if (i == NX_KEYTYPE_NUM_LOCK
 		    && down == true
+                    && _delegate->doesKeyLock(NX_KEYTYPE_NUM_LOCK)
 		    && !_parsedMapping.modDefs[NX_MODIFIERKEY_NUMLOCK] )
 		{
 		    unsigned myFlags = _delegate->deviceFlags();

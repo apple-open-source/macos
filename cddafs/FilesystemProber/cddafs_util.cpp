@@ -37,7 +37,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <architecture/byte_order.h>
 #include <mach/mach_init.h>
 #include <servers/netname.h>
 #include <sys/types.h>
@@ -50,6 +49,9 @@
 #include <sys/time.h>
 #include <sys/mount.h>
 #include <sys/loadable_fs.h>
+
+// Libkern includes
+#include <libkern/OSByteOrder.h>
 
 // CoreFoundation Includes
 #include <CoreFoundation/CoreFoundation.h>
@@ -1215,7 +1217,7 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 															&kCFTypeDictionaryValueCallBacks );
 		
 		// Grab the length and advance
-		length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
+		length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 		
 		// Add the Raw TOC Data
 		theRawTOCDataRef = CFDataCreate (	kCFAllocatorDefault,
@@ -1266,6 +1268,7 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 				
 				CFMutableDictionaryRef	theTrackRef 	= 0;
 				CFBooleanRef			isDigitalData	= kCFBooleanFalse;
+				CFBooleanRef			preEmphasis		= kCFBooleanFalse;
 				CFNumberRef				startBlock;
 				CFNumberRef				sessionNumber;
 				CFNumberRef				point;
@@ -1418,13 +1421,26 @@ CreateXMLFileInPListFormat ( QTOCDataFormat10Ptr TOCDataPtr )
 										CFSTR ( kDataString ),
 										isDigitalData );
 				
+				if ( ( trackDescriptorPtr->control & kPreEmphasisMask ) == kPreEmphasisMask )
+				{
+					
+					preEmphasis = kCFBooleanTrue;
+					
+				}
+				
+				CFDictionarySetValue ( theTrackRef,
+									   CFSTR ( kPreEmphasisString ),
+									   preEmphasis );
+				
 				// Add the dictionary to the array
 				CFArraySetValueAtIndex ( theTrackArrayRef, trackIndex, theTrackRef );
 
 				CFRelease ( theTrackRef );
 				trackIndex++;
-
+				
+				
 nextIteration:
+				
 				
 				// Advance to next track
 				trackDescriptorPtr++;
@@ -1650,7 +1666,7 @@ GetNumberOfTrackDescriptors ( 	QTOCDataFormat10Ptr	TOCDataPtr,
 	require_action ( ( numberOfDescriptors != NULL ), Exit, result = -1 );
 	
 	// Grab the length and advance
-	length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
+	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 	DebugLog ( ( "Length = %d\n", length ) );
 	
 	require_action ( ( length > sizeof ( CDTOC ) ), Exit, result = -1 );
@@ -1735,7 +1751,7 @@ FindNumberOfAudioTracks ( QTOCDataFormat10Ptr TOCDataPtr )
 	require ( ( TOCDataPtr != NULL ), Exit );
 	
 	// Grab the length and advance
-	length = NXSwapBigShortToHost ( TOCDataPtr->TOCDataLength );
+	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 	require ( ( length > sizeof ( CDTOC ) ), Exit );
 	
 	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +

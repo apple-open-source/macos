@@ -46,3 +46,4 @@ public:
     UInt32				NumEDs(void);
     IOPhysicalAddress			GetPhysicalPtr(UInt32 index);
     EHCIQueueHeadSharedPtr		GetLogicalPtr(UInt32 index);
+};

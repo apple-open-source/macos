@@ -7,7 +7,7 @@
 #
 
 import os, sys, string
-import shutil, errno
+import shutil, errno, socket
 
 from email import Encoders
 from email.Message import Message
@@ -58,7 +58,7 @@ def copy_versioned_file(srcfile, dstdir):
 	fdst = None
 
 	if not os.path.isdir(dstdir) :
-		print >> sys.stderr, 'faxnotify: Save to directory missing ' + quote(dstdir)
+		print >> sys.stderr, 'faxnotify: Save to directory missing ' + quote(dstdir.encode('unicode-escape'))
 		return -1
 
 	old_uid = os.getuid()
@@ -97,7 +97,7 @@ def copy_versioned_file(srcfile, dstdir):
 	except (OSError, IOError), e:
 		print >> sys.stderr, 'faxnotify: Save to failed;' , e
 	except:
-		print >> sys.stderr, 'faxnotify: Save to ' + quote(dstdir) + ' failed'
+		print >> sys.stderr, 'faxnotify: Save to ' + quote(dstdir.encode('unicode-escape')) + ' failed'
 		pass
 
 	if fsrc:
@@ -132,7 +132,7 @@ def email_fax(receipents, sender, pdffile):
 	pdf.add_header('Content-Disposition', 'attachment', filename=pdffile)
 	msg.attach(pdf)
 
-	stdout, stdin = os.popen2('/usr/bin/mail ' + quote(receipents))
+	stdout, stdin = os.popen2('/usr/sbin/sendmail -oi -t -r' + quote(sender))
 	stdout.write(msg.as_string())
 	stdout.close()
 	stdin.close()
@@ -166,11 +166,18 @@ try:
 
 	# Save to
 	if defaults_read('SaveFax') == '1' :
-		copy_versioned_file(pdf_file, defaults_read('SavePath'))
+		copy_versioned_file(pdf_file, unicode(defaults_read('SavePath'), 'unicode-escape'))
 
 	# Email to
 	if defaults_read('EmailFax') == '1' :
-		email_fax(defaults_read('EmailRecipient'), 'FaxNotify', pdf_file)
+		recipients = defaults_read('EmailRecipient')
+		sender = defaults_read('EmailSender')
+		if sender == '' :
+			if socket.gethostname()[-7:] == '.local.' :
+				sender = recipients.split(',')[0].strip(whitespace + '<>')
+			else :
+				sender = 'FaxNotify'
+		email_fax(recipients, sender, pdf_file)
 
 finally:
 	# Remove the TIFFs and converted PDF

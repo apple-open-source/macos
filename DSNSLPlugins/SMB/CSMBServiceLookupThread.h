@@ -34,15 +34,18 @@
 class CSMBServiceLookupThread : public CNSLServiceLookupThread
 {
 public:
-                            CSMBServiceLookupThread		( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFStringRef lmbNameRef );
+                            CSMBServiceLookupThread		( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep, CFArrayRef lmbListRef );
     virtual					~CSMBServiceLookupThread	();
         
 	virtual void*			Run							( void );
 protected:
 			void			GetWorkgroupServers			( char* workgroup );
+			void			DoBroadcastLookup			( char* workgroup, CFStringRef workgroupRef );
+			char*			CopyNextMachine				( char** buffer );
+			
 			void			AddServiceResult			( CFStringRef workgroupRef, CFStringRef netBIOSRef, CFStringRef commentRef );
 private:
-			CFStringRef		mLMBNameRef;
+			CFArrayRef		mLMBsRef;
 };
 
 #endif		// #ifndef

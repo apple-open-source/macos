@@ -83,6 +83,7 @@ class AppleUSBHub : public IOService
     thread_call_t		_resetPortZeroThread;
     thread_call_t		_hubDeadCheckThread;
     thread_call_t		_clearFeatureEndpointHaltThread;
+    thread_call_t		_clearDevZeroLockThread;
 
     // Port stuff
     UInt8			_readBytes;
@@ -116,6 +117,8 @@ class AppleUSBHub : public IOService
     void		ClearFeatureEndpointHalt(void);
 
     static void 	TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender);
+
+    static void		ClearDevZeroLockForPort( OSObject *target, thread_call_param_t thePort);
 
     IOReturn 		DoDeviceRequest(IOUSBDevRequest *request);
     UInt32		GetHubErrataBits(void);

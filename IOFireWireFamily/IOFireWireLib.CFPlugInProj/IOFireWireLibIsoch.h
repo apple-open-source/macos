@@ -149,7 +149,7 @@ typedef IOReturn	(*IOFireWireLibIsochPortFinalizeCallback)( void* refcon ) ;
 
 	/*!	@class IOFireWireIsochPortInterface
 		@abstract FireWire user client isochronous port interface
-		@discussion Isochronous ports represent talkers or listeners on an
+		@discussion Isochronous ports represent talkers or listeners on a
 			FireWire isochronous channel. This is a base class containing all
 			isochronous port functionality not specific to any type of port.
 			Ports are added to channel interfaces
@@ -274,7 +274,20 @@ typedef struct IOFireWireLocalIsochPortInterface_t {
 	This interface contains all methods of IOFireWireIsochPortInterface
 		and IOFireWireLocalIsochPortInterface. This interface will
 		contain all v2 methods of IOFireWireLocalIsochPortInterface when
-		instantiated as v2 or newer. */
+		instantiated as v2 or newer.
+		
+	Transfer buffers for the local isoch port must all come from a single allocation
+	made with vm_allocate() or mmap(..., MAP_ANON ).
+	
+	Calling vm_deallocate() on the buffers before deallocating a local isoch port object
+	may result in a deadlock.
+	
+	Note: Calling Release() on the local isoch port may not immediately release the isoch port;
+	so it may not be safe to call vm_deallocate() on your transfer buffers. To guarantee
+	the port has been release, run the isochronous runloop until the port is finalized (it has
+	processed any pending callbacks). The finalize callback will be called when
+	the port is finalized. Set the finalize callback using SetFinalizeCallback().
+	*/
 /* headerdoc parse workaround	
 class IOFireWireLocalIsochPortInterface {
 public:
@@ -566,7 +579,7 @@ public:
 typedef struct IOFireWireNuDCLPoolInterface_t
 {
 /*!	@class IOFireWireNuDCLPoolInterface
-	@discussion
+	@discussion Use this interface to build NuDCL-based DCL programs.
 */
 /* headerdoc parse workaround	
 class IOFireWireNuDCLPoolInterface {
@@ -579,12 +592,16 @@ public:
 
 	/*!	@function GetProgram
 		@abstract Finds the first DCL in the pool not preceeded by any other DCL.
-		@discussion The specified callback is called when the channel is stopped and cannot be 
-			restarted automatically.
+		@discussion Returns a backwards-compatible DCL program pointer. This can be passed
+			to IOFireWireLibDeviceRef::CreateLocalIsochPort.
 		@param self The NuDCL pool to use.
-		@param stopProc The handler to set.
-		@result Returns the previously set handler or NULL is no handler was set.*/
+		@result A DCLCommand pointer.*/
 	DCLCommand*				(*GetProgram)( IOFireWireLibNuDCLPoolRef self ) ;
+	
+	/*!	@function GetDCLs
+		@abstract Returns the pool's DCL program as a CFArray of NuDCLRef's. 
+		@param self The NuDCL pool to use.
+		@result A CFArrayRef.*/
 	CFArrayRef				(*GetDCLs)( IOFireWireLibNuDCLPoolRef self ) ;
 
 	void					(*PrintProgram)( IOFireWireLibNuDCLPoolRef self ) ;
@@ -594,33 +611,44 @@ public:
 
 	/*!	@function SetCurrentTagAndSync
 		@abstract Set current tag and sync bits
-		@discussion
+		@discussion Sets the DCL pool's current tag and sync bits. All send DCLs allocated after calling
+			this function will transmit the specified tag and sync values. These fields can also be
+			set on each DCL using SetDCLTagBits() and SetDCLSyncBits().
 		@param self The NuDCL pool to use.
-		@param numBuffers The number of virtual ranges in 'buffers'. Can be no greater than 6.
-		@param buffers An array of virtual memory ranges containing the packet contents. The array will be copied
-			into the DCL when it is created.
-		@result Returns an NuDCLSendPacketRef on success or 0 on failure. */
+		@param tag Tag field value for subsequently allocated send DCLs
+		@param sync Sync field value for subsequently allocated send DCLs */
 	void					(*SetCurrentTagAndSync)( IOFireWireLibNuDCLPoolRef self, UInt8 tag, UInt8 sync ) ;
 
 	/*!	@function AllocateSendPacket
-		@abstract Allocate a SendPacket NuDCL
-		@discussion The SendPacket DCL sends an isochronous packet on the bus. 
-			When transmitting, one SendPacket DCL will be executed per FireWire bus cycle. The isochronous header 
-			for this DCL is specified by the closest preceeding SetHeader NuDCL. If there is no current header,
-			the sync and tag fields of the isochronous header will be set to 0.			
+		@abstract Allocate a SendPacket NuDCL and append it to the program.
+		@discussion The SendPacket DCL sends an isochronous packet on the bus. One DCL runs per bus cycle.
+			The isochronous header is automatically generated, but can be overriden. An update must be run to
+			regenerate the isochronous header. The sync and tag fields of allocated DCLs default to 0, unless
+			If SetCurrentTagAndSync has been called.
+			
+			Send DCLs can be modified using other functions of IOFireWireLibNuDCLPool.
 		@param self The NuDCL pool to use.
-		@param numBuffers The number of virtual ranges in 'buffers'. Can be no greater than 6.
-		@param buffers An array of virtual memory ranges containing the packet contents. The array will be copied
-			into the DCL when it is created.
 		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
 			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@param numBuffers The number of virtual ranges in 'buffers'.
+		@param buffers An array of virtual memory ranges containing the packet contents. The array is copied
+			into the DCL.
 		@result Returns an NuDCLSendPacketRef on success or 0 on failure. */
 	NuDCLSendPacketRef		(*AllocateSendPacket)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt32 numBuffers, IOVirtualRange* buffers ) ;	
+
+	/*!	@function AllocateSendPacket_v
+		@abstract Allocate a SendPacket NuDCL and append it to the program.
+		@discussion Same as AllocateSendPacket but ranges are passed as a NULL-terminated vector of IOVirtualRange's
+		@param self The NuDCL pool to use.
+		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
+			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@param firstRange The first buffer to be transmitted. Follow with additional ranges; terminate with NULL.
+		@result Returns an NuDCLSendPacketRef on success or 0 on failure. */
 	NuDCLSendPacketRef		(*AllocateSendPacket_v)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, IOVirtualRange* firstRange, ... ) ;	
 
 	/*!	@function AllocateSkipCycle
-		@abstract Allocate a SkipCycle NuCDL
-		@discussion The SkipCycle "sends" an empty cycle on the bus.
+		@abstract Allocate a SkipCycle NuDCL and append it to the program.
+		@discussion The SkipCycle DCL causes the DCL program to "sends" an empty cycle.
 		@param self The NuDCL pool to use.
 		@result Returns an NuDCLSkipCycleRef on success or 0 on failure. */
 	NuDCLSkipCycleRef		(*AllocateSkipCycle)( IOFireWireLibNuDCLPoolRef self ) ;
@@ -628,15 +656,31 @@ public:
 	// Allocating receive NuDCLs:
 
 	/*!	@function AllocateReceivePacket
-		@abstract Allocate a ReceivePacket NuDCL.
-		@discussion The ReceivePacket DCL is used to receive an isochronous packet. One ReceivePacket DCL can
-			be executed per FireWire bus cycle.
+		@abstract Allocate a ReceivePacket NuDCL and append it to the program
+		@discussion The ReceivePacket DCL receives an isochronous packet from the bus. One DCL runs per bus cycle.
+			If receiving isochronous headers, an update must be run before the isochronous header is valid.
+			
+			Receive DCLs can be modified using other functions of IOFireWireLibNuDCLPool.
+
 		@param self The NuDCL pool to use.
-		@param wantHeader Set to true to store packet isochronous header with the received data.
+		@param headerBytes Number of bytes of isochronous header to receive with the data. Valid values are 0, 4, and 8.
 		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
 			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@param numBuffers The number of virtual ranges in 'buffers'.
+		@param buffers An array of virtual memory ranges containing the packet contents. The array is copied
+			into the DCL.
 		@result Returns an NuDCLReceivePacketRef on success or 0 on failure. */
 	NuDCLReceivePacketRef	(*AllocateReceivePacket)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt8 headerBytes, UInt32 numBuffers, IOVirtualRange* buffers ) ;
+
+	/*!	@function AllocateReceivePacket_v
+		@abstract Allocate a ReceivePacket NuDCL and append it to the program
+		@discussion Same as AllocateReceivePacket but ranges are passed as a NULL-terminated vector of IOVirtualRange's
+		@param self The NuDCL pool to use.
+		@param saveBag The allocated DCL can be added to a CFBag for easily setting DCL update lists. Pass a CFMutableSetRef to add the allocated
+			DCL to a CFBag; pass NULL to ignore. SaveBag is unmodified on failure.
+		@param headerBytes Number of bytes of isochronous header to receive with the data. Valid values are 0, 4, and 8.
+		@param firstRange The first buffer to be transmitted. Follow with additional ranges; terminate with NULL.
+		@result Returns an NuDCLReceivePacketRef on success or 0 on failure. */
 	NuDCLReceivePacketRef	(*AllocateReceivePacket_v)( IOFireWireLibNuDCLPoolRef self, CFMutableSetRef saveBag, UInt8 headerBytes, IOVirtualRange* firstRange, ... ) ;
 
 	// NuDCL configuration
@@ -644,27 +688,25 @@ public:
 	/*!	@function GetDCLNextDCL
 		@abstract Get the next pointer for a NuDCL
 		@discussion Applies: Any NuDCLRef
-
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
 		@param dcl The dcl whose next pointer will be returned
 		@result Returns the DCL immediately following this DCL in program order (ignoring branches) or 0 for none.*/
 	NuDCLRef			(*FindDCLNextDCL)( IOFireWireLibNuDCLPoolRef self, NuDCLRef dcl ) ;
 
 	/*!	@function SetDCLBranch
 		@abstract Set the branch pointer for a NuDCL
-		@discussion Program execution will jump to the DCL pointed to by 'branchDCL', when set. 
+		@discussion Program execution will jump to the DCL pointed to by 'branchDCL', after the DCL is executed. If set to 0, 
+			execution will continue with the next DCL in the program.
 		
 			This change will apply immediately to a non-running DCL program. To apply the change to a running program
-			use IOFireWireLibIsochPortInterface->ModifyNuDCLs()
-			restarted automatically.
+			use IOFireWireLocalIsochPortInterface::Notify()
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
-		@param stopProc The handler to set.
+			Applies: Any NuDCLRef.
 		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLBranch)( NuDCLRef dcl, NuDCLRef branchDCL ) ;
 
 	/*!	@function GetDCLBranch
 		@abstract Get the branch pointer for a NuDCL
+		@discussion: Applies: Any NuDCLRef.
 		@param dcl The dcl whose branch pointer will be returned.
 		@result Returns the branch pointer of 'dcl' or 0 for none is set.*/
 	NuDCLRef			(*GetDCLBranch)( NuDCLRef dcl ) ;
@@ -672,9 +714,12 @@ public:
 	/*!	@function SetDCLTimeStampPtr
 		@abstract Set the time stamp pointer for a NuDCL
 		@discussion Setting a the time stamp pointer for a NuDCL causes a time stamp to be recorded when a DCL executes. 
-			You must run an update NuDCL on this DCL to copy the written timestamp to the proper location.
+			This DCL must be updated after it has executed for the timestamp to be valid.
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLocalIsochPortInterface::Notify()
+
+			Applies: Any NuDCLRef.
 
 		@param dcl The DCL for which time stamp pointer will be set
 		@param timeStampPtr A pointer to a quadlet which will hold the timestamp after 'dcl' is updated.
@@ -683,24 +728,80 @@ public:
 
 	/*!	@function GetDCLTimeStampPtr
 		@abstract Get the time stamp pointer for a NuDCL.
-		@discussion The specified callback is called when the channel is stopped and cannot be 
-			restarted automatically.
+		@discussion Applies: Any NuDCLRef.
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLSkipCycleRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
-
-		@param dcl The DCL to modify
+		@param dcl The DCL whose timestamp pointer will be returned.
 		@result Returns a UInt32 time stamp pointer.*/
 	UInt32*				(*GetDCLTimeStampPtr)( NuDCLRef dcl ) ;
 
+	/*!	@function SetDCLStatusPtr
+		@abstract Set the status pointer for a NuDCL
+		@discussion Setting a the status pointer for a NuDCL causes the packet transmit/receive hardware status to be recorded when the DCL executes. 
+			This DCL must be updated after it has executed for the status to be valid. 
+			
+			This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLocalIsochPortInterface::Notify()
+
+			Status values are as follows: (from the OHCI spec, section 3.1.1)
+			
+			<dfn><table bgcolor="#EBEBEB">
+				<tr>
+					<td><b>5'h00</b></td> <td>No event status. </td>
+				</tr>
+				<tr>
+					<td><b>5'h02</b></td> <td>evt_long_packet (receive)</td> <td>The received data length was greater than the buffer's data_length. </td>
+				</tr>
+				<tr>
+					<td><b>5'h05</b></td> <td>evt_overrun (receive)</td> <td>A receive FIFO overflowed during the reception of an isochronous packet. </td>
+				</tr>
+				<tr>
+					<td><b>5'h06</b></td> <td>evt_descriptor_read (receive/transmit)</td> <td>An unrecoverable error occurred while the Host Controller was reading a descriptor  block. </td>
+				</tr>
+				<tr>
+					<td><b>5'h07</b></td> <td>evt_data_read (transmit)</td> <td>An error occurred while the Host Controller was attempting to read from host memory  in the data stage of descriptor processing. </td>
+				</tr>
+				<tr>
+					<td><b>5'h08</b></td> <td>evt_data_write (receive/transmit)</td> <td>An error occurred while the Host Controller was attempting to write to host memory  either in the data stage of descriptor processing (AR, IR), or when processing a single  16-bit host memory write (IT). </td>
+				</tr>
+				<tr>
+					<td><b>5'h0A</b></td> <td>evt_timeout (transmit)</td> <td>Indicates that the asynchronous transmit response packet expired and was not  transmitted, or that an IT DMA context experienced a skip processing overflow (See  section9.3.4). </td>
+				</tr>
+				<tr>
+					<td><b>5'h0B</b></td> <td>evt_tcode_err (transmit)</td> <td>A bad tCode is associated with this packet. The packet was flushed. </td>
+				</tr>
+				<tr>
+					<td><b>5'h0E</b></td> <td>evt_unknown (receive/transmit)</td> <td>An error condition has occurred that cannot be represented by any other event codes defined herein. </td>
+				</tr>
+				<tr>
+					<td><b>5'h11</b></td> <td>ack_complete (receive/transmit)</td> <td>No event occurred. (Success)</td>
+				</tr>
+				<tr>
+					<td><b>5'h1D</b></td> <td>ack_data_error (receive)</td> <td>A data field CRC or data_length error.</td>
+				</tr>
+			</table>
+			</dfn>
+			
+			Applies: Any NuDCLRef.
+
+		@param dcl The DCL for which status pointer will be set
+		@param timeStampPtr A pointer to a quadlet which will hold the status after 'dcl' is updated.
+		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLStatusPtr)( NuDCLRef dcl, UInt32* statusPtr ) ;
+
+	/*!	@function GetDCLTimeStampPtr
+		@abstract Get the status pointer for a NuDCL.
+		@discussion Applies: Any NuDCLRef.
+		@param dcl The DCL whose status pointer will be returned.
+		@result Returns a UInt32 status pointer.*/
 	UInt32*				(*GetDCLStatusPtr)( NuDCLRef dcl ) ;
 	
 
 	/*!	@function AddDCLRange
 		@abstract Add a memory range to the scatter gather list of a NuDCL
-		@discussion
+		@discussion This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLocalIsochPortInterface::Notify()
 		
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacketRef
 
 		@param dcl The DCL to modify
 		@param range A IOVirtualRange to add to this DCL buffer list. Do not pass NULL.
@@ -709,12 +810,17 @@ public:
 
 	/*!	@function SetDCLRanges
 		@abstract Set the scatter gather list for a NuDCL
-		@discussion
+		@discussion Set the list of data buffers for a DCL. Setting too many ranges may result in a memory region
+			with too many discontinous physical segments for the hardware to send or receive in a single packet.
+			This will result in an error when the program is compiled.
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLocalIsochPortInterface::Notify()
+
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacketRef
 
 		@param dcl The DCL to modify
-		@param numRanges number of ranges in 'ranges'. Must be less than 7
+		@param numRanges number of ranges in 'ranges'.
 		@param ranges An array of virtual ranges
 		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLRanges)				( NuDCLRef dcl, UInt32 numRanges, IOVirtualRange* ranges ) ;
@@ -725,14 +831,41 @@ public:
 		@abstract Get the scatter-gather list for a NuDCL
 		@discussion 
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacketRef
 
 		@param dcl The DCL to query
 		@param stopProc The handler to set.
 		@result Returns the previously set handler or NULL is no handler was set.*/
 	UInt32				(*GetDCLRanges)				( NuDCLRef dcl, UInt32 maxRanges, IOVirtualRange* outRanges ) ;
+
+	/*!	@function CountDCLRanges
+		@abstract Returns number of buffers for a NuDCL
+		@discussion 
+
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacket
+
+		@param dcl The DCL to query
+		@result Returns number of ranges in DCLs scatter-gather list*/
 	UInt32				(*CountDCLRanges)			( NuDCLRef dcl ) ;
+
+	/*!	@function GetDCLSpan
+		@abstract Returns a virtual range spanning lowest referenced buffer address to highest
+		@discussion 
+
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacket
+
+		@param dcl The DCL to query
+		@result Returns an IOVirtualRange.*/
 	IOReturn			(*GetDCLSpan)				( NuDCLRef dcl, IOVirtualRange* spanRange ) ;
+
+	/*!	@function GetDCLSize
+		@abstract Returns number of bytes to be transferred by a NuDCL
+		@discussion 
+
+			Applies: NuDCLSendPacketRef, NuDCLReceivePacket
+
+		@param dcl The DCL to query
+		@result Returns an IOByteCount.*/
 	IOByteCount			(*GetDCLSize)				( NuDCLRef dcl ) ;
 
 	/*!	@function SetDCLCallback
@@ -741,24 +874,44 @@ public:
 			callback for a NuDCL. If the update option is also set, the callback will be called after the update
 			has run.
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			This change will apply immediately to a non-running DCL program. To apply the change to a running program
+			use IOFireWireLocalIsochPortInterface::Notify()
+
+			Applies: Any NuDCLRef
 		
 		@param dcl The DCL to modify
 		@param callback The callback function.
 		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLCallback)				( NuDCLRef dcl, NuDCLCallback callback ) ;
 
-	/*!	@function Get callback for a NuDCL
-		@abstract Returns the callback function for a DCL
-		@discussion
+	/*!	@function GetDCLCallback
+		@abstract Get callback for a NuDCL
+		@discussion Returns the callback function for a DCL
 
-			Applies: NuDCLSendPacketRef, NuDCLSendPacketWithHeaderRef, NuDCLReceivePacket, NuDCLReceivePacketWithHeader
+			Applies: Any NuDCLRef
+
 		@param dcl The DCL to query
-		@result Returns the DCLs callback function or NULL is none.*/
+		@result Returns the DCLs callback function or NULL if none is set.*/
 	NuDCLCallback		(*GetDCLCallback)( NuDCLRef dcl ) ;
 
+	/*!	@function SetDCLCallback
+		@abstract Set a user specified header for a send NuDCL
+		@discussion Allows the client to create a custom header for a transmitted isochronous packet. The header is masked with 'mask', 
+			and the FireWire system software fills in the masked out bits.
+			
+			This change will apply immediately to a non-running DCL program. 
+			An update must be run on the DCL for changes to take effect in a running program.
+
+			Applies: NuDCLSendPacketRef
+		
+		@param dcl The DCL to modify
+		@param headerPtr A pointer to a two-quadlet header. See section 9.6 of the the OHCI specification. 
+		@param mask A pointer to a two-quadlet mask. The quadlets in headerPtr are masked with 'mask' and the masked-out bits
+			are replaced by the FireWire system software.
+		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLUserHeaderPtr)( NuDCLRef dcl, UInt32 * headerPtr, UInt32 * mask ) ;
 	UInt32 *			(*GetDCLUserHeaderPtr)( NuDCLRef dcl ) ;
+
 	UInt32 *			(*GetUserHeaderMaskPtr)( NuDCLRef dcl ) ;
 	
 	void				(*SetDCLRefcon)( NuDCLRef dcl, void* refcon ) ;

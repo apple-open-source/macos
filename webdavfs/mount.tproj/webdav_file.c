@@ -1107,6 +1107,13 @@ int webdav_statfs(proxy_ok, pcr, key, a_socket, so, statfsbuf)
 	int error;
 	struct fetch_state fs;
 	time_t thetime;
+	
+	if ( gSuppressAllUI )
+	{
+		/* if we're suppressing UI, we don't need statfs to get quota info from the server */
+		bzero((void *)statfsbuf, sizeof(struct statfs));
+		return (0);
+	}
 
 	/* What we are starting with is a pathname - the http part
 	  in the key variable.

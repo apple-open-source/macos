@@ -169,7 +169,11 @@ IOReturn IOFWReadQuadCommand::execute()
     if(!fFailOnReset) {
         // Update nodeID and generation
         fDevice->getNodeIDGeneration(fGeneration, fNodeID);
-		fSpeed = fControl->FWSpeed( fNodeID );    
+		fSpeed = fControl->FWSpeed( fNodeID );  
+		if( fMembers->fMaxSpeed < fSpeed )
+		{
+			fSpeed = fMembers->fMaxSpeed;
+		}  
     }
 
     transfer = fSize;

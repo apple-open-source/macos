@@ -332,6 +332,12 @@ IOFWDCLPool :: importUserProgram (
 	return error ;
 }
 
+DCLCommand *
+IOFWDCLPool::getProgram()
+{
+	return 0 ;
+}
+
 OSMetaClassDefineReservedUnused ( IOFWDCLPool, 0);
 OSMetaClassDefineReservedUnused ( IOFWDCLPool, 1);
 OSMetaClassDefineReservedUnused ( IOFWDCLPool, 2);

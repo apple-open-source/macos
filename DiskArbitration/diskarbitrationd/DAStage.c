@@ -297,6 +297,12 @@ static void __DAStageDispatch( void * info )
 
         if ( gDAConsoleUser )
         {
+///w:start
+            if ( CFEqual( gDAConsoleUser, CFSTR( "loginwindow" ) ) )
+            {
+                return;
+            }
+///w:stop
             /*
              * Determine whether a unit is unreadable.
              */

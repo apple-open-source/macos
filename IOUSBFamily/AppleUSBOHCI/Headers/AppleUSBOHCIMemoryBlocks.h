@@ -116,3 +116,4 @@ public:
     AppleOHCIIsochTransferDescriptorPtr		GetITD(UInt32 index);
 };
 
+#endif

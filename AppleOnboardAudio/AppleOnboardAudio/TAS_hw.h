@@ -330,15 +330,8 @@ enum DRCRegisterByteIndex {
 };
 
 enum TAS3004_DRC_Constants {
-		kDisableDRC						=	0x59,	/*	Disable the DRC by setting above threshold to this value	*/
-		kDRCAboveThreshold3to1			=	0x58,	/*	Abstracts TAS3004 decay to TAS3001C behavior 3.20 to 1.0	*/
-		kDRCBelowThreshold1to1			=	0x02,	/*	Abstracts TAS3004 decay to TAS3001C behavior 3.20 to 1.0	*/
-		kDRCUnityThreshold				=	0xEF,	/*	This value sets 0.0 dB threshold							*/
-		kDRCIntegrationThreshold		=	0xF0,	/*	Abstracts TAS3004 decay to TAS3001C behavior of 2400 mS		*/
-		kDRCAttachThreshold				=	0x70,	/*	Abstracts TAS3004 decay to TAS3001C behavior of 13 mS		*/
-		kDRCDecayThreshold				=	0xB0,	/*	Abstracts TAS3004 decay to TAS3001C behavior of 212 mS		*/
-		kDRC_ThreholdStepSize			=	 750,	/*	Expressed in dB X 1000										*/
-		kDRC_CountsPerStep				=	2		/*	Each 0.750 dB step requires a two count step in hardware	*/
+		kDisableDRC						=	0x01,	/*	Disable the DRC by setting above threshold to an odd value	*/
+		kDRC_Integration_6point7ms		=	0x60
 };
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -412,6 +405,7 @@ enum {
 	// As such, these streams can be used with get and set current stream map;
 	// get and set relative volume min, max, and current; and 
 	// get hardware stream map
+#if 0		/*		THESE ENUMERATIONS NOW APPEAR IN 'AudioHardwareConstants.h'		rbm		*/
 	kStreamFrontLeft			= 'fntl',	// front left speaker
 	kStreamFrontRight			= 'fntr',	// front right speaker
 	kStreamSurroundLeft			= 'surl',	// surround left speaker
@@ -427,6 +421,7 @@ enum {
 	kStreamSideRight			= 'sidr',	//	see usb audio class spec. v1.0, section 3.7.2.3	[right wall]
 	kStreamTop					= 'top ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[overhead]
 	kStreamMono					= 'mono',	//	for usb devices with a spatial configuration of %0000000000000000
+#endif
 
 	// Virtual streams. These are separately addressable streams as a "regular" stream; however, they are mutually
 	// exclusive with one or more "regular" streams because they are not actually separate on the hardware device.
@@ -651,15 +646,12 @@ struct EQPrefs {
 typedef EQPrefs *EQPrefsPtr;
 
 struct DRCInfo {
-	UInt32					compressionRatioNumerator;
-	UInt32					compressionRatioDenominator;
-	SInt32					threshold;
-	SInt32					maximumVolume;
-	UInt32					maximumAvailableVolume;
-	UInt32					minimumAvailableVolume;
-	UInt32					maximumAvailableThreshold;
-	UInt32					minimumAvailableThreshold;
-	Boolean					enable;
+	UInt8		ratio;
+	UInt8		ratioBelow;
+	UInt8		threshold;
+	UInt8		integrationInterval;
+	UInt8		attack;
+	UInt8		decay;
 };
 typedef DRCInfo *DRCInfoPtr;
 

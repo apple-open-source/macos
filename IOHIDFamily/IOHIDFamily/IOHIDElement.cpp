@@ -684,7 +684,7 @@ bool IOHIDElement::serialize( OSSerialize * s ) const
         entry->setProperty( kIOHIDElementScaledMaxKey, _physicalMax, 32 );
         entry->setProperty( kIOHIDElementScaledMinKey, _physicalMin, 32 );
                 
-        if (_duplicateReportHandler)
+        if (IsDuplicateElement(this) && !IsDuplicateReportHandler(this))
         {
             entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
         }

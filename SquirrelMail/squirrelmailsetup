@@ -1,0 +1,40 @@
+#!/bin/sh
+# 
+# Set the default language for SquirrelMail
+#
+SMConfig=/etc/squirrelmail/config
+SMConfigMain=${SMConfig}/config.php
+SMConfigTmp=${SMConfig}/config.php.bkup.$$
+
+primaryLang=`/System/Library/ServerSetup/serversetup -getPrimaryLanguage`
+
+if [ ${primaryLang}x = "x" ]
+then
+	lang="'en_US'"
+elif [ ${primaryLang} = "English" -o ${primaryLang} = "en" ] 
+then
+	lang="'en_US'"
+elif [ ${primaryLang} = "Japanese" -o ${primaryLang} = "ja"  ]
+then
+	lang="'ja_JP'"
+elif [ ${primaryLang} = "German" -o ${primaryLang} = "de" ]
+then
+	lang="'de_DE'"
+elif [ ${primaryLang} = "French" -o ${primaryLang} = "fr" ]
+then
+	lang="'fr_FR'"
+else
+	lang="'en_US'"
+fi
+
+/usr/bin/logger "Setting SquirrelMail language to $lang"
+
+/usr/bin/sed < ${SMConfigMain} > ${SMConfigTmp} \
+                -e "s%^\$squirrelmail_default_language[ \t].*%\$squirrelmail_default_language = ${lang};%"
+
+if [ -e ${SMConfigTmp} ]
+then
+	/bin/cp -f ${SMConfigTmp} ${SMConfigMain}
+	/bin/chmod 644 ${SMConfigMain}
+	/bin/rm -f ${SMConfigTmp}
+fi

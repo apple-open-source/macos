@@ -494,3 +494,4 @@ private:
     QueueStatus 		GetQueueStatus(CirQueue *Queue);
     void 			CheckQueues(PortInfo_t *port);
     
+}; /* end class AppleUSBCDCDriver */

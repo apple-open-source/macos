@@ -84,7 +84,7 @@ CFRunLoopRef		gServerRunLoop = NULL;
 
 #warning VERIFY the version string before each distinct build submission
 static const char* strDaemonAppleVersion = "1.6";
-static const char* strDaemonBuildVersion = "255";
+static const char* strDaemonBuildVersion = "255.1";
 
 enum
 {

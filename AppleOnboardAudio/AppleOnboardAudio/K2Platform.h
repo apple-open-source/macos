@@ -148,6 +148,10 @@ public:
 
 	virtual bool			init (IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex);
 	virtual	void			free();
+
+	virtual IOReturn		performPlatformSleep ( void );
+	virtual IOReturn		performPlatformWake ( IOService * device );
+
 	//
 	// Codec Methods
 	//

@@ -679,7 +679,7 @@ IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
 	me->fUserClient->getStatistics()->getIsochCallbackCounter()->addValue( 1 ) ;
 #endif
 #endif
-
+	
 	if ( dcl->procData )
 	{	
 		IOFireWireUserClient::sendAsyncResult( (natural_t*)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
@@ -1022,44 +1022,3 @@ IOFWUserLocalIsochPort :: userNotify (
 	
 	return error ? error : notify( (IOFWDCLNotificationType)notificationType, (DCLCommand**)dcls, numDCLs ) ;
 }
-
-
-#if 0
-IOReturn
-IOFWUserLocalIsochPort :: runNuDCLUpdateList( UInt32 dclProgramIndex )
-{
-	--dclProgramIndex ; // index is offset by 1 to allow 0 to be the NULL object
-
-	if ( fDCLPool && dclProgramIndex >= fDCLPool->getProgram()->getCount() )
-	{
-		return kIOReturnBadArgument ;
-	}
-
-	IOFWDCL * dcl = (IOFWDCL*) fDCLPool->getProgram()->getObject( dclProgramIndex ) ;
-	return notify( kFWNuDCLUpdateNotification, (DCLCommand**) & dcl, 1 ) ;
-}
-
-IOReturn
-IOFWUserLocalIsochPort :: runDCLUpdateList( UInt32 dclCompilerData )
-{
-	--dclCompilerData ;
-	
-	if ( dclCompilerData >= fProgramCount )
-	{
-		return kIOReturnBadArgument ;
-	}
-
-	IOReturn error = kIOReturnSuccess ;
-	DCLUpdateDCLList * dcl = (DCLUpdateDCLList*)fDCLTable[ dclCompilerData ] ;
-	if ( ( dcl->opcode & kFWDCLOpFlagMask ) != kDCLUpdateDCLListOp )
-	{
-		error = kIOReturnBadArgument ;
-	}
-	else
-	{
-		error = notify( kFWDCLUpdateNotification, dcl->dclCommandList, dcl->numDCLCommands ) ;
-	}
-	
-	return error ;
-}
-#endif

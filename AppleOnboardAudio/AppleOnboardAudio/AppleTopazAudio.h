@@ -55,9 +55,10 @@ public:
 	virtual IOReturn		setActiveOutput (UInt32 outputPort) { return kIOReturnSuccess; }
 	virtual UInt32			getActiveInput (void) { return kSndHWInput1; }
 	virtual IOReturn		setActiveInput (UInt32 input) { return kIOReturnSuccess; }
-	virtual bool			getMute ();
-	virtual IOReturn		setMute (bool muteState);
-	virtual bool			setVolume (UInt32 leftVolume, UInt32 rightVolume) { return false; }
+	virtual IOReturn		setCodecMute (bool muteState);												//	[3435307]	rbm
+	virtual IOReturn		setCodecMute (bool muteState, UInt32 streamType);							//	[3435307]	rbm
+	virtual bool			hasDigitalMute ();															//	[3435307]	rbm
+	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) { return false; }	//	[3435307]	rbm
 	virtual IOReturn		setPlayThrough (bool playthroughState) { return kIOReturnError; }
 	virtual IOReturn		setInputGain (UInt32 leftGain, UInt32 rightGain) { return kIOReturnError; }
 	virtual IOReturn		performDeviceSleep ();
@@ -107,7 +108,6 @@ private:
 	PlatformInterface* 		mPlatformObject;	// pointer to platform object class
 	TOPAZ_CODEC_TYPES		mCodecID;
 	
-	bool					mCurMuteState;
 	bool					mNonAudio;
 	UInt8					mCurrentMAP;
 	UInt32					mUnlockErrorCount;

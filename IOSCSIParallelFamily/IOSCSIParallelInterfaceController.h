@@ -49,15 +49,16 @@
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOCommandPool.h>
 
+// IOKit SCSI ArchitectureModel Family includes
 #include <IOKit/scsi/SCSITask.h>
-
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Constants
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define kIOPropertySCSIParallelInterfaceKey		"SCSI Parallel Interface"
 
 #define kIOPropertySCSIDeviceFeaturesKey		"SCSI Device Features"
 #define kIOPropertySCSI_I_T_NexusFeaturesKey	"SCSI I_T Nexus Features"
