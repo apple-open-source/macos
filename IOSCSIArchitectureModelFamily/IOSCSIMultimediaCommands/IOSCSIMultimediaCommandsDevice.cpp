@@ -113,6 +113,7 @@ OSDefineAbstractStructors ( IOSCSIMultimediaCommandsDevice, IOSCSIPrimaryCommand
 #define kMechanicalCapabilitiesMinBufferSize	4
 #define kSubChannelDataBufferSize				24
 #define kCDAudioModePageBufferSize				24
+#define kDiscStatusOffset						2
 
 // Offsets into the CD Mechanical Capabilities mode page
 #define kMediaAccessSpeedOffset					14
@@ -1202,15 +1203,19 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 			
 			if ( ( format == kCDTOCFormatTOC ) && ( msf == 1 ) )
 			{
-		
-				UInt8 *			ptr;
-				UInt16			sizeOfTOC;
-				IOByteCount		bufLength;	// not used
 				
-				ptr = ( UInt8 * ) bufferToUse->getVirtualSegment ( 0, &bufLength );
+				UInt16			sizeOfTOC 	= 0;
+				UInt8 *			ptr			= NULL;
+				IOMemoryMap *	map			= NULL;
+				
+				map = bufferToUse->map ( kIOMapAnywhere );
+				require_nonzero_action ( map, ReleaseTask, status = kIOReturnError );
+				
+				ptr = ( UInt8 * ) map->getVirtualAddress ( );
 				
 				// Get the size of the TOC data returned
 				sizeOfTOC = OSReadBigInt16 ( ptr, 0 ) + sizeof ( UInt16 );
+				require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseTask, map->release ( ); status = kIOReturnError );
 				
 				// We have successfully gotten a TOC, check if the driver was able to 
 				// determine a block count from READ CAPACITY.  If the media has a reported
@@ -1221,11 +1226,11 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 				if ( fMediaBlockCount != 0 )
 				{
 					
-					UInt8			lastSessionNum;
-					UInt32 			index;
-					UInt8 *			beginPtr;
-					bool			needsBCDtoHexConv = false;
-					UInt32			numLBAfromMSF;
+					UInt8			lastSessionNum		= 0;
+					UInt32			numLBAfromMSF		= 0;
+					UInt32 			index				= 0;
+					UInt8 *			beginPtr			= NULL;
+					bool			needsBCDtoHexConv	= false;
 					
 					beginPtr = ptr;
 					
@@ -1234,8 +1239,6 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 						ERROR_LOG ( ( "sizeOfTOC != Realized Data Transfer Count\n size = %d, xfer count = %ld\n",
 										sizeOfTOC, ( UInt32 ) GetRealizedDataTransferCount ( request ) ) );
 				#endif
-					
-					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseTask, status = kIOReturnError );
 					
 					// Get the number of the last session on the disc.
 					// Since this number will be match to the appropriate
@@ -1332,13 +1335,9 @@ IOSCSIMultimediaCommandsDevice::ReadTOC (
 					}
 					
 				}
-		
-				else
-				{
-					
-					require_action ( ( sizeOfTOC > sizeof ( CDTOC ) ), ReleaseTask, status = kIOReturnError );
-					
-				}
+				
+				map->release ( );
+				map = NULL;
 				
 			}
 			
@@ -4734,217 +4733,122 @@ bool
 IOSCSIMultimediaCommandsDevice::CheckForCDMediaType ( void )
 {
 	
-	UInt8					tocBuffer[4] 	= { 0 };
-	IOMemoryDescriptor * 	bufferDesc		= NULL;
-	SCSITaskIdentifier		request			= NULL;
-	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	bool					mediaTypeFound	= false;
+	UInt8 *						buffer			= NULL;
+	IOBufferMemoryDescriptor * 	bufferDesc		= NULL;
+	SCSITaskIdentifier			request			= NULL;
+	SCSIServiceResponse			serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	bool						mediaTypeFound	= false;
 	
-	bufferDesc = IOMemoryDescriptor::withAddress ( 	tocBuffer,
-													sizeof ( tocBuffer ),
-													kIODirectionIn );
+	bufferDesc = IOBufferMemoryDescriptor::withCapacity ( 4, kIODirectionIn );
 	require_nonzero ( bufferDesc, ErrorExit );
+	buffer = ( UInt8 * ) bufferDesc->getBytesNoCopy ( );
 	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ReleaseDescriptor );
 	
-	// Issue a READ_TOC_PMA_ATIP to find out if the media is
-	// finalized or not
-	if ( READ_TOC_PMA_ATIP ( 	request,
-								bufferDesc,
-								0x00,
-								0x00,
-								0x00,
-								sizeof ( tocBuffer ),
-								0 ) == true )
-	{
-		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
-	}
-	
-	bufferDesc->release ( );
-	bufferDesc = NULL;
-	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+	// Is this a writeable drive?
+	if ( fSupportedCDFeatures & kCDFeaturesWriteOnceMask )
 	{
 		
-		if ( fSupportedCDFeatures & kCDFeaturesWriteOnceMask )
+		// A writeable drive should support the READ_DISC_INFORMATION command.
+		// We can determine media type using it.
+		if ( READ_DISC_INFORMATION ( request,
+									 bufferDesc,
+									 bufferDesc->getLength ( ),
+									 0 ) == true )
 		{
-			
-			UInt8	discInfoBuffer[4];
-			
-			bufferDesc = IOMemoryDescriptor::withAddress (
-												discInfoBuffer,
-												sizeof ( discInfoBuffer ),
-												kIODirectionIn );
-			require_nonzero ( bufferDesc, ReleaseTask );
-			
-			if ( READ_DISC_INFORMATION ( request,
-										 bufferDesc,
-										 sizeof ( discInfoBuffer ),
-										 0 ) == true )
-			{
-				// The command was successfully built, now send it
-				serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
-			}
-			
-			bufferDesc->release ( );
-			bufferDesc = NULL;
-			
-			if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-				 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-			{
-				
-				switch ( discInfoBuffer[2] & kDiscStatusMask )
-				{
-					
-					case kDiscStatusEmpty:
-						PANIC_NOW ( ( "A disc with a valid TOC should never be empty" ) );
-						break;
-					
-					case kDiscStatusOther:
-					case kDiscStatusIncomplete:
-						break;
-					
-					case kDiscStatusComplete:
-						
-						// Check to see if it is erasable. If so, flag it as CD-R/W media,
-						// otherwise, consider it finalized.
-						if ( discInfoBuffer[2] & kDiscStatusErasableMask )
-						{
-							
-							STATUS_LOG ( ( "fMediaType = CD-RW\n" ) );
-							fMediaType = kCDMediaTypeRW;
-							
-						}
-						
-						else
-						{
-						
-							STATUS_LOG ( ( "fMediaType = CD-ROM\n" ) );
-							fMediaType = kCDMediaTypeROM;
-							
-						}
-						
-						mediaTypeFound = true;
-						break;
-						
-				}
-				
-			}
-			
+			// The command was successfully built, now send it
+			serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
 		}
 		
-		else
+		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			
-			// The drive is not a CD-R/W drive, so we mark the media as
-			// finalized since it can't be written to.
-			STATUS_LOG ( ( "fMediaType = CD-ROM\n" ) );
-			fMediaType = kCDMediaTypeROM;
-			mediaTypeFound = true;
-			
-		}
-		
-	}
-	
-	if ( mediaTypeFound == false )
-	{
-		
-		if ( fSupportedCDFeatures & kCDFeaturesWriteOnceMask )
-		{
-			
-			UInt8	atipBuffer[kATIPBufferSize];
-			
-			bufferDesc = IOMemoryDescriptor::withAddress ( 	atipBuffer,
-															kATIPBufferSize,
-															kIODirectionIn );
-			
-			if ( READ_TOC_PMA_ATIP ( 	request,
-										bufferDesc,
-										0x00,
-										0x04,
-										0x00,
-										sizeof ( atipBuffer ),
-										0 ) == true )
+			switch ( buffer[kDiscStatusOffset] & kDiscStatusMask )
 			{
 				
-				// The command was successfully built, now send it
-				serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
-				
-			}
-			
-			bufferDesc->release ( );
-			bufferDesc = NULL;
-			
-			if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-				 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
-			{
-				
-				UInt8	trackInfoBuffer[kTrackInfoBufferSize];
-				
-				// Check the DiscType field in byte 7 of the READ_TOC_PMA_ATIP
-				// format 0x04 to see if the disc is CD-RW or CD-R
-				if ( atipBuffer[6] & kDiscTypeCDRWMask )
+				case kDiscStatusEmpty:
 				{
 					
-					STATUS_LOG ( ( "fMediaType = CD-RW\n" ) );
-					fMediaType = kCDMediaTypeRW;
+					STATUS_LOG ( ( "Blank media\n" ) );
+					fMediaBlockCount = 0;
+					STATUS_LOG ( ( "fMediaType = CD-R\n" ) );
+					fMediaType = kCDMediaTypeR;
+					mediaTypeFound = true;
+					break;
 					
 				}
 				
-				else
+				case kDiscStatusIncomplete:
 				{
 					
 					STATUS_LOG ( ( "fMediaType = CD-R\n" ) );
 					fMediaType = kCDMediaTypeR;
+					mediaTypeFound = true;
+					break;
 					
 				}
 				
-				bufferDesc = IOMemoryDescriptor::withAddress (
-											trackInfoBuffer,
-											kTrackInfoBufferSize,
-											kIODirectionIn );
-				
-				// Check to see if the medium is blank
-				if ( READ_TRACK_INFORMATION ( request,
-											  bufferDesc,
-											  0x00,
-											  0x01,
-											  kTrackInfoBufferSize,
-											  0 ) == true )
+				case kDiscStatusComplete:					
 				{
 					
-					// The command was successfully built, now send it
-					serviceResponse = SendCommand ( request,
-													kThirtySecondTimeoutInMS );
+					STATUS_LOG ( ( "fMediaType = CD-ROM\n" ) );
+					fMediaType = kCDMediaTypeROM;
+					mediaTypeFound = true;
+					break;
 					
 				}
 				
-				bufferDesc->release ( );
-				bufferDesc = NULL;
-				
-				if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-					 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+				case kDiscStatusOther:
+				default:
 				{
-					
-					if ( trackInfoBuffer[6] & 0x40 )
-					{
-						
-						STATUS_LOG ( ( "media is blank\n" ) );
-						// Yes it's blank, make sure the blockCount is zero.
-						fMediaBlockCount = 0;
-						
-					}
-					
+					break;
 				}
 				
+			}
+			
+			// Check to see if it is erasable. If it is, it's CD-RW media
+			if ( buffer[kDiscStatusOffset] & kDiscStatusErasableMask )
+			{
+				
+				STATUS_LOG ( ( "fMediaType = CD-RW\n" ) );
+				fMediaType = kCDMediaTypeRW;
 				mediaTypeFound = true;
 				
 			}
 			
 		}
+		
+	}
+	
+	// Were we able to determine the media type yet?
+	require_quiet ( ( mediaTypeFound == false ), ReleaseTask );
+	
+	// Media type not yet determined, check for CD-ROM media.
+	// Issue a READ_TOC_PMA_ATIP to find out if the media is
+	// finalized or not.
+	if ( READ_TOC_PMA_ATIP ( 	request,
+								bufferDesc,
+								0x00,
+								0x00,
+								0x00,
+								bufferDesc->getLength ( ),
+								0 ) == true )
+	{
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, kThirtySecondTimeoutInMS );
+		
+	}
+	
+	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+	{
+		
+		STATUS_LOG ( ( "fMediaType = CD-ROM\n" ) );
+		fMediaType = kCDMediaTypeROM;		
+		mediaTypeFound = true;
 		
 	}
 	

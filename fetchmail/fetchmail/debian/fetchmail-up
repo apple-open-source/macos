@@ -1,0 +1,5 @@
+#!/bin/sh
+
+test -r /etc/fetchmailrc && \
+        fetchmail --syslog --invisible --fetchmailrc /etc/fetchmailrc
+

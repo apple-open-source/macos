@@ -328,6 +328,7 @@ FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boo
  *	we spawned (MSB only, the LSB or signal number is stripped out) or
  *	'ECHILD' if the process was prematurely killed.
  *---------------------------------------------------------------------------*/
+#define KILL_CHILDREN_IF_TIMEOUT 1
 int ec_pclose(FILE *fp, int killit)
 {
 	int		fd,stat;

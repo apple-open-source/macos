@@ -96,7 +96,8 @@ private:
     IOService *_pADBKeyboard;
     IONotifier * _notifierA, * _notifierT;
     const OSSymbol 	*_gettime;
-    IOLock *		_mouseLock;  
+    IOLock *		_mouseLock;
+    OSSet *             _externalMice;
 
 protected:
   UInt32 deviceSignature;
@@ -111,7 +112,7 @@ public:
   virtual void packetW(UInt8 adbCommand, IOByteCount length, UInt8 * data);
   virtual void packetWP(UInt8 adbCommand, IOByteCount length, UInt8 * data);
   virtual OSData * copyAccelerationTable();
-  virtual void _check_usb_mouse(); 
+  virtual void _check_usb_mouse(IOService * service, bool added); 
   virtual void free();
 
 };

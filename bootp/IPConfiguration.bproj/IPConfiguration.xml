@@ -23,6 +23,7 @@
 		<integer>78</integer>
 		<integer>79</integer>
 		<integer>95</integer>
+		<integer>252</integer>
 	</array>
 	<key>GatherTimeSeconds</key>
 	<integer>1</integer>

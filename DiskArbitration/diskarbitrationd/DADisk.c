@@ -764,6 +764,14 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         disk->_userRUID = ___UID_UNKNOWN;
     }
 
+    object = CFDictionaryGetValue( disk->_description, kDADiskDescriptionDeviceInternalKey );
+
+    if ( object == kCFBooleanFalse )
+    {
+        disk->_userRGID = ___GID_UNKNOWN;
+        disk->_userRUID = ___UID_UNKNOWN;
+    }
+
     object = IORegistryEntrySearchCFProperty( device,
                                               kIOServicePlane,
                                               CFSTR( "owner-uid" ),

@@ -1,5 +1,5 @@
 #
-# "$Id: cupsd.conf.in,v 1.16 2003/04/30 22:53:19 jlovell Exp $"
+# "$Id: cupsd.conf.in,v 1.16.4.1 2003/11/19 21:39:48 jlovell Exp $"
 #
 #   Sample configuration file for the Common UNIX Printing System (CUPS)
 #   scheduler.
@@ -679,7 +679,7 @@ ImplicitClasses Off
 # will be "sys", "system", or "root" (checked for in that order.)
 #
 
-#SystemGroup @CUPS_GROUP@
+SystemGroup lp,admin
 
 #
 # RootCertDuration: How frequently the root certificate is regenerated.
@@ -834,5 +834,5 @@ Allow From 127.0.0.1
 </Location>
 
 #
-# End of "$Id: cupsd.conf.in,v 1.16 2003/04/30 22:53:19 jlovell Exp $".
+# End of "$Id: cupsd.conf.in,v 1.16.4.1 2003/11/19 21:39:48 jlovell Exp $".
 #

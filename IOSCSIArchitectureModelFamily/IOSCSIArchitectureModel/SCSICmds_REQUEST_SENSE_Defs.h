@@ -30,6 +30,12 @@
 #ifndef _IOKIT_SCSI_CMDS_REQUEST_SENSE_H_
 #define _IOKIT_SCSI_CMDS_REQUEST_SENSE_H_
 
+#if KERNEL
+#include <IOKit/IOTypes.h>
+#else
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 enum
 {
 	kSenseDefaultSize	= 18

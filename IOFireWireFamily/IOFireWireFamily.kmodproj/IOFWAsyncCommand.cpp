@@ -108,6 +108,10 @@ bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 		fAddressLo = devAddress.addressLo;
 		fMaxPack = 1 << device->maxPackLog(fWrite, devAddress);
 		fSpeed = fControl->FWSpeed(fNodeID);
+		if( fMembers->fMaxSpeed < fSpeed )
+		{
+			fSpeed = fMembers->fMaxSpeed;
+		}
 		fFailOnReset = failOnReset;
 	}
 		
@@ -154,6 +158,10 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
 		fAddressLo = devAddress.addressLo;
 		fMaxPack = 1 << fControl->maxPackLog(fWrite, fNodeID);
 		fSpeed = fControl->FWSpeed(fNodeID);
+		if( fMembers->fMaxSpeed < fSpeed )
+		{
+			fSpeed = fMembers->fMaxSpeed;
+		}
 		fFailOnReset = true;
 	}
 	
@@ -184,6 +192,8 @@ bool IOFWAsyncCommand::createMemberVariables( void )
 		if( success )
 		{
 			bzero( fMembers, sizeof(MemberVariables) );
+		
+			fMembers->fMaxSpeed = kFWSpeedMaximum;
 		}
 		
 		// clean up on failure
@@ -248,6 +258,10 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
     fAddressHi = devAddress.addressHi;
     fAddressLo = devAddress.addressLo;
     fSpeed = fControl->FWSpeed(fNodeID);
+	if( fMembers->fMaxSpeed < fSpeed )
+	{
+		fSpeed = fMembers->fMaxSpeed;
+	}
     fFailOnReset = failOnReset;
     return fStatus = kIOReturnSuccess;
 }
@@ -279,6 +293,10 @@ IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMem
     fAddressLo = devAddress.addressLo;
     fMaxPack = 1 << fControl->maxPackLog(fWrite, fNodeID);
     fSpeed = fControl->FWSpeed(fNodeID);
+	if( fMembers->fMaxSpeed < fSpeed )
+	{
+		fSpeed = fMembers->fMaxSpeed;
+	}
     return fStatus = kIOReturnSuccess;
 }
 
@@ -411,3 +429,13 @@ void IOFWAsyncCommand::gotAck(int ackCode)
 
     gotPacket(rcode, NULL, 0);
 }
+
+void IOFWAsyncCommand::setMaxSpeed( int speed ) 
+{ 
+	fMembers->fMaxSpeed = speed;
+	if( fMembers->fMaxSpeed < fSpeed )
+	{
+		fSpeed = fMembers->fMaxSpeed;
+	}
+};
+

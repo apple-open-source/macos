@@ -280,7 +280,7 @@ static dhcptag_info_t dhcptag_info_table[] = {
   /* 249 */ { dhcptype_opaque_e   , "option_249" },
   /* 250 */ { dhcptype_opaque_e   , "option_250" },
   /* 251 */ { dhcptype_opaque_e   , "option_251" },
-  /* 252 */ { dhcptype_opaque_e   , "option_252" },
+  /* 252 */ { dhcptype_string_e   , "proxy_auto_discovery_url" },
   /* 253 */ { dhcptype_opaque_e   , "option_253" },
   /* 254 */ { dhcptype_opaque_e   , "option_254" },
   /* 255 */ { dhcptype_none_e     , "end" },

@@ -1,5 +1,5 @@
 /*
- * "$Id: printers.c,v 1.19 2003/09/05 01:14:51 jlovell Exp $"
+ * "$Id: printers.c,v 1.19.4.1 2003/11/14 23:48:30 jlovell Exp $"
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
@@ -889,7 +889,7 @@ SaveAllPrinters(void)
   * Restrict access to the file...
   */
 
-  fchown(cupsFileNumber(fp), User, Group);
+  fchown(cupsFileNumber(fp), getuid(), Group);
 #ifdef __APPLE__
   fchmod(cupsFileNumber(fp), 0600);
 #else
@@ -2580,5 +2580,5 @@ apple_conv_utf8(char **str,		/* I/O - string to be converted */
 #endif	/* __APPLE__ */
 
 /*
- * End of "$Id: printers.c,v 1.19 2003/09/05 01:14:51 jlovell Exp $".
+ * End of "$Id: printers.c,v 1.19.4.1 2003/11/14 23:48:30 jlovell Exp $".
  */

@@ -101,7 +101,6 @@
 #define		PS_RETAINED	26	/* message retained (internal use) */
 #define		PS_TRUNCATED	27	/* headers incomplete (internal use) */
 #define		PS_REPOLL	28	/* repoll immediately with changed parameters (internal use) */
-#define		PS_IDLETIMEOUT	29	/* timeout on imap IDLE (internal use) */
 
 /* output noise level */
 #define         O_SILENT	0	/* mute, max squelch, etc. */
@@ -147,7 +146,7 @@ struct idlist
     {
 	struct
 	{
-	    int		num;
+	    short	num;
 	    flag	mark;		/* UID-index information */
 #define UID_UNSEEN	0		/* hasn't been seen */
 #define UID_SEEN	1		/* seen, but not deleted */
@@ -182,8 +181,6 @@ struct method		/* describe methods for protocol state machine */
 				/* get message range to fetch */
     int (*getsizes)(int, int, int *);
 				/* get sizes of messages */
-    int (*getpartialsizes)(int, int, int, int *);
-				/* get sizes of subset of messages */
     int (*is_old)(int, struct query *, int);
 				/* check for old message */
     int (*fetch_headers)(int, struct query *, int, int *);
@@ -194,8 +191,6 @@ struct method		/* describe methods for protocol state machine */
 				/* eat trailer of a message */
     int (*delete)(int, struct query *, int);
 				/* delete method */
-    int (*mark_seen)(int, struct query *, int);
-				/* mark as seen method */
     int (*logout_cmd)(int, struct query *);
 				/* logout command */
     flag retry;			/* can getrange poll for new messages? */
@@ -291,9 +286,6 @@ struct query
     int	limit;			/* limit size of retrieved messages */
     int warnings;		/* size warning interval */
     int	fetchlimit;		/* max # msgs to get in single poll */
-    int fetchsizelimit;		/* max # msg sizes to get in a request */
-    int fastuidl;		/* do binary search for new UIDLs? */
-    int fastuidlcount;		/* internal count for frequency of binary search */
     int	batchlimit;		/* max # msgs to pass in single SMTP session */
     int	expunge;		/* max # msgs to pass between expunges */
     flag use_ssl;		/* use SSL encrypted session */
@@ -319,12 +311,12 @@ struct query
     unsigned int uid;		/* UID of user to deliver to */
     struct idlist *skipped;	/* messages skipped on the mail server */
     struct idlist *oldsaved, *newsaved;
-    struct idlist **oldsavedend;
-    char lastdigest[DIGESTLEN];	/* last MD5 hash seen on this connection */
+    char *lastid;		/* last Message-ID seen on this connection */
+    char *thisid;		/* Message-ID of current message */
 
     /* internal use -- per-message state */
     int mimemsg;		/* bitmask indicating MIME body-type */
-    char digest[DIGESTLEN];	/* md5 digest buffer */
+    char digest [DIGESTLEN];	/* md5 digest buffer */
 
     /* internal use -- housekeeping */
     struct query *next;		/* next query control block in chain */
@@ -395,7 +387,7 @@ extern int pass;		/* number of re-polling pass */
 extern flag configdump;		/* dump control blocks as Python dictionary */
 extern char *fetchmailhost;	/* either "localhost" or an FQDN */
 extern int suppress_tags;	/* suppress tags in tagged protocols? */
-extern char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
+extern char shroud[PASSWORDLEN*2+1];	/* string to shroud in debug output */
 #ifdef SDPS_ENABLE
 extern char *sdps_envfrom;
 extern char *sdps_envto;
@@ -432,8 +424,6 @@ void report_at_line ();
 
 /* driver.c -- main driver loop */
 void set_timeout(int);
-int isidletimeout(void);
-void resetidletimeout(void);
 int do_protocol(struct query *, const struct method *);
 
 /* transact.c: transaction support */
@@ -442,8 +432,7 @@ int readheaders(int sock,
 		       long fetchlen,
 		       long reallen,
 		       struct query *ctl,
-		       int num,
-		       flag *suppress_readbody);
+		int num);
 int readbody(int sock, struct query *ctl, flag forward, int len);
 #if defined(HAVE_STDARG_H)
 void gen_send(int sock, const char *, ... )
@@ -512,33 +501,28 @@ void stuff_warning();
 void close_warning_by_mail(struct query *, struct msgblk *);
 
 /* rfc822.c: RFC822 header parsing */
-unsigned char *reply_hack(unsigned char *, const unsigned char *, int *);
+unsigned char *reply_hack(unsigned char *, const unsigned char *);
 unsigned char *nxtaddr(const unsigned char *);
 
 /* uid.c: UID support */
-extern int dofastuidl;
-
 void initialize_saved_lists(struct query *, const char *);
 struct idlist *save_str(struct idlist **, const char *, flag);
 void free_str_list(struct idlist **);
 struct idlist *copy_str_list(struct idlist *idl);
 void save_str_pair(struct idlist **, const char *, const char *);
 void free_str_pair_list(struct idlist **);
-int delete_str(struct idlist **, long);
-struct idlist *str_in_list(struct idlist **, const char *, const flag);
+int delete_str(struct idlist **, int);
+int str_in_list(struct idlist **, const char *, const flag);
 int str_nr_in_list(struct idlist **, const char *);
 int str_nr_last_in_list(struct idlist **, const char *);
 void str_set_mark( struct idlist **, const char *, const flag);
 int count_list( struct idlist **idl );
-char *str_from_nr_list( struct idlist **idl, long number );
-char *str_find(struct idlist **, long);
-struct idlist *id_find(struct idlist **idl, long);
+char *str_from_nr_list( struct idlist **idl, int number );
+char *str_find(struct idlist **, int);
 char *idpair_find(struct idlist **, const char *);
 void append_str_list(struct idlist **, struct idlist **);
 void expunge_uids(struct query *);
 void uid_swap_lists(struct query *);
-void uid_discard_new_list(struct query *ctl);
-void uid_reset_num(struct query *ctl);
 void write_saved_lists(struct query *, const char *);
 
 /* rcfile_y.y */
@@ -577,7 +561,7 @@ char *xstrdup(const char *);
 #include <alloca.h>
 #else
 #ifdef _AIX
-#pragma alloca
+ #pragma alloca
 #endif
 #endif
 #define	xalloca(ptr, t, n)	if (!(ptr = (t) alloca(n)))\
@@ -614,10 +598,7 @@ char *prependdir (const char *, const char *);
 char *MD5Digest (unsigned char *);
 void hmac_md5 (unsigned char *, size_t, unsigned char *, size_t, unsigned char *, size_t);
 int POP3_auth_rpa(unsigned char *, unsigned char *, int socket);
-typedef RETSIGTYPE (*SIGHANDLERTYPE) (int);
 void deal_with_sigchld(void);
-RETSIGTYPE null_signal_handler(int sig);
-SIGHANDLERTYPE set_signal_handler(int sig, SIGHANDLERTYPE handler);
 int daemonize(const char *, void (*)(int));
 char *fm_getpassword(char *);
 void escapes(const char *, char *);

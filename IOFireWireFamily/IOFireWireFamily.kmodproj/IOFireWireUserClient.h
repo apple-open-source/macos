@@ -28,6 +28,15 @@
  * HISTORY
  *
  * $Log: IOFireWireUserClient.h,v $
+ * Revision 1.43  2003/11/07 21:24:28  niels
+ * *** empty log message ***
+ *
+ * Revision 1.42  2003/11/07 21:01:18  niels
+ * *** empty log message ***
+ *
+ * Revision 1.41  2003/11/03 19:11:35  niels
+ * fix local config rom reading; fix 3401223
+ *
  * Revision 1.40  2003/08/20 18:48:43  niels
  * *** empty log message ***
  *
@@ -139,8 +148,10 @@ class IOFireWireUserClient : public IOUserClient
 		bool								fUnsafeResets ;
 		IOFireWireNub *						fOwner ;
 
-		Boolean								fClippedMaxRec;
+		bool								fClippedMaxRec;
 	
+		unsigned							fSelfOpenCount ;
+
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 		IOFWUserDebugInfo *					fDebugInfo ;
 #endif
@@ -467,6 +478,13 @@ class IOFireWireUserClient : public IOUserClient
 												UInt32					inPacketSize,
 												IOFWSpeed				inPrefSpeed,
 												UserObjectHandle*	outIsochChannelRef) ;
+		IOReturn						isochChannel_AllocateChannelBegin( 
+												UserObjectHandle		channelRef,
+												UInt32 					speed, 
+												UInt32 					chansHi, 
+												UInt32					chansLo,
+												UInt32 *				outSpeed,
+												UInt32 *				outChannel ) ;
 		IOReturn						setAsyncRef_IsochChannelForceStop(
 														OSAsyncReference		asyncRef,
 														UserObjectHandle		channel ) ;
@@ -549,6 +567,9 @@ class IOFireWireUserClient : public IOUserClient
 														IOFWBufferFillIsochPort *   port,
 														IOVirtualRange				packets[],
 														unsigned					packetCount ) ;
-		
+		//
+		// v7
+		//
+		IOReturn						getSessionRef( IOFireWireSessionRef * sessionRef ) ;
 } ;
 

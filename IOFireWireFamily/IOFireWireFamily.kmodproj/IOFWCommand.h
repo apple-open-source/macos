@@ -288,7 +288,8 @@ protected:
 		// some of our subclasses didn't have room for expansion data, so
 		// we've reserved space for their use here.
 		
-		void *	fSubclassMembers; 
+		void *	fSubclassMembers;
+		int		fMaxSpeed;
 	} 
 	MemberVariables;
 
@@ -353,6 +354,8 @@ public:
         return kIOReturnSuccess;
     }
 
+	void setMaxSpeed( int speed );
+		
 private:
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 0);
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 1);

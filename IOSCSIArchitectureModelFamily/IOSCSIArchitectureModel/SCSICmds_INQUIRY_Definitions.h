@@ -26,6 +26,12 @@
 #ifndef _IOKIT_SCSI_CMDS_INQUIRY_H_
 #define _IOKIT_SCSI_CMDS_INQUIRY_H_
 
+#if KERNEL
+#include <IOKit/IOTypes.h>
+#else
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 // This file contains all the definitions for the data returned from
 // the INQUIRY (0x12) command.
 

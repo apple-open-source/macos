@@ -60,3 +60,4 @@ enum {
 
 - (void)ioRegInfoGathererInformationDidChange:(IORegInfoGatherer *)aGatherer;
 
+@end

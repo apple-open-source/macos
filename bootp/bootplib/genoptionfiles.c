@@ -192,6 +192,8 @@ struct {
     { 113, 	"string",	"netinfo_server_tag" },
     { COMMENT, "/* ad-hoc network disable option */", 0 },
     { 116,	"uint8",	"auto_configure" },
+    { COMMENT, "/* proxy auto discovery */", 0 }, /* http://www.wpad.com/draft-ietf-wrec-wpad-01.txt */
+    { 252,	"string",	"proxy_auto_discovery_url" },
     { END, 0, 0 },
 };
 

@@ -56,14 +56,6 @@
 /*#define STATIC_HISTORY*/
 
 /*
- * Assume that we have a compiled-in playlist.  This allows us to begin
- * readahead as soon as the root device is mounted.  If the playlist is
- * empty, it means we will record all disk reads from the point the root
- * filesystem comes up.
- */
-/*#define STATIC_PLAYLIST*/
-
-/*
  * Keep a log of read history to aid in debugging.
  */
 /*#define READ_HISTORY_BUFFER	1000*/
@@ -100,11 +92,9 @@ static int BC_minimum_mem_size = 128;
  *  - Bypassing an I/O too early will reduce the hit rate and adversely
  *    affect performance on slow media.
  */
-#ifndef STATIC_PLAYLIST
-static int BC_wait_for_readahead = 10;
-#else
-static int BC_wait_for_readahead = 45;
-#endif
+#define BC_READAHEAD_WAIT_DEFAULT	10
+#define BC_READAHEAD_WAIT_CDROM		45
+static int BC_wait_for_readahead = BC_READAHEAD_WAIT_DEFAULT;
 
 /*
  * Cache hit ratio monitoring.
@@ -138,6 +128,7 @@ static int BC_cache_timeout = 120;
 #ifdef DEBUG
 # define MACH_DEBUG
 # define debug(fmt, args...)	printf("****\n**** %s: " fmt "\n****\n", __FUNCTION__ , ##args)
+extern void Debugger(char *);
 #else
 # define debug(fmt, args...)
 #endif
@@ -161,6 +152,7 @@ static int BC_cache_timeout = 120;
 
 #include <ipc/ipc_types.h>
 #include <mach/host_priv.h>
+#include <mach/kmod.h>
 #include <mach/vm_map.h>
 #include <mach/vm_param.h>	/* for mem_size */
 #include <vm/vm_kern.h>
@@ -174,12 +166,12 @@ static int BC_cache_timeout = 120;
 
 #include <IOKit/storage/IOMediaBSDClient.h>
 
+#include <pexpert/pexpert.h>
+
 #include "BootCache.h"
 
 #ifdef STATIC_PLAYLIST
 # include "playlist.h"
-
-extern void (* mountroot_post_hook)(void);
 #endif
 
 /*
@@ -383,6 +375,17 @@ static struct buf BC_private_bp;
 static struct BC_cache_control BC_cache_softc;
 static struct BC_cache_control *BC_cache = &BC_cache_softc;
 
+/*
+ * We support preloaded cache data by checking for a Mach-O
+ * segment/section which can be populated with a playlist by the
+ * linker.  This is particularly useful in the CD mastering process,
+ * as reading the playlist from CD is very slow and rebuilding the
+ * kext at mastering time is not practical.
+ */
+extern kmod_info_t kmod_info;
+static struct BC_playlist_header *BC_preloaded_playlist;
+static int	BC_preloaded_playlist_size;
+
 static struct BC_cache_extent *BC_find_extent(u_int64_t offset, u_int64_t length, int contained);
 static int	BC_discard_blocks(struct BC_cache_extent *ce, u_int64_t offset, u_int64_t length);
 static int	BC_blocks_present(int base, int nblk);
@@ -400,9 +403,7 @@ static void	BC_add_history(u_int64_t offset, u_int64_t length, int flags);
 static size_t	BC_size_history(void);
 static int	BC_copyout_history(void *uptr);
 static void	BC_discard_history(void);
-#ifdef STATIC_PLAYLIST
 static void	BC_auto_start(void);
-#endif
 
 /*
  * Sysctl interface.
@@ -419,6 +420,12 @@ SYSCTL_PROC(_kern, OID_AUTO, BootCache, CTLFLAG_RW,
  * whether we were netbooted.
  */
 extern int	netboot_root(void);
+
+/*
+ * bsd_init exports this hook so that we can register for notification
+ * once the root filesystem is mounted.
+ */
+extern void (* mountroot_post_hook)(void);
 
 /*
  * Mach VM-specific functions.
@@ -441,6 +448,13 @@ extern kern_return_t memory_object_page_op(
 extern void	mapping_prealloc(unsigned int);
 extern void	mapping_relpre(void);
 #endif
+
+/*
+ * Mach-o functions.
+ */
+#define MACH_KERNEL 1
+#include <mach-o/loader.h>
+extern void *getsectdatafromheader(struct mach_header *, char *, char *, int *);
 
 /*
  * Find a cache extent containing or intersecting the offset/length.
@@ -1365,9 +1379,9 @@ BC_terminate_history(void)
 }
 
 /*
- * Fetch the playlist from userspace and build the extent list from it.
- * Note that in the STATIC_PLAYLIST case, the playlist is already in
- * the kernel.
+ * Fetch the playlist from userspace or the Mach-O segment where it
+ * was preloaded.  Note that in the STATIC_PLAYLIST case the playlist
+ * is already in memory.
  */
 static int
 BC_copyin_playlist(size_t length, void *uptr)
@@ -1378,9 +1392,7 @@ BC_copyin_playlist(size_t length, void *uptr)
 	caddr_t p;
 	u_int64_t size;
 	int entries;
-#ifndef STATIC_PLAYLIST
 	int actual;
-#endif
 
 	error = 0;
 	pce = NULL;
@@ -1399,48 +1411,13 @@ BC_copyin_playlist(size_t length, void *uptr)
 	ce = BC_cache->c_extents;
 	size = 0;
 
-#ifdef STATIC_PLAYLIST
-	/*
-	 * Unpack the static control entry array into the extent array.
-	 */
-	debug("using static playlist with %d entries", entries);
-	pce = (struct BC_playlist_entry *)uptr;
-	for (idx = 0; idx < entries; idx++) {
-		ce[idx].ce_offset = pce[idx].pce_offset;
-		ce[idx].ce_length = pce[idx].pce_length;
-		ce[idx].ce_flags = pce[idx].pce_flags;
-#ifdef IGNORE_PREFETCH
-		ce[idx].ce_flags &= ~PCE_PREFETCH;
-#endif
-		ce[idx].ce_data = NULL;
-		size += pce[idx].pce_length;	/* track total size */
-	}
-	
-#else /* !STATIC_PLAYLIST */
-	/*
-	 * Since the playlist control entry structure is not the same as the
-	 * extent structure we use, we need to copy the control entries in
-	 * and unpack them.
-	 */
-	debug("using supplied playlist with %d entries", entries);
-	pce = _MALLOC(BC_PLC_CHUNK * sizeof(struct BC_playlist_entry),
-            M_TEMP, M_WAITOK);
-	if (pce == NULL) {
-		message("can't allocate unpack buffer");
-		goto out;
-	}
-	while (entries > 0) {
-
-		actual = min(entries, BC_PLC_CHUNK);
-		if ((error = copyin(uptr, pce,
-		      actual * sizeof(struct BC_playlist_entry))) != 0) {
-			message("copyin from %p to %p failed", uptr, pce);
-			_FREE(pce, M_TEMP);
-			goto out;
-		}
-
-		/* unpack into our array */
-		for (idx = 0; idx < actual; idx++) {
+	if (BC_preloaded_playlist) {
+		/*
+		 * Unpack the static control entry array into the extent array.
+		 */
+		debug("using static playlist with %d entries", entries);
+		pce = (struct BC_playlist_entry *)uptr;
+		for (idx = 0; idx < entries; idx++) {
 			ce[idx].ce_offset = pce[idx].pce_offset;
 			ce[idx].ce_length = pce[idx].pce_length;
 			ce[idx].ce_flags = pce[idx].pce_flags;
@@ -1450,13 +1427,46 @@ BC_copyin_playlist(size_t length, void *uptr)
 			ce[idx].ce_data = NULL;
 			size += pce[idx].pce_length;	/* track total size */
 		}
-		entries -= actual;
-		uptr = (struct BC_playlist_entry *)uptr + actual;
-		ce += actual;
-	}
-	_FREE(pce, M_TEMP);
-	
-#endif /* STATIC_PLAYLIST */
+	} else {
+		/*
+		 * Since the playlist control entry structure is not the same as the
+		 * extent structure we use, we need to copy the control entries in
+		 * and unpack them.
+		 */
+		debug("using supplied playlist with %d entries", entries);
+		pce = _MALLOC(BC_PLC_CHUNK * sizeof(struct BC_playlist_entry),
+			      M_TEMP, M_WAITOK);
+		if (pce == NULL) {
+			message("can't allocate unpack buffer");
+			goto out;
+		}
+		while (entries > 0) {
+
+			actual = min(entries, BC_PLC_CHUNK);
+			if ((error = copyin(uptr, pce,
+					    actual * sizeof(struct BC_playlist_entry))) != 0) {
+				message("copyin from %p to %p failed", uptr, pce);
+				_FREE(pce, M_TEMP);
+				goto out;
+			}
+
+			/* unpack into our array */
+			for (idx = 0; idx < actual; idx++) {
+				ce[idx].ce_offset = pce[idx].pce_offset;
+				ce[idx].ce_length = pce[idx].pce_length;
+				ce[idx].ce_flags = pce[idx].pce_flags;
+#ifdef IGNORE_PREFETCH
+				ce[idx].ce_flags &= ~PCE_PREFETCH;
+#endif
+				ce[idx].ce_data = NULL;
+				size += pce[idx].pce_length;	/* track total size */
+			}
+			entries -= actual;
+			uptr = (struct BC_playlist_entry *)uptr + actual;
+			ce += actual;
+		}
+		_FREE(pce, M_TEMP);
+	}	
 
 	/*
 	 * In order to simplify allocation of the block and page maps, we round
@@ -1568,12 +1578,13 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	u_int32_t blksize;
 	u_int64_t blkcount;
 	int error;
+	unsigned int boot_arg;
 
 	error = 0;
 
 	/*
 	 * Check that we're not already running.
-	 * This is safe first time around because the BSS is guarateed
+	 * This is safe first time around because the BSS is guaranteed
 	 * to be zeroed.  Must be fixed if we move to dynamically
 	 * allocating the cache softc.
 	 */
@@ -1598,8 +1609,16 @@ BC_init_cache(size_t length, caddr_t uptr, u_int64_t blocksize)
 	
 	/*
 	 * Find our block device.
+	 *
+	 * Note that in the netbooted case, we are loaded but should not
+	 * actually run, unless we're explicitly overridden.
+	 *
+	 * Note also that if the override is set, we'd better have a valid
+	 * rootdev...
 	 */
-	if (netboot_root())				/* not interesting */
+	if (netboot_root() && 
+	    (!PE_parse_boot_arg("BootCacheOverride", &boot_arg) ||
+	     (boot_arg != 1)))                          /* not interesting */
 		return(ENXIO);
 	BC_cache->c_dev = rootdev;
 	BC_cache->c_devsw = &bdevsw[major(rootdev)];
@@ -1876,8 +1895,6 @@ BC_discard_history(void)
 	}
 }
 
-#ifdef STATIC_PLAYLIST
-
 /*
  * Called from the root-mount hook.
  */
@@ -1887,15 +1904,20 @@ BC_auto_start(void)
 	int error;
 
 	/* initialise the cache */
+#ifdef STATIC_PLAYLIST
 	error = BC_init_cache(sizeof(BC_data), (caddr_t)&BC_data[0], BC_playlist_blocksize);
-	if (error != 0) {
+#else /* !STATIC_PLAYLIST */
+	error = BC_init_cache(BC_preloaded_playlist->ph_entries * sizeof(struct BC_playlist_entry), 
+			      (caddr_t)BC_preloaded_playlist + sizeof(struct BC_playlist_header), 
+			      BC_preloaded_playlist->ph_blocksize);
+#endif /* STATIC_PLAYLIST */
+	if (error != 0)
 		printf("BootCache autostart failed: %d\n", error);
-	}
+
 	/* set 'started' flag (cleared when we get history) */
 	BC_cache->c_flags |= BC_FLAG_STARTED;
 }
 
-#endif /* STATIC_PLAYLIST */
 
 /*
  * Handle the command sysctl.
@@ -1919,6 +1941,10 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 	switch (bc.bc_opcode) {
 #ifndef STATIC_PLAYLIST
 	case BC_OP_START:
+		if (BC_preloaded_playlist) {
+			error = EINVAL;
+			break;
+		}
 		debug("BC_OP_START(%ld)", bc.bc_length);
 		error = BC_init_cache(bc.bc_length, bc.bc_data, (u_int64_t)bc.bc_param);
 		if (error != 0) {
@@ -1931,8 +1957,8 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 			BC_cache->c_flags |= BC_FLAG_STARTED;
 		}
 		break;
-#endif /* !STATIC_PLAYLIST */
-		
+#endif /* STATIC_PLAYLIST */
+
 	case BC_OP_STOP:
 		debug("BC_OP_STOP");
 
@@ -2199,19 +2225,60 @@ BC_free_page(int page)
 void
 BC_start(void)
 {
-#ifdef STATIC_PLAYLIST
-	/*
-	 * If we want to start automatically, hook the root mount
-	 * and wait for it before starting the cache.
-	 */
-	mountroot_post_hook = BC_auto_start;
-	debug("waiting for root mount...");
-#else
-	debug("waiting for playlist...");
-#endif
+#ifndef STATIC_PLAYLIST
+	struct mach_header	*mh;
+	int			xsize;
 
 	/* register our control interface */
 	sysctl_register_oid(&sysctl__kern_BootCache);
+
+	/*
+	 * Find the preload section and its size.  If it's not empty
+	 * we have a preloaded playlist, so prepare for an early
+	 * start.
+	 */
+	if (kmod_info.info_version != KMOD_INFO_VERSION) {
+		message("incompatible kmod_info versions");
+		return;
+	}
+	mh = (struct mach_header *)kmod_info.address;
+	BC_preloaded_playlist = getsectdatafromheader(mh, "BootCache", "playlist",
+						      &BC_preloaded_playlist_size);
+	debug("preload section: %d @ %p", 
+	      BC_preloaded_playlist_size, BC_preloaded_playlist);
+	if (BC_preloaded_playlist != NULL) {
+		if (BC_preloaded_playlist_size < sizeof(struct BC_playlist_header)) {
+			message("preloaded playlist too small");
+			return;
+		}
+		if (BC_preloaded_playlist->ph_magic != PH_MAGIC) {
+			message("preloaded playlist has invalid magic (%x, expected %x)",
+				BC_preloaded_playlist->ph_magic, PH_MAGIC);
+			return;
+		}
+		xsize = sizeof(struct BC_playlist_header) + 
+			(BC_preloaded_playlist->ph_entries * sizeof(struct BC_playlist_entry));
+		if (xsize > BC_preloaded_playlist_size) {
+			message("preloaded playlist too small (%d, expected at least %d)",
+				BC_preloaded_playlist_size, xsize);
+			return;
+		}
+		BC_wait_for_readahead = BC_READAHEAD_WAIT_CDROM;
+		mountroot_post_hook = BC_auto_start;
+
+		debug("waiting for root mount...");
+	} else {
+		/* no preload, normal operation */
+		BC_preloaded_playlist = NULL;
+		debug("waiting for playlist...");
+	}
+#else /* STATIC_PLAYLIST */
+	/* register our control interface */
+	sysctl_register_oid(&sysctl__kern_BootCache);
+
+	mountroot_post_hook = BC_auto_start;
+	debug("waiting for root mount...");
+#endif /* STATIC_PLAYLIST */
 }
 
 int

@@ -197,3 +197,4 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
     }
 
     return ret;
+}

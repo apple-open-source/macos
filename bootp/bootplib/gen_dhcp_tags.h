@@ -129,6 +129,9 @@ typedef enum {
     /* ad-hoc network disable option */
     dhcptag_auto_configure_e           	= 116,
 
+    /* proxy auto discovery */
+    dhcptag_proxy_auto_discovery_url_e 	= 252,
+
     /* undefined */
     dhcptag_62_e                       	= 62,
     dhcptag_63_e                       	= 63,
@@ -392,6 +395,7 @@ typedef enum {
 #define DHCPTAG_NETINFO_SERVER_ADDRESS     	"netinfo_server_address"
 #define DHCPTAG_NETINFO_SERVER_TAG         	"netinfo_server_tag"
 #define DHCPTAG_AUTO_CONFIGURE             	"auto_configure"
+#define DHCPTAG_PROXY_AUTO_DISCOVERY_URL   	"proxy_auto_discovery_url"
 
 /* undefined */
 #define DHCPTAG_62                         	"62"

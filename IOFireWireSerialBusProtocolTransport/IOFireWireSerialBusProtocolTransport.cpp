@@ -83,6 +83,9 @@ OSDefineMetaClassAndStructors (	IOFireWireSerialBusProtocolTransport, IOSCSIProt
 //-----------------------------------------------------------------------------
 
 
+#define kPreferredNameKey					"Preferred Name"	// Remove when this is moved to public header
+#define kFireWireGUIDKey					"GUID"
+#define kFireWireVendorNameKey				"FireWire Vendor Name"
 #define kSBP2ReceiveBufferByteCountKey		"SBP2ReceiveBufferByteCount"
 #define kDefaultIOBlockCount				256
 #define kCRSModelInfo_ValidBitsMask			0x00FFFFFF
@@ -181,6 +184,7 @@ bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 	Boolean 				openSucceeded;
 	OSNumber * 				rto;
 	OSNumber * 				wto;
+	OSDictionary *			dict;
 	bool					sucess;
 
 	status				= kIOReturnSuccess;
@@ -189,6 +193,7 @@ bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 	rto					= NULL;
 	wto					= NULL;
 	sucess				= false;
+	dict				= NULL;
 	
 	// See if there is a read time out duration passed in the property dictionary - if not
 	// set the default to 30 seconds.
@@ -262,6 +267,33 @@ bool IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 	STATUS_LOG ( ( "%s: start complete\n", getName () ) );
 	
 	returnValue = true;
+	
+	// Copy some values to the Protocol Characteristics Dictionary
+	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	if ( dict != NULL )
+	{
+		
+		OSString *	string = NULL;
+		
+		string = OSString::withCString ( kFireWireGUIDKey );
+		if ( string != NULL )
+		{
+			
+			dict->setObject ( string, getProperty ( kFireWireGUIDKey, gIOServicePlane ) );
+			string->release ( );
+			
+		}
+		
+		string = OSString::withCString ( kPreferredNameKey );
+		if ( string != NULL )
+		{
+			
+			dict->setObject ( kPreferredNameKey, getProperty ( kFireWireVendorNameKey, gIOServicePlane ) );
+			string->release ( );
+			
+		}
+		
+	}
 	
 	InitializePowerManagement ( provider );
 	
@@ -566,15 +598,16 @@ bool
 	}
 	
 	// get an orb from our orb pool and block until we get one
-	orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( true );
-	if ( isInactive () )
+	orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( false );
+	if ( orb == NULL )
 	{
-		reserved->fCommandPool->returnCommand ( orb );
-		*serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		commandProcessed = true;
+		
+		// We're busy - return false - command will be resent next time CommandComplete is called
+		commandProcessed = false;
 		goto exit;
+		
 	}
-	
+        
 	clientData = ( SBP2ClientOrbData * ) orb->getRefCon ();
 	if ( clientData == NULL ) goto exit;
 	

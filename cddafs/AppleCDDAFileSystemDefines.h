@@ -49,11 +49,17 @@ extern "C" {
 #endif
 
 
-// Enums for trackType (digital data or audio)
+// Enums for Control field in SubChannelQ
 enum
 {
-	kDigitalDataBit	= 2,
-	kDigitalDataMask = ( 1 << kDigitalDataBit )
+	kPreEmphasisBit		= 0,
+	kDigitalDataBit		= 2
+};
+
+enum
+{
+	kPreEmphasisMask	= ( 1 << kPreEmphasisBit ),
+	kDigitalDataMask 	= ( 1 << kDigitalDataBit )
 };
 
 

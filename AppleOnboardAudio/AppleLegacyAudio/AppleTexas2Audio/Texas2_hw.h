@@ -417,6 +417,7 @@ enum {
 	// As such, these streams can be used with get and set current stream map;
 	// get and set relative volume min, max, and current; and 
 	// get hardware stream map
+#if 0		/*		THESE ENUMERATIONS NOW APPEAR IN 'AudioHardwareConstants.h'		rbm		*/
 	kStreamFrontLeft			= 'fntl',	// front left speaker
 	kStreamFrontRight			= 'fntr',	// front right speaker
 	kStreamSurroundLeft			= 'surl',	// surround left speaker
@@ -432,7 +433,7 @@ enum {
 	kStreamSideRight			= 'sidr',	//	see usb audio class spec. v1.0, section 3.7.2.3	[right wall]
 	kStreamTop					= 'top ',	//	see usb audio class spec. v1.0, section 3.7.2.3	[overhead]
 	kStreamMono					= 'mono',	//	for usb devices with a spatial configuration of %0000000000000000
-
+#endif
 	// Virtual streams. These are separately addressable streams as a "regular" stream; however, they are mutually
 	// exclusive with one or more "regular" streams because they are not actually separate on the hardware device.
 	// These selectors may be used with get and set current stream map; the relative volume calls; and get the

@@ -901,7 +901,7 @@ checkAddress(SCDynamicStoreRef		*storeP,
 	/* get the interface flags */
 
 	bzero(&ifr, sizeof(ifr));
-	bcopy(sdl->sdl_data, ifr.ifr_name, sdl->sdl_len);
+	bcopy(sdl->sdl_data, ifr.ifr_name, sdl->sdl_nlen);
 
 	isock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (isock < 0) {
@@ -973,7 +973,7 @@ checkAddress(SCDynamicStoreRef		*storeP,
 	bzero(&if_name, sizeof(if_name));
 	bcopy(sdl->sdl_data,
 	      if_name,
-	      (sdl->sdl_len <= IFNAMSIZ) ? sdl->sdl_len : IFNAMSIZ);
+	      (sdl->sdl_nlen <= IFNAMSIZ) ? sdl->sdl_nlen : IFNAMSIZ);
 
 	if (if_index) {
 		*if_index = sdl->sdl_index;

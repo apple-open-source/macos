@@ -73,7 +73,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			Device&						mUserClient ;
-			UserObjectHandle		mKernChannelRef ;
+			UserObjectHandle			mKernChannelRef ;
 			Boolean						mNotifyIsOn ;
 			ForceStopHandler			mForceStopHandler ;
 			void*						mUserRefCon ;

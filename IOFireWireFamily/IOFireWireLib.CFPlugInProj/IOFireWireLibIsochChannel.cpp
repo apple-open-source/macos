@@ -141,9 +141,10 @@ namespace IOFireWireLib {
 	
 		// call the kernel middle bits
 		result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-												mUserClient.MakeSelectorWithObject( kIsochChannel_UserAllocateChannelBegin_d, 
-													mKernChannelRef ), 
-												3, 2, mSpeed,
+												kIsochChannel_UserAllocateChannelBegin,
+//												mUserClient.MakeSelectorWithObject( kIsochChannel_UserAllocateChannelBegin_d, 
+//													mKernChannelRef ), 
+												4, 2, mKernChannelRef, mSpeed,
 												(UInt32)(allowedChans >> 32), (UInt32)(0xFFFFFFFF & allowedChans), & mSpeed,
 												& mChannel) ;
 	

@@ -45,8 +45,8 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 
 	//	SET UP default operating variables.  There are codec dependencies on how the clock 
 	//	divide ratios are determined for the I2S audio data transport bus.  THIS WILL NEED 
-	//	TO ASK AOA WHAT CODEC IS ATTACHED AT SOME POINT IN THE FUTURE (i.e. when the PCM3052 
-	//	controller is used).  FOR NOW, AN ASSUMPTION THAT ALL CODECS REQUIRE THE SAME BEHAVIOR IS MADE.
+	//	TO ASK AOA WHAT CODEC IS ATTACHED AT SOME POINT IN THE FUTURE 
+	//	FOR NOW, AN ASSUMPTION THAT ALL CODECS REQUIRE THE SAME BEHAVIOR IS MADE.
 	
 	mMclkMultiplier = 256;		//	TAS3004, CS84xx run MCLK at 256 * fs
 	mSclkMultiplier =  64;		//	TAS3004, CS84xx run MCLK at 64 * fs
@@ -450,6 +450,45 @@ UInt32		I2STransportInterface::transportGetSampleRate ( void ) {
 }
 
 
+//	--------------------------------------------------------------------------------
+IOReturn	I2STransportInterface::transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) {
+	IOReturn		result;
+	
+	debug3IOLog ( "+ I2STransportInterface::transportSetPeakLevel ( '%4s', %lX )\n", (char*)&channelTarget, levelMeterValue );
+	switch ( channelTarget ) {
+		case kStreamFrontLeft:
+		case kStreamFrontRight:		result = mPlatformObject->setPeakLevel ( channelTarget, levelMeterValue );			break;
+		default:					result = kIOReturnBadArgument;														break;
+	}
+	debug4IOLog ( "- I2STransportInterface::transportSetPeakLevel ( '%4s', %lX ) returns %X\n", (char*)&channelTarget, levelMeterValue, result );
+	return result;
+}
+
+
+//	--------------------------------------------------------------------------------
+UInt32		I2STransportInterface::transportGetPeakLevel ( UInt32 channelTarget ) {
+	UInt32			result = 0;
+
+	debug2IOLog ( "+ I2STransportInterface::transportGetPeakLevel ( '%4s' )\n", (char*)&channelTarget );
+	switch ( channelTarget ) {
+		case kStreamFrontLeft:
+		case kStreamFrontRight:
+			result = mPlatformObject->getPeakLevel ( channelTarget );
+			//	If there was a new peak level stored then the meter needs to be set
+			//	back into run mode from hold mode.
+			if ( ( 1 << kNewPeakInShift ) & result ) {
+				mPlatformObject->setPeakLevel ( channelTarget, ( 1 << kNewPeakInShift ) | ( 0 << kHoldPeakInShift ) );
+				mPlatformObject->setPeakLevel ( channelTarget, ( 0 << kNewPeakInShift ) | ( 0 << kHoldPeakInShift ) );
+				mPlatformObject->setPeakLevel ( channelTarget, ( 0 << kNewPeakInShift ) | ( 1 << kHoldPeakInShift ) );
+			}
+			result &= kPeakValueMask;
+			break;
+	}
+	
+	debug3IOLog ( "- I2STransportInterface::transportGetPeakLevel ( '%4s' ) returns %lX\n", (char*)&channelTarget, result );
+	return result;
+}
+
 #pragma mark #--------------------
 #pragma mark # PRIVATE METHODS
 #pragma mark #--------------------
@@ -458,6 +497,7 @@ UInt32		I2STransportInterface::transportGetSampleRate ( void ) {
 IOReturn I2STransportInterface::requestClockSources () {
 	IOReturn	result = kIOReturnError;
 
+	debugIOLog ("+ I2STransportInterface::requestClockSources ()\n");
 	FailMessage (mHave18MHzClock || mHave45MHzClock || mHave49MHzClock);
 	//	Audio needs all three clocks in order to support setting sample 
 	//	rates and/or clock sources.
@@ -489,6 +529,7 @@ IOReturn I2STransportInterface::requestClockSources () {
 		result = kIOReturnSuccess;
 	}
 
+	debug2IOLog ("- I2STransportInterface::requestClockSources () returns %X\n", result);
 	return result;
 }
 
@@ -499,6 +540,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	//	Audio needs all three clocks in order to support setting sample 
 	//	rates and/or clock sources.
 	
+	debugIOLog ("+ I2STransportInterface::releaseClockSources ()\n");
 	if (TRUE == mHave45MHzClock) {
 		result = mPlatformObject->releaseI2SClockSource (kI2S_45MHz);
 		if (kIOReturnSuccess != result) {
@@ -525,7 +567,7 @@ IOReturn I2STransportInterface::releaseClockSources () {
 	}
 
 	result = kIOReturnSuccess;
-
+	debug2IOLog ("- I2STransportInterface::releaseClockSources () returns %X\n", result);
 	return result;
 }
 
@@ -644,6 +686,8 @@ IOReturn	I2STransportInterface::getTransportInterfaceState ( TransportStateStruc
 		((TransportStateStructPtr)outState)->instanceState[12] = (UInt32)mHave45MHzClock;
 		((TransportStateStructPtr)outState)->instanceState[13] = (UInt32)mHave49MHzClock;
 		((TransportStateStructPtr)outState)->instanceState[14] = (UInt32)mHave18MHzClock;
+		((TransportStateStructPtr)outState)->instanceState[15] = transportGetPeakLevel ( kStreamFrontLeft );
+		((TransportStateStructPtr)outState)->instanceState[16] = transportGetPeakLevel ( kStreamFrontRight );
 	}
 	return result;
 }

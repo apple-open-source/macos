@@ -2378,6 +2378,53 @@ LDAP* CLDAPNode::InitLDAPConnection( sLDAPNodeStruct *inLDAPNodeStruct, sLDAPCon
 		CFRelease(serverStrRef);
 	}
 	
+	//try to catch case where AddrInfo list for some reason did not get updated although the config did when adding replicas
+	CFIndex numInRepsList		= 0;
+	CFIndex numInAddrInfoList   = 0;
+	if (inConfig->fReplicaHostnames != nil)
+	{
+		numInRepsList = CFArrayGetCount(inConfig->fReplicaHostnames);
+	}
+	sReplicaInfo* anAddrInfo = inConfig->fReplicaHosts;
+	while (anAddrInfo != nil)
+	{
+		numInAddrInfoList++;
+		anAddrInfo = anAddrInfo->fNext;
+	}
+	if (( numInRepsList != 0 ) && ( numInRepsList != numInAddrInfoList ))
+	{
+		CFRange rangeOfWrites = CFRangeMake( 0, (inConfig->fWriteableHostnames ? CFArrayGetCount(inConfig->fWriteableHostnames) : 0) );
+		for (CFIndex indexToRep=0; indexToRep < numInRepsList; indexToRep++ )
+		{
+			CFStringRef replicaStrRef = (CFStringRef)::CFArrayGetValueAtIndex( inConfig->fReplicaHostnames, indexToRep );
+			sReplicaInfo* newInfo = (sReplicaInfo *)calloc(1, sizeof(sReplicaInfo));
+			if (indexToRep == 0)
+			{
+				anAddrInfo  = newInfo;
+				tailList	= newInfo;
+			}
+			else
+			{
+				tailList->fNext = newInfo;
+				tailList		= tailList->fNext;
+			}
+			newInfo->fAddrInfo = ResolveHostName(replicaStrRef, inConfig->fServerPort);;
+			newInfo->hostname = CFStringCreateCopy( kCFAllocatorDefault, replicaStrRef );
+			if( inConfig->fWriteableHostnames != nil && CFArrayContainsValue(inConfig->fWriteableHostnames, rangeOfWrites, replicaStrRef) )
+			{
+				newInfo->bWriteable = true;
+			}
+		}
+
+		if (anAddrInfo != nil) //there is a new rep list that was built
+		{
+			FreeReplicaList( inConfig->fReplicaHosts );
+
+			// now lets set the new one..
+			inConfig->fReplicaHosts = anAddrInfo;
+		}
+	}
+
 	//case where inLDAPNodeStruct->fHost != nil means that connection was established within Replica Searching methods above
 	if ( (replicaSearchResult != eDSCannotAccessSession) && (inLDAPNodeStruct->fHost == nil) )
 	{

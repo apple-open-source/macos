@@ -86,8 +86,6 @@
 #define LA_SSLFINGERPRINT	60
 #endif
 
-#define LA_FETCHSIZELIMIT	61
-#define LA_FASTUIDL	62
 
 /* options still left: CDgGhHjJoORwWxXYz */
 static const char *shortoptions = 
@@ -142,8 +140,6 @@ static const struct option longoptions[] = {
   
   {"batchlimit",required_argument, (int *) 0, LA_BATCHLIMIT  },
   {"fetchlimit",required_argument, (int *) 0, LA_FETCHLIMIT  },
-  {"fetchsizelimit",required_argument, (int *) 0, LA_FETCHSIZELIMIT  },
-  {"fastuidl",	required_argument, (int *) 0, LA_FASTUIDL    },
   {"expunge",	required_argument, (int *) 0, LA_EXPUNGE     },
   {"mda",	required_argument, (int *) 0, LA_MDA         },
   {"bsmtp",	required_argument, (int *) 0, LA_BSMTP       },
@@ -323,7 +319,7 @@ struct query *ctl;	/* option record to be initialized */
 	    rctl->invisible = TRUE;
 	    break;
 	case LA_SHOWDOTS:
-	    rctl->showdots = FLAG_TRUE;
+	    rctl->showdots = TRUE;
 	    break;
 	case 'f':
 	case LA_RCFILE:
@@ -533,14 +529,6 @@ struct query *ctl;	/* option record to be initialized */
 	    c = xatoi(optarg, &errflag);
 	    ctl->fetchlimit = NUM_VALUE_IN(c);
 	    break;
-	case LA_FETCHSIZELIMIT:
-	    c = xatoi(optarg, &errflag);
-	    ctl->fetchsizelimit = NUM_VALUE_IN(c);
-	    break;
-	case LA_FASTUIDL:
-	    c = xatoi(optarg, &errflag);
-	    ctl->fastuidl = NUM_VALUE_IN(c);
-	    break;
 	case 'e':
 	case LA_EXPUNGE:
 	    c = xatoi(optarg, &errflag);
@@ -717,8 +705,6 @@ struct query *ctl;	/* option record to be initialized */
 	P(GT_("  -Z, --antispam,   set antispam response values\n"));
 	P(GT_("  -b, --batchlimit  set batch limit for SMTP connections\n"));
 	P(GT_("  -B, --fetchlimit  set fetch limit for server connections\n"));
-	P(GT_("      --fetchsizelimit set fetch message size limit\n"));
-	P(GT_("      --fastuidl    do a binary search for UIDLs\n"));
 	P(GT_("  -e, --expunge     set max deletions between expunges\n"));
         P(GT_("  -m, --mda         set MDA to use for forwarding\n"));
         P(GT_("      --bsmtp       set output BSMTP file\n"));

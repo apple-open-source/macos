@@ -6,6 +6,12 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWDCLPool.h,v $
+ *	Revision 1.10  2003/11/07 21:24:28  niels
+ *	*** empty log message ***
+ *	
+ *	Revision 1.9  2003/11/07 21:01:18  niels
+ *	*** empty log message ***
+ *	
  *	Revision 1.8  2003/08/25 08:39:15  niels
  *	*** empty log message ***
  *	
@@ -58,6 +64,7 @@ class IOFWDCLPool : public OSObject
 	OSDeclareAbstractStructors( IOFWDCLPool )
 
 	friend class IOFireWireUserClient ;
+	friend class IOFWUserLocalIsochPort ;
 	
 	protected:
 	
@@ -91,6 +98,9 @@ class IOFWDCLPool : public OSObject
 													IOVirtualRange			ranges[] ) ;
 		virtual IOFWSkipCycleDCL*			appendSkipCycleDCL () ;
 		virtual const OSArray *				getProgramRef () const ;
+		
+	protected :
+	
 		IOReturn							importUserProgram (
 													IOMemoryDescriptor *	userExportDesc,
 													unsigned				bufferRangeCount,
@@ -112,6 +122,10 @@ class IOFWDCLPool : public OSObject
 	private :
 	
 		void								appendDCL( IOFWDCL * dcl ) ;
+
+	public :
+	
+		DCLCommand *						getProgram() ;
 													
     OSMetaClassDeclareReservedUnused ( IOFWDCLPool, 0);
     OSMetaClassDeclareReservedUnused ( IOFWDCLPool, 1);

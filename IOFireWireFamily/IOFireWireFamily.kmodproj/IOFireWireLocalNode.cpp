@@ -28,6 +28,9 @@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.7  2003/10/16 00:57:20  collin
+	*** empty log message ***
+	
 	Revision 1.6  2003/02/20 02:00:12  collin
 	*** empty log message ***
 	
@@ -169,10 +172,20 @@ void IOFireWireLocalNode::setNodeProperties(UInt32 gen, UInt16 nodeID,
     prop->release();
 }
 
+// message
+//
+//
+
 IOReturn IOFireWireLocalNode::message( UInt32 mess, IOService * provider,
                                     void * argument )
 {
 	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+
+	if( kIOFWMessageTopologyChanged == mess )
 	{
 		messageClients( mess );
 		return kIOReturnSuccess;

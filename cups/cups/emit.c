@@ -1,5 +1,5 @@
 /*
- * "$Id: emit.c,v 1.8 2003/06/17 21:42:07 gelphman Exp $"
+ * "$Id: emit.c,v 1.8.4.1 2003/11/15 00:15:50 jlovell Exp $"
  *
  *   PPD code emission routines for the Common UNIX Printing System (CUPS).
  *
@@ -224,7 +224,7 @@ ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
 	*/
 
         ppd_attr_t	*attr;		/* PPD attribute */
-	int		i, pos;		/* Position of custom value */
+	int		j, pos;		/* Position of custom value */
 	int		isfloat[5];  	/* array to keep track of which ones need float vs int */
 	float		values[5];	/* Values for custom command */
         float		orientation;	/* Orientation to use */
@@ -277,6 +277,7 @@ ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
 	    pos = 4;
 	  else
 	  {
+            pos = pos - 1;
             if (pos < 0 || pos > 4)
 	      pos = 4;
 
@@ -291,11 +292,11 @@ ppdEmitAfterOrder(ppd_file_t    *ppd,	/* I - PPD file record */
 
 	values[pos] = orientation;
 
-	for(i = 0; i < 5 ; i++ ){
-            if(isfloat[i])
-                fprintf(fp, "%.2f ", values[i]);
+	for(j = 0; j < 5 ; j++ ){
+            if(isfloat[j])
+                fprintf(fp, "%.2f ", values[j]);
             else
-                fprintf(fp, "%d ", (int)values[i]);
+                fprintf(fp, "%d ", (int)values[j]);
 	}
 	fprintf(fp, "\n");
         
@@ -482,6 +483,7 @@ ppdEmitFd(ppd_file_t    *ppd,		/* I - PPD file record */
 	    pos = 4;
 	  else
 	  {
+            pos = pos - 1;
             if (pos < 0 || pos > 4)
 	      pos = 4;
 
@@ -753,5 +755,5 @@ ppd_sort(ppd_choice_t **c1,	/* I - First choice */
 
 
 /*
- * End of "$Id: emit.c,v 1.8 2003/06/17 21:42:07 gelphman Exp $".
+ * End of "$Id: emit.c,v 1.8.4.1 2003/11/15 00:15:50 jlovell Exp $".
  */

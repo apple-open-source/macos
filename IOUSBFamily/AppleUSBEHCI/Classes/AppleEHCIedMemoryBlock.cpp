@@ -98,3 +98,4 @@ void
 AppleEHCIedMemoryBlock::SetNextBlock(AppleEHCIedMemoryBlock* next)
 {
     _nextBlock = next;
+}

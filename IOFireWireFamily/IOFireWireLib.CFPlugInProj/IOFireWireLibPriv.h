@@ -32,6 +32,12 @@
  */
 /*
 	$Log: IOFireWireLibPriv.h,v $
+	Revision 1.31  2003/11/07 21:01:19  niels
+	*** empty log message ***
+	
+	Revision 1.30  2003/11/03 19:11:37  niels
+	fix local config rom reading; fix 3401223
+	
 	Revision 1.29  2003/08/26 05:11:22  niels
 	*** empty log message ***
 	
@@ -384,7 +390,7 @@ namespace IOFireWireLib {
 		
 		// --- isoch channel methods -------------------------
 		kIsochChannel_Allocate,
-		kIsochChannel_UserAllocateChannelBegin_d,
+		kIsochChannel_UserAllocateChannelBegin,
 		kIsochChannel_UserReleaseChannelComplete_d,
 		
 		// --- firewire command objects ----------------------
@@ -425,6 +431,10 @@ namespace IOFireWireLib {
 		kIsochPort_SetIsochResourceFlags_d,
 //		kIsochPort_RunNuDCLUpdateList_d,
 //		kBufferFillIsochPort_Create,
+		
+		// v7
+		
+		kGetSessionRef,
 		
 		// -------------------------------------------
 		kNumMethods

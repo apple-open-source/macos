@@ -55,7 +55,6 @@ private:
 	Boolean					headphonesConnected;
 	Boolean					lineOutConnected;								
 	Boolean					dallasSpeakersConnected;
-	DRCInfo					drc;										// dynamic range compression info
 	UInt32					layoutID;									// The ID of the machine we're running on
 	UInt32					familyID;									// The ID of the speakers that are plugged in (required for rom verification)
 	UInt32					speakerID;									// The ID of the speakers that are plugged in
@@ -90,8 +89,9 @@ public:
     virtual IOReturn	setActiveInput (UInt32 input);
    
     // control function
-    virtual bool		getMute (void);
-    virtual IOReturn	setMute (bool mutestate);
+    virtual IOReturn	setCodecMute (bool mutestate);								//	[3435307]	rbm
+	virtual IOReturn	setCodecMute (bool muteState, UInt32 streamType);			//	[3435307]	rbm
+	virtual bool		hasAnalogMute ();											//	[3435307]	rbm
 	virtual	UInt32		getMaximumdBVolume (void);
 	virtual	UInt32		getMinimumdBVolume (void);
 	virtual	UInt32		getMaximumVolume (void);
@@ -101,13 +101,14 @@ public:
 	virtual	UInt32		getMaximumGain (void);
 	virtual	UInt32		getMinimumGain (void);
 
-    virtual bool		setVolume (UInt32 leftVolume, UInt32 rightVolume);
+    virtual bool		setCodecVolume (UInt32 leftVolume, UInt32 rightVolume);		//	[3435307]	rbm
 
     virtual IOReturn	setPlayThrough (bool playthroughstate);
 
-	virtual	void		setEQ ( void * inEQStructure, Boolean inRealtime );
-	virtual	void		disableEQ (void);
-	virtual	void		enableEQ (void);
+	virtual	void		setEQProcessing (void * inEQStructure, Boolean inRealtime);
+	virtual	void		setDRCProcessing (void * inDRCStructure, Boolean inRealtime);
+	virtual	void		disableProcessing (void);
+	virtual	void		enableProcessing (void);
 
 	virtual	void		notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) { return; }
 	virtual	IOReturn	recoverFromFatalError ( FatalRecoverySelector selector );
@@ -138,7 +139,7 @@ private:
 	// activation functions
 	IOReturn			SetVolumeCoefficients (UInt32 left, UInt32 right);
 	IOReturn			SetAmplifierMuteState (UInt32 ampID, Boolean muteState);
-	IOReturn			InitEQSerialMode (UInt32 mode, Boolean restoreOnNormal);
+	IOReturn			InitEQSerialMode (UInt32 mode);
 	IOReturn 			GetShadowRegisterInfo( TAS3004_ShadowReg * shadowRegsPtr, UInt8 regAddr, UInt8 ** shadowPtr, UInt8* registerSize );
 
 	IOReturn			CODEC_Initialize ();
@@ -148,7 +149,6 @@ private:
 
 	void				SetBiquadInfoToUnityAllPass (void);
 	void				SetUnityGainAllPass (void);
-	IOReturn			SndHWSetDRC( DRCInfoPtr theDRCSettings );
 	IOReturn			BuildCustomEQCoefficients ( void * eqPrefs );
 	IOReturn			SndHWSetOutputBiquad( UInt32 streamID, UInt32 biquadRefNum, FourDotTwenty *biquadCoefficients );
 	IOReturn			SndHWSetOutputBiquadGroup( UInt32 biquadFilterCount, FourDotTwenty *biquadCoefficients );
@@ -182,30 +182,6 @@ private:
 	void				copyFilter (EQStructPtr source, EQStructPtr dest, UInt32 sourceIndex, UInt32 destIndex);
 	void				GenerateOptimalFilterOrder (EQStructPtr ioEQ);
 
-#if 0
-			// User Client calls
-	virtual UInt8		readGPIO (UInt32 selector);
-	virtual void		writeGPIO (UInt32 selector, UInt8 data);
-	virtual Boolean		getGPIOActiveState (UInt32 gpioSelector);
-	virtual void		setGPIOActiveState ( UInt32 selector, UInt8 gpioActiveState );
-	virtual Boolean		checkGpioAvailable ( UInt32 selector );
-	virtual IOReturn	readHWReg32 ( UInt32 selector, UInt32 * registerData );
-	virtual IOReturn	writeHWReg32 ( UInt32 selector, UInt32 registerData );
-	virtual IOReturn	readCodecReg ( UInt32 selector, void * registerData,  UInt32 * registerDataSize );
-	virtual IOReturn	writeCodecReg ( UInt32 selector, void * registerData );
-	virtual IOReturn	readSpkrID ( UInt32 selector, UInt32 * speakerIDPtr );
-	virtual IOReturn	getCodecRegSize ( UInt32 selector, UInt32 * codecRegSizePtr );
-	virtual	IOReturn	getVolumePRAM ( UInt32 * pramDataPtr );
-	virtual IOReturn	getDmaState ( UInt32 * dmaStatePtr );
-	virtual IOReturn	getStreamFormat ( IOAudioStreamFormat * streamFormatPtr );
-	virtual IOReturn	readPowerState ( UInt32 selector, IOAudioDevicePowerState * powerState );
-	virtual IOReturn	setPowerState ( UInt32 selector, IOAudioDevicePowerState powerState );
-	virtual IOReturn	setBiquadCoefficients ( UInt32 selector, void * biquadCoefficients, UInt32 coefficientSize );
-	virtual IOReturn	getBiquadInformation ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
-	virtual IOReturn	getProcessingParameters ( UInt32 scalarArg1, void * outStructPtr, IOByteCount * outStructSizePtr );
-	virtual IOReturn	setProcessingParameters ( UInt32 scalarArg1, void * inStructPtr, UInt32 inStructSize );
-	virtual	IOReturn	invokeInternalFunction ( UInt32 functionSelector, void * inData );
-#endif
 };
 
 #endif /* _APPLETAS3004AUDIO_H */

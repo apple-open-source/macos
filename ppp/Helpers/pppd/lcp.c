@@ -41,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: lcp.c,v 1.8 2003/08/14 00:00:30 callie Exp $"
+#define RCSID	"$Id: lcp.c,v 1.8.22.1 2003/11/20 18:54:18 callie Exp $"
 
 /*
  * TODO:
@@ -1715,7 +1715,7 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 		    if (ao->neg_chap) {
                         PUTCHAR(CILEN_CHAP, nakp);
                         PUTSHORT(PPP_CHAP, nakp);
-                        PUTCHAR(ao->chap_mdtype, nakp);
+                        PUTCHAR(CHAP_DIGEST(ao->chap_mdtype), nakp);
                     }
                     else {
                         PUTCHAR(CILEN_SHORT, nakp);

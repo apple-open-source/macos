@@ -74,6 +74,7 @@ bool IOFireWireDeviceAux::init( IOFireWireDevice * primary )
 	if( success )
 	{
 		fTerminated = false;
+		fMaxSpeed = kFWSpeedMaximum;
 	}
 	
 	return success;
@@ -95,6 +96,21 @@ bool IOFireWireDeviceAux::isTerminated( void )
 void IOFireWireDeviceAux::setTerminated( bool terminated )
 {
 	fTerminated = terminated;
+}
+
+// setMaxSpeed
+//
+//
+
+void IOFireWireDeviceAux::setMaxSpeed( IOFWSpeed speed )
+{
+	fPrimary->fControl->closeGate();
+
+	fMaxSpeed = speed;
+	
+	((IOFireWireDevice*)fPrimary)->configureNode();
+
+	fPrimary->fControl->openGate();
 }
 
 // free
@@ -1313,17 +1329,29 @@ bool IOFireWireDevice::matchPropertyTable(OSDictionary * table)
 
 #pragma mark -
 
+// message
+//
+//
+
 IOReturn IOFireWireDevice::message( UInt32 mess, IOService * provider,
                                     void * argument )
 {
     // Propagate bus reset start/end messages
     if( kIOFWMessageServiceIsRequestingClose == mess ) 
     {
+		fDeviceROM->setROMState( IOFireWireROMCache::kROMStateInvalid ) ;
+		
         messageClients( mess );
         return kIOReturnSuccess;
     }
 
 	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+
+	if( kIOFWMessageTopologyChanged == mess )
 	{
 		messageClients( mess );
 		return kIOReturnSuccess;
@@ -1517,17 +1545,48 @@ UInt32 IOFireWireDevice::getNodeFlags( void )
 
 IOReturn IOFireWireDevice::configureNode( void )
 {
+	fControl->closeGate();
+
 	if( fNodeID != kFWBadNodeID )
     {
+		//
 		// handle physical filter configuration
+		//
+		
 		configurePhysicalFilter();
 
+		//
+		// configure retry on ack d
+		//
+		
 		if( fNodeFlags & kIOFWEnableRetryOnAckD )
 		{
 			IOFireWireLink * fwim = fControl->getLink();
 			fwim->setNodeFlags( fNodeID & 0x3f, kIOFWNodeFlagRetryOnAckD );
 		}
+		
+		//
+		// limit speed if necessary
+		//
+		
+		IOFWSpeed currentSpeed = FWSpeed();
+		IOFWSpeed maxSpeed = ((IOFireWireDeviceAux*)fAuxiliary)->fMaxSpeed;
+		if( currentSpeed > maxSpeed )
+		{
+			fControl->setNodeSpeed( fNodeID, maxSpeed );
+		}
+
+		//
+		// tell controller to use half size packets
+		//
+		
+		if( fNodeFlags & kIOFWLimitAsyncPacketSize )
+		{
+			fControl->useHalfSizePackets();
+		}
     }
+
+	fControl->openGate();
 	
 	return kIOReturnSuccess;
 }

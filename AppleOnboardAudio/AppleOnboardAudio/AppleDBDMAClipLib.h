@@ -93,14 +93,18 @@ typedef struct _LimiterStruct_t {
 	Boolean		bypassAll;
 } LimiterStruct, *LimiterStructPtr;
 
+//	NOTE:	hardware limiter must exist only at limiter index 0!!!
+#define	kHardwareLimiterIndex	0
 typedef struct _LimiterParamStruct_t {
 	LimiterType	type;
 	float		threshold;
 	float		gain;
 	float		ratio;
+	float		ratioBelow;
 	float		attack;
 	float		release;
 	UInt32		lookahead;
+	UInt32		runInHardware;
 } LimiterParamStruct, *LimiterParamStructPtr;
 
 typedef struct _EQStruct_t {

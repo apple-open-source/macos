@@ -616,7 +616,6 @@ IOSCSIBlockCommandsDevice::InitializeDeviceSupport ( void )
 {
 	
 	bool	setupSuccessful = false;
-	bool	supported		= false;
 	
 	// Initialize the device characteristics flags
 	fMediaIsRemovable 		= false;
@@ -1229,7 +1228,7 @@ IOSCSIBlockCommandsDevice::DetermineDeviceCharacteristics ( void )
 		
 	}
 	
-	SetCMDQUE ( inquiryBuffer->flags1 & kINQUIRY_Byte7_CMDQUE_Mask );
+	SetCMDQUE ( inquiryBuffer->flags2 & kINQUIRY_Byte7_CMDQUE_Mask );
 	
 	buffer->release ( );
 	buffer = NULL;

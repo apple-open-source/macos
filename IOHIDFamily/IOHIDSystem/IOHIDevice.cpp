@@ -44,6 +44,33 @@ void IOHIDevice::free()
   super::free();
 }
 
+bool IOHIDevice::start(IOService * provider) 
+{
+    if (!super::start(provider))
+        return false;
+   
+    // RY: If the kIOHIDVirtualHIDevice property isn't
+    // set scan the up provider chain to determine if
+    // this is a resource.
+    if (!getProperty(kIOHIDVirtualHIDevice))
+    {
+        while (provider)
+        {
+            if ( provider == getResourceService() )
+            {
+                setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
+                return true;
+            }
+            
+            provider = provider->getProvider();
+        }
+        
+        setProperty(kIOHIDVirtualHIDevice, kOSBooleanFalse);
+    }
+    
+    return true;
+}
+
 bool IOHIDevice::open(IOService *    forClient,
                       IOOptionBits   options,
                       void *         arg)

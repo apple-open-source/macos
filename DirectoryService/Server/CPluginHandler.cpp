@@ -51,7 +51,7 @@ static const char *sStaticPluginList[ kNumStaticPlugins ][ 2 ] =
 {
 	{ "Configure",	"1.6" },
 	{ "NetInfo",	"1.6" },
-	{ "LDAPv3",		"1.6" },
+	{ "LDAPv3",		"1.6.1" },
 	{ "Search",		"1.6" }
 };
 

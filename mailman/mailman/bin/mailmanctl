@@ -393,6 +393,15 @@ def main():
             lock._transfer_to(pid)
             return
         # child
+        # Close copies of parent's stdout and stderr.
+        for fd in range(49, -1, -1):
+            try:
+                os.close(fd)
+            except:
+                continue
+        sys.stdin = file('/dev/null', 'r')
+        sys.stdout = file('/dev/null', 'a')
+        sys.stderr = file('/dev/null', 'a')
         lock._take_possession()
         # First, save our pid in a file for "mailmanctl stop" rendezvous.  We
         # want the perms on the .pid file to be rw-rw----

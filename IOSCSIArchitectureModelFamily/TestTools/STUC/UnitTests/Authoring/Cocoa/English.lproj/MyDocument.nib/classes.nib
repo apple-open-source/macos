@@ -1,0 +1,34 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = MMCTester; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {parentDoc = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                clearLog = id; 
+                getExclusiveAccess = id; 
+                isExclusiveAccessAvailable = id; 
+                switchTest = id; 
+            }; 
+            CLASS = MyDocument; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                exclusiveAccessButton = id; 
+                isExclusiveAccessAvailableButton = id; 
+                testButton = id; 
+                testOutputTextView = id; 
+                testPopUpButton = id; 
+                theMMCDevice = id; 
+                theMMCTester = id; 
+                theWindow = id; 
+            }; 
+            SUPERCLASS = NSDocument; 
+        }, 
+        {CLASS = MySound; LANGUAGE = ObjC; SUPERCLASS = Sound; }
+    ); 
+    IBVersion = 1; 
+}

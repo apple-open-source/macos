@@ -38,6 +38,7 @@
 // Generic IOKit includes
 #include <IOKit/IOService.h>
 #include <IOKit/IOCommandPool.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -241,7 +242,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		if ( string == NULL )
 		{
 			
-			string = OSString::withCString ( kIOPropertySCSIParallelInterfaceKey );
+			string = OSString::withCString ( kIOPropertyPhysicalInterconnectTypeSCSIParallel );
 			if ( string != NULL )
 			{
 				

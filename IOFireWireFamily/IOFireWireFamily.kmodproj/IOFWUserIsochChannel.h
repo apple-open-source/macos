@@ -47,13 +47,18 @@ class IOFWUserIsochChannel: public IOFWIsochChannel
 		virtual IOReturn 				stop();
 		
 		// me
-		IOReturn						userAllocateChannelBegin(
-														IOFWSpeed	inSpeed,
-														UInt32		inAllowedChansHi,
-														UInt32		inAllowedChansLo,
-														IOFWSpeed*	outActualSpeed,
-														UInt32*		outActualChannel) ;
-		IOReturn						userReleaseChannelComplete() ;
+//		IOReturn						userAllocateChannelBegin(
+//														IOFWSpeed	inSpeed,
+//														UInt32		inAllowedChansHi,
+//														UInt32		inAllowedChansLo,
+//														IOFWSpeed*	outActualSpeed,
+//														UInt32*		outActualChannel) ;
+//		IOReturn						userReleaseChannelComplete() ;
+		IOReturn						allocateChannelBegin(
+												IOFWSpeed		speed,
+												UInt64			allowedChans,
+												UInt32 *		outChannel )				{ return IOFWIsochChannel::allocateChannelBegin( speed, allowedChans, outChannel ) ; }
+		IOReturn						releaseChannelComplete()							{ return IOFWIsochChannel::releaseChannelComplete() ; }
 		IOReturn						allocateListenerPorts() ;
 		IOReturn						allocateTalkerPort() ;
 		static void						s_exporterCleanup( IOFWUserIsochChannel * channel ) ;

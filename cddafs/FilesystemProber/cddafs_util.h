@@ -72,6 +72,7 @@ extern "C" {
 #define kPointString					"Point"
 #define kSessionNumberString			"Session Number"
 #define kStartBlockString		 		"Start Block"
+#define kPreEmphasisString				"Pre-Emphasis Enabled"
 
 enum
 {

@@ -40,6 +40,7 @@
 
 // SCSI Architecture Model Family includes
 #include <IOKit/scsi/IOSCSIProtocolInterface.h>
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -82,7 +83,10 @@ private:
 protected:
 	
 	// Reserve space for future expansion.
-	struct IOSCSIProtocolServicesExpansionData { };
+	struct IOSCSIProtocolServicesExpansionData
+	{
+		UInt32	fSemaphore;
+	};
 	IOSCSIProtocolServicesExpansionData * fIOSCSIProtocolServicesReserved;
 	
 	// ---- Protocol transport methods overridden by each subclass ----
@@ -242,7 +246,6 @@ protected:
 	
 public:
 	
-	virtual bool	init	( OSDictionary * propTable );
 	virtual bool	start	( IOService * provider );
 	virtual void	stop	( IOService *  provider );
 	virtual void	free	( void );

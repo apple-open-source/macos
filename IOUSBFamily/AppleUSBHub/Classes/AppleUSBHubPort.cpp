@@ -1516,7 +1516,8 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
 
     if (!IOLockTryLock(_runLock))
     {
-        USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler: port %d already in PSCH, ignoring", this, _portNum);
+        USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler: port %d already in PSCH, setting _retryPortStatus to true", this, _portNum);
+        _retryPortStatus = true;
         return;
     }
     
@@ -1726,11 +1727,13 @@ AppleUSBHubPort::SetPortVector(ChangeHandlerFuncPtr	routine,
 IOReturn 
 AppleUSBHubPort::ReleaseDevZeroLock()
 {
+    USBLog(5, "AppleUSBHubPort[%p]::ReleaseDevZeroLock devZero = %p", this, _devZero);
+
     if (_devZero)
     {
         (void) _hub->ClearPortFeature(kUSBHubPortEnableFeature, _portNum);
         
-        USBError(1, "AppleUSBHubPort::ReleaseDevZeroLock()");
+        USBError(1, "AppleUSBHubPort[%p]::ReleaseDevZeroLock()", this);
         _state = hpsNormal;
  
         if ( _bus )
@@ -1927,4 +1930,14 @@ AppleUSBHubPort::DisplayOverCurrentNotice(bool individual)
         _hub->_device->DisplayUserNotification(kUSBGangOverCurrentNotificationType);
 
     return;
+}
+
+bool
+AppleUSBHubPort::willTerminate( IOService * provider, IOOptionBits options )
+{
+    USBLog(3, "AppleUSBHubPort[%p]::willTerminate", this);
+
+    ReleaseDevZeroLock();
+
+    return false;
 }

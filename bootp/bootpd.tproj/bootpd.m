@@ -509,6 +509,7 @@ S_get_dns()
 
     res_init(); /* figure out the default dns servers */
 
+    S_domain_name = NULL;
     if (S_dns_servers) {
 	free(S_dns_servers);
 	S_dns_servers = NULL;
@@ -521,7 +522,7 @@ S_get_dns()
     if (S_dns_servers_count) {
 	S_dns_servers = (struct in_addr *)malloc(sizeof(*S_dns_servers) 
 						 * S_dns_servers_count);
-	if (_res.defdname[0]) {
+	if (_res.defdname[0] && strcmp(_res.defdname, "local") != 0) {
 	    S_domain_name = _res.defdname;
 	    if (debug)
 		printf("%s\n", S_domain_name);

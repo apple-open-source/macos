@@ -22,11 +22,12 @@ protected:
 	PlatformInterface *		mPlatformInterface;
 	IOWorkLoop *			mWorkLoop;
 
-    Boolean					mVolMuteActive;
     SInt32					mVolLeft;
     SInt32					mVolRight;
     SInt32					mGainLeft;
     SInt32					mGainRight;
+	Boolean					mAnalogMuteState;
+	Boolean					mDigitalMuteState;
 	Boolean					mDisableLoadingEQFromFile;
 
 public:
@@ -36,7 +37,7 @@ public:
 	virtual void			postDMAEngineInit () {return;}
 
 	virtual void			setWorkLoop (IOWorkLoop * inWorkLoop) {mWorkLoop = inWorkLoop;}
-	virtual IOWorkLoop *	getWorkLoop () {return mWorkLoop;}
+	virtual IOWorkLoop *	getWorkLoop () { return mWorkLoop; } 
 	
 	virtual bool 			willTerminate ( IOService * provider, IOOptionBits options ) {return false;}
 	virtual bool 			requestTerminate ( IOService * provider, IOOptionBits options ) {return false;}
@@ -46,8 +47,12 @@ public:
 	virtual UInt32			getActiveInput (void) {return 0;}
 	virtual IOReturn		setActiveInput (UInt32 input) {return kIOReturnError;}
 
-	virtual bool			getMute () {return false;}
-	virtual IOReturn		setMute (bool muteState) {return 0;}
+	IOReturn				setMute (bool muteState);														//	[3435307]	rbm
+	IOReturn				setMute (bool muteState, UInt32 streamType);									//	[3435307]	rbm
+	virtual IOReturn		setCodecMute (bool muteState) {return 0;}										//	[3435307]	rbm
+	virtual IOReturn		setCodecMute (bool muteState, UInt32 streamType) {return kIOReturnError;}		//	[3435307]	rbm
+	virtual bool			hasAnalogMute () { return false; }												//	[3435307]	rbm
+	virtual bool			hasDigitalMute () { return false; }												//	[3435307]	rbm
 
 	virtual bool			getInputMute () {return false;}
 	virtual IOReturn		setInputMute (bool muteState) {return 0;}
@@ -61,14 +66,16 @@ public:
 	virtual	UInt32			getMaximumGain (void) {return 0;}
 	virtual	UInt32			getMinimumGain (void) {return 0;}
 
-	virtual bool			setVolume (UInt32 leftVolume, UInt32 rightVolume) {return false;}
+	bool					setVolume (UInt32 leftVolume, UInt32 rightVolume);
+	virtual bool			setCodecVolume (UInt32 leftVolume, UInt32 rightVolume) {return false;}
 	virtual IOReturn		setPlayThrough (bool playthroughState) {return kIOReturnError;}
 	virtual IOReturn		setInputGain (UInt32 leftGain, UInt32 rightGain) {return kIOReturnError;}
 	
-	virtual	void			setEQ (UInt32 inEQIndex) {return;}
-	virtual	void			setEQ (void * inEQStructure, Boolean inRealtime) {return;}
-	virtual	void			disableEQ (void) {return;}
-	virtual	void			enableEQ (void) {return;}
+	virtual	void			setProcessing (UInt32 inEQIndex) {return;}
+	virtual	void			setEQProcessing (void * inEQStructure, Boolean inRealtime) {return;}
+	virtual	void			setDRCProcessing (void * inDRCStructure, Boolean inRealtime) {return;}
+	virtual	void			disableProcessing (void) {return;}
+	virtual	void			enableProcessing (void) {return;}
 	
 	virtual IOReturn		performDeviceSleep () {return kIOReturnError;}
 	virtual IOReturn		performDeviceWake () {return kIOReturnError;}

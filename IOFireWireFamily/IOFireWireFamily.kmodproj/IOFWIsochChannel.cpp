@@ -295,11 +295,12 @@ IOReturn IOFWIsochChannel::allocateChannel()
 		UInt64 				portChans;
 		IOFWSpeed 			portSpeed;
 		UInt64 				allowedChans;
-
+		IOFWSpeed			speed;
+		
 		// Find minimum of requested speed and paths from talker to each listener
 		// Reduce speed to minimum of what all ports can do, find supported channels
 
-		fSpeed = fPrefSpeed;
+		speed = fPrefSpeed;
 
 		//
 		// get supported channels and max speed from talker
@@ -309,9 +310,9 @@ IOReturn IOFWIsochChannel::allocateChannel()
         if( fTalker ) 
 		{
             fTalker->getSupported( portSpeed, portChans );
-            if( portSpeed < fSpeed )
+            if( portSpeed < speed )
 			{
-                fSpeed = portSpeed;
+                speed = portSpeed;
             }
 			allowedChans &= portChans;
         }
@@ -326,9 +327,9 @@ IOReturn IOFWIsochChannel::allocateChannel()
             while( (listen = (IOFWIsochPort *)listenIterator->getNextObject()) ) 
 			{
                 listen->getSupported( portSpeed, portChans );
-                if( portSpeed < fSpeed )
+                if( portSpeed < speed )
 				{
-                    fSpeed = portSpeed;
+                    speed = portSpeed;
                 }
 				allowedChans &= portChans;
             }
@@ -338,7 +339,9 @@ IOReturn IOFWIsochChannel::allocateChannel()
         // do bandwidth and channel allocation
 		//
 		
-		status = allocateChannelBegin( fSpeed, allowedChans, fChannel );
+		// allocateChannelBegin sets up fSpeed, fGeneration, fBandwidth, and fChannel
+		
+		status = allocateChannelBegin( speed, allowedChans );
 	}
 	
 	//
@@ -395,7 +398,7 @@ IOReturn IOFWIsochChannel::allocateChannel()
 
 IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 													UInt64			inAllowedChans,
-													UInt32 &		outChannel )
+													UInt32 *		outChannel )
 {
 	IOReturn		status = kIOReturnSuccess;
 
@@ -405,6 +408,8 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 
 	IOLockLock( fLock );
 	
+	fSpeed = inSpeed;
+
 	if( fDoIRM )
 	{
 		UInt32 			generation;
@@ -506,7 +511,11 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 			{
 				FWKLOG(( "IOFWIsochChannel::allocateChannelBegin - allocated channel = %d\n", channel ));
 				
-				outChannel = channel;
+				fChannel = channel;
+				if( outChannel != NULL )
+				{
+					*outChannel = channel;
+				}
 			}
 			
 			if( status == kIOReturnSuccess )
@@ -545,10 +554,14 @@ IOReturn IOFWIsochChannel::allocateChannelBegin( 	IOFWSpeed		inSpeed,
 		{
 			FWKLOG(( "IOFWIsochChannel::allocateChannelBegin - allocated channel = %d\n", channel ));
 			
-			outChannel = channel;
+			fChannel = channel;
+			if( outChannel != NULL )
+			{
+				*outChannel = channel;
+			}
 		}
 	}
-	
+		
 	IOLockUnlock( fLock );
 
 	FWKLOG(( "IOFWIsochChannel::allocateChannelBegin - exited with status = 0x%08lx\n", status ));

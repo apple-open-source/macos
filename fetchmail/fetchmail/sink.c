@@ -73,11 +73,6 @@ int smtp_open(struct query *ctl)
     char *parsed_host = NULL;
 
     /* maybe it's time to close the socket in order to force delivery */
-    if (last_smtp_ok > 0 && time((time_t *)NULL) - last_smtp_ok > mytimeout)
-    {
-	smtp_close(ctl, 1);
-	last_smtp_ok = 0;
-    }
     if (NUM_NONZERO(ctl->batchlimit)) {
 	if (batchcount == ctl->batchlimit)
 	    smtp_close(ctl, 1);
@@ -211,39 +206,7 @@ int smtp_open(struct query *ctl)
 		ctl->destaddr = (ctl->smtphost && ctl->smtphost[0] != '/') ? ctl->smtphost : "localhost";
     } 
     else 
-      {
-	/* 
-	 * Here we try to find a correct domain name part for the RCPT
-	 * TO address.  If smtpaddress is set, no need to guestimate
-	 * it.  Otherwise, using ctl->smtphost as a base is a good
-	 * base, although we may have to strip any port appended to
-	 * communicate with SMTP servers that do not listen on the
-	 * SMTP port.  (benj) */
-	if (ctl->smtpaddress)
-	  ctl->destaddr = ctl->smtpaddress;
-	else if (ctl->smtphost && ctl->smtphost[0] != '/')
-	  {
-	    char * cp;
-	    if (cp = strchr (ctl->smtphost, '/'))
-	    {
-	      /* As an alternate port for smtphost is specified, we
-		 need to strip it from domain name. */
-	      char *smtpname;
-	      xalloca(smtpname, char *, cp - ctl->smtphost + 1);
-	      strncpy(smtpname, ctl->smtphost, cp - ctl->smtphost +1);
-	      cp = strchr(smtpname, '/');
-	      *cp = 0;
-	      ctl->destaddr = smtpname;
-	    }
-	    else
-	      /* No need to strip port, domain name is smtphost. */
-	      ctl->destaddr = ctl->smtphost;
-	  }
-	/* No smtphost is specified or it is a UNIX socket, then use
-	   localhost as a domain part. */
-	else
-	  ctl->destaddr = "localhost";
-      }
+	ctl->destaddr = ctl->smtpaddress ? ctl->smtpaddress : ( ctl->smtphost && ctl->smtphost[0] != '/' ? ctl->smtphost : "localhost");
 
     if (outlevel >= O_DEBUG && ctl->smtp_socket != -1)
 	report(stdout, GT_("forwarding to %s\n"), ctl->smtphost);
@@ -252,11 +215,12 @@ int smtp_open(struct query *ctl)
 }
 
 static void sanitize(char *s)
-/* replace ' by _ */
+/* replace unsafe shellchars by an _ */
 {
+    const static char *ok_chars = " 1234567890!@%-_=+:,./abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     char *cp;
 
-    for (cp = s; (cp = strchr (cp, '\'')); cp++)
+    for (cp = s; *(cp += strspn(cp, ok_chars)); /* NO INCREMENT */)
     	*cp = '_';
 }
 
@@ -300,14 +264,10 @@ static int send_bouncemail(struct query *ctl, struct msgblk *msg,
     char boundary[BUFSIZ], *bounce_to;
     int sock;
     static char *fqdn_of_host = NULL;
-    const char *md1 = "MAILER-DAEMON", *md2 = "MAILER-DAEMON@";
 
     /* don't bounce in reply to undeliverable bounces */
-    if (!msg->return_path[0] ||
-	strcmp(msg->return_path, "<>") == 0 ||
-	strcasecmp(msg->return_path, md1) == 0 ||
-	strncasecmp(msg->return_path, md2, strlen(md2)) == 0)
-	return(TRUE);
+    if (!msg->return_path[0] || strcmp(msg->return_path, "<>") == 0)
+	return(FALSE);
 
     bounce_to = (run.bouncemail ? msg->return_path : run.postmaster);
 
@@ -422,11 +382,8 @@ static int send_bouncemail(struct query *ctl, struct msgblk *msg,
     SockPrintf(sock, "--%s\r\n", boundary); 
     SockPrintf(sock, "Content-Type: text/rfc822-headers\r\n");
     SockPrintf(sock, "\r\n");
-    if (msg->headers)
-    {
-	SockWrite(sock, msg->headers, strlen(msg->headers));
-	SockPrintf(sock, "\r\n");
-    }
+    SockWrite(sock, msg->headers, strlen(msg->headers));
+    SockPrintf(sock, "\r\n");
     SockPrintf(sock, "--%s--\r\n", boundary); 
 
     if (SMTP_eom(sock) != SM_OK || SMTP_quit(sock))
@@ -446,8 +403,6 @@ static int handle_smtp_report(struct query *ctl, struct msgblk *msg)
 {
     int smtperr = atoi(smtp_response);
     char *responses[1];
-    struct idlist *walk;
-    int found = 0;
 
     xalloca(responses[0], char *, strlen(smtp_response)+1);
     strcpy(responses[0], smtp_response);
@@ -472,15 +427,7 @@ static int handle_smtp_report(struct query *ctl, struct msgblk *msg)
      * messages, which are probably in English (none of the
      * MTAs I know about are internationalized).
      */
-    for( walk = ctl->antispam; walk; walk = walk->next )
-        if ( walk->val.status.num == smtperr ) 
-	{ 
-		found=1;
-		break;
-	}
-
-    /* if (str_find(&ctl->antispam, smtperr)) */
-    if ( found )
+    if (str_find(&ctl->antispam, smtperr))
     {
 	/*
 	 * SMTP listener explicitly refuses to deliver mail
@@ -561,12 +508,10 @@ static int handle_smtp_report(struct query *ctl, struct msgblk *msg)
     default:
 	/* bounce non-transient errors back to the sender */
 	if (smtperr >= 500 && smtperr <= 599)
-	{
-	    send_bouncemail(ctl, msg, XMIT_ACCEPT,
+	    if (send_bouncemail(ctl, msg, XMIT_ACCEPT,
 				"General SMTP/ESMTP error.\r\n", 
-				1, responses);
-	    return(PS_REFUSED);
-	}
+				1, responses))
+		return(run.bouncemail ? PS_REFUSED : PS_TRANSIENT);
 	/*
 	 * We're going to end up here on 4xx errors, like:
 	 *
@@ -676,15 +621,10 @@ int stuffline(struct query *ctl, char *buf)
 	}
         else /* if (!protocol->delimited)	-- not byte-stuffed already */
 	{
-	  if (!ctl->mda)      /* byte-stuff it */
-	    {
-	      if (!ctl->bsmtp)
-		SockWrite(ctl->smtp_socket, buf, 1);
-	      else
-		{
-		  fwrite(buf, 1, 1, sinkfp);
-		}
-	    }
+	    if (!ctl->mda)
+		SockWrite(ctl->smtp_socket, buf, 1);	/* byte-stuff it */
+	    else
+		/* leave it alone */;
 	}
     }
 
@@ -899,9 +839,6 @@ static int open_smtp_sink(struct query *ctl, struct msgblk *msg,
     }
     else if (strchr(msg->return_path,'@') || strchr(msg->return_path,'!'))
 	ap = msg->return_path;
-    /* in case Return-Path was "<>" we want to preserve that */
-    else if (strcmp(msg->return_path,"<>") == 0)
-	ap = msg->return_path;
     else		/* in case Return-Path existed but was local */
     {
       if (is_dottedquad(ctl->server.truename))
@@ -1074,6 +1011,9 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 	      int *good_addresses, int *bad_addresses)
 /* open a stream to a local MDA */
 {
+#ifdef HAVE_SIGACTION
+    struct      sigaction sa_new;
+#endif /* HAVE_SIGACTION */
 #ifdef HAVE_SETEUID
     uid_t orig_uid;
 #endif /* HAVE_SETEUID */
@@ -1119,6 +1059,7 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 	    names[--nameslen] = '\0';	/* chop trailing space */
 	}
 
+	/* sanitize names in order to contain only harmless shell chars */
 	sanitize(names);
     }
 
@@ -1127,6 +1068,7 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
     {
 	from = xstrdup(msg->return_path);
 
+	/* sanitize from in order to contain *only* harmless shell chars */
 	sanitize(from);
 
 	fromlen = strlen(from);
@@ -1140,17 +1082,17 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 	/* find length of resulting mda string */
 	sp = before;
 	while ((sp = strstr(sp, "%s"))) {
-	    length += nameslen;	/* subtract %s and add '' */
+	    length += nameslen - 2;	/* subtract %s */
 	    sp += 2;
 	}
 	sp = before;
 	while ((sp = strstr(sp, "%T"))) {
-	    length += nameslen;	/* subtract %T and add '' */
+	    length += nameslen - 2;	/* subtract %T */
 	    sp += 2;
 	}
 	sp = before;
 	while ((sp = strstr(sp, "%F"))) {
-	    length += fromlen;	/* subtract %F and add '' */
+	    length += fromlen - 2;	/* subtract %F */
 	    sp += 2;
 	}
 
@@ -1163,17 +1105,13 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 	    /* need to expand? BTW, no here overflow, because in
 	    ** the worst case (end of string) sp[1] == '\0' */
 	    if (sp[1] == 's' || sp[1] == 'T') {
-		*dp++ = '\'';
 		strcpy(dp, names);
 		dp += nameslen;
-		*dp++ = '\'';
 		sp++;	/* position sp over [sT] */
 		dp--;	/* adjust dp */
 	    } else if (sp[1] == 'F') {
-		*dp++ = '\'';
 		strcpy(dp, from);
 		dp += fromlen;
-		*dp++ = '\'';
 		sp++;	/* position sp over F */
 		dp--;	/* adjust dp */
 	    }
@@ -1228,7 +1166,14 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
      * sigchld_handler() would reap away the error status, returning
      * error status instead of 0 for successful completion.
      */
-    set_signal_handler(SIGCHLD, SIG_DFL);
+#ifndef HAVE_SIGACTION
+    signal(SIGCHLD, SIG_DFL);
+#else
+    memset (&sa_new, 0, sizeof sa_new);
+    sigemptyset (&sa_new.sa_mask);
+    sa_new.sa_handler = SIG_DFL;
+    sigaction (SIGCHLD, &sa_new, NULL);
+#endif /* HAVE_SIGACTION */
 
     return(PS_SUCCESS);
 }
@@ -1514,7 +1459,7 @@ int open_warning_by_mail(struct query *ctl, struct msgblk *msg)
     }
     else				/* send to postmaster  */
 	status = open_sink(ctl, &reply, &good, &bad);
-    if (status == 0) stuff_warning(ctl, "Date: %s", rfc822timestamp());
+    stuff_warning(ctl, "Date: %s", rfc822timestamp());
     return(status);
 }
 
@@ -1528,8 +1473,7 @@ va_dcl
 #endif
 /* format and ship a warning message line by mail */
 {
-    /* make huge -- i18n can bulk up error messages a lot */
-    char	buf[2*MSGBUFSIZE+4];
+    char	buf[POPBUFSIZE];
     va_list ap;
 
     /*
@@ -1555,11 +1499,6 @@ va_dcl
 #else
     strcat(buf, "\r\n");
 #endif /* HAVE_SNPRINTF */
-
-    /* guard against very long lines */
-    buf[MSGBUFSIZE+1] = '\r';
-    buf[MSGBUFSIZE+2] = '\n';
-    buf[MSGBUFSIZE+3] = '\0';
 
     stuffline(ctl, buf);
 }

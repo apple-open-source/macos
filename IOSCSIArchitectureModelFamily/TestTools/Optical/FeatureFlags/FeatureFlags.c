@@ -203,7 +203,7 @@ GetFeaturesFlagsForDrive ( CFDictionaryRef	dict,
 	*dvdFlags	= 0;
 	
 	propertiesDict = ( CFDictionaryRef ) CFDictionaryGetValue ( dict, CFSTR ( kIOPropertyDeviceCharacteristicsKey ) );
-	require ( ( propertiesDict != 0 ), ReleaseDictionary );
+	require ( ( propertiesDict != 0 ), ErrorExit );
 	
 	// Get the CD features
 	flagsNumberRef = ( CFNumberRef ) CFDictionaryGetValue ( propertiesDict, CFSTR ( kIOPropertySupportedCDFeatures ) );
@@ -222,14 +222,6 @@ GetFeaturesFlagsForDrive ( CFDictionaryRef	dict,
 		CFNumberGetValue ( flagsNumberRef, kCFNumberLongType, dvdFlags );
 		
 	}
-	
-	
-ReleaseDictionary:
-	
-	
-	require_quiet ( ( dict != NULL ), ErrorExit );
-	CFRelease ( dict );
-	dict = NULL;
 	
 	
 ErrorExit:

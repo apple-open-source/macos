@@ -27,7 +27,22 @@
 #ifndef _IOKIT_SCSI_TASK_DEFINITION_H_
 #define _IOKIT_SCSI_TASK_DEFINITION_H_
 
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Includes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+
 #include <IOKit/scsi/SCSITask.h>
+
+// Generic IOKit related headers
+#include <IOKit/IOCommand.h>
+#include <IOKit/IOReturn.h>
+#include <IOKit/IOMemoryDescriptor.h>
+
+// SCSI Architecture Model Family includes
+#include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration

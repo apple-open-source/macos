@@ -363,70 +363,6 @@ int resolve_http_hostaddr(void)
 
 /*****************************************************************************/
 
-/* get_dest_server gets the official name of the host, puts it into a newly
- * allocated buffer pointed to by the global dest_server.
- *
- * XXX This should really just be using getaddrinfo() since it knows how to
- * deal with hostnames and address strings. In addition, it knows how to deal
- * with IPv6 addresses.
- */
-static int get_dest_server(char *server, int len)
-{
-	char *tempname;
-	struct hostent *hp;
-	struct in_addr pin;
-	int result;
-	
-	tempname = malloc(len + 1);
-	if ( tempname != NULL )
-	{
-		(void)strncpy(tempname, server, len);
-		tempname[len] = '\0';
-		
-		/* is the name a IPv4 presentation format address? */
-		if (inet_aton(tempname, &pin) == 1)
-		{
-			/* the hostname was a IPv4 presentation format address - use gethostbyaddr */
-			hp = gethostbyaddr((const char *)&pin, sizeof(pin), AF_INET);
-		}
-		else
-		{
-			/* the hostname was not a IPv4 presentation format address - use gethostbyname */
-			hp = gethostbyname(tempname);
-		}
-		
-		if ( hp != NULL )
-		{
-			dest_server = malloc(strlen(hp->h_name) + 1);
-			if ( dest_server != NULL )
-			{
-				strcpy(dest_server, hp->h_name);
-				result = 0;
-			}
-			else
-			{
-				syslog(LOG_ERR, "get_dest_server: error allocating dest_server");
-				result = ENOMEM;
-			}
-		}
-		else
-		{
-			syslog(LOG_ERR, "get_dest_server: cannot resolve the hostname '%s': %s", tempname, hstrerror(h_errno));
-			result = ENOENT;
-		}
-		
-		free(tempname);
-	}
-	else
-	{
-		syslog(LOG_ERR, "get_dest_server: error allocating tempname");
-		result = ENOMEM;
-	}
-	return ( result );
-}
-
-/*****************************************************************************/
-
 #define ENCODING_KEY "?charset="
 
 static int update_text_encoding(void)
@@ -1182,11 +1118,17 @@ int main(int argc, char *argv[])
 		dest_port = HTTP_PORT;
 	}
 	
-	/* get the official name of the host */
-	error = get_dest_server(uri, len);
-	if ( error )
+	/* get dest_server */
+	dest_server = malloc(len + 1);
+	if (dest_server)
 	{
-		exit(error);
+		(void)strncpy(dest_server, uri, len);
+		dest_server[len] = '\0';
+	}
+	else
+	{
+		syslog(LOG_ERR, "main: error allocating dest_server");
+		exit(ENOMEM);
 	}
 	
 	/* get dest_path */
@@ -1196,27 +1138,6 @@ int main(int argc, char *argv[])
 	}
 	strcpy(dest_path, slash);
 
-	/* now that we have the official name of the host, change the uri and urilen
-	 * to use the official name so that proxy connections will work.
-	 */
-	{
-		char *tempuri;
-		
-		tempuri = malloc(strlen(dest_server) + strlen(uri + len) + 1);
-		if ( tempuri != NULL )
-		{
-			strcpy(tempuri, dest_server);
-			strcat(tempuri, uri + len);
-			uri = tempuri;
-			urilen = strlen(uri);
-		}
-		else
-		{
-			syslog(LOG_ERR, "main: error allocating tempuri");
-			exit(ENOMEM);
-		}
-	}
-	
 	/* Set global signal handling to protect us from SIGPIPE */
 	signal(SIGPIPE, SIG_IGN);
 

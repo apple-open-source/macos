@@ -93,6 +93,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////////
 
+#define kFireWireGenerationID		"FireWire Generation ID"
+#define kFWBusScanInProgress		"-1"
+
 #define FWAddressToID(addr) (addr & 63)
 
 enum requestRefConBits 
@@ -995,6 +998,10 @@ void IOFireWireController::processBusReset()
 {
 	FWKLOG(( "IOFireWireController::processBusReset\n" ));
 	
+	// set generation property to kFWBusScanInProgress ("-1")
+	FWKLOG(("IOFireWireController::processBusReset set generation to '%s' realGen=0x%lx\n", kFWBusScanInProgress, fBusGeneration));
+	setProperty( kFireWireGenerationID, kFWBusScanInProgress );
+	
     clock_get_uptime(&fResetTime);	// Update even if we're already processing a reset
 	
 	// we got our bus reset, cancel any reset work in progress
@@ -1025,6 +1032,8 @@ void IOFireWireController::processBusReset()
         }
 		
 		fBusState = kWaitingSelfIDs;
+		
+		fRequestedHalfSizePackets = false;
 		
         unsigned int i;
         UInt32 oldgen = fBusGeneration;
@@ -1248,7 +1257,7 @@ for(i=0; i<numOwnIDs; i++)
     }
     
     // Store selfIDs
-    OSObject * prop = OSData::withBytes( fSelfIDs, (fRootNodeID+1) * sizeof(UInt32));
+    OSObject * prop = OSData::withBytes( fSelfIDs, (numIDs+1) * sizeof(UInt32));
     setProperty(gFireWireSelfIDs, prop);
     prop->release();
     
@@ -1341,10 +1350,15 @@ void IOFireWireController::startBusScan()
             scan->generation = fBusGeneration;
             scan->fCmd = new IOFWReadQuadCommand;
  			FWKLOG(( "IOFireWireController::startBusScan node %lx speed was %lx\n",(UInt32)nodeID,(UInt32)FWSpeed( nodeID ) ));	
-           	if( FWSpeed( nodeID ) & kFWSpeedUnknownMask ) {
+           	
+			if( FWSpeed( nodeID ) & kFWSpeedUnknownMask ) 
+			{
            		
                	fSpeedCodes[(kFWMaxNodesPerBus + 1)*(scan->fAddr.nodeID & 63) + (fLocalNodeID & 63)] &= ~kFWSpeedUnknownMask;
                 fSpeedCodes[(kFWMaxNodesPerBus + 1)*(fLocalNodeID & 63) + (scan->fAddr.nodeID & 63)] &= ~kFWSpeedUnknownMask;
+
+				scan->fCmd->initAll(this, fBusGeneration, scan->fAddr, scan->fBuf, 1,
+                                                &readROMGlue, scan);
 
           		FWKLOG(( "IOFireWireController::startBusScan speedchecking\n" ));	
             	scan->speedChecking = true;	// May need to try speeds slower than s800 if this fails
@@ -1352,12 +1366,14 @@ void IOFireWireController::startBusScan()
             }
             else
             {
+				scan->fCmd->initAll(this, fBusGeneration, scan->fAddr, scan->fBuf, 1,
+                                                &readROMGlue, scan);
+
+				scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
             	scan->speedChecking = false;
             	FWKLOG(( "IOFireWireController::startBusScan not speedchecking\n" ));
             }	
 
-            scan->fCmd->initAll(this, fBusGeneration, scan->fAddr, scan->fBuf, 1,
-                                                &readROMGlue, scan);
             scan->fCmd->submit();
         }
     }
@@ -1450,7 +1466,8 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
             scan->fAddr.addressLo = kConfigROMBaseAddress+8;
             scan->fCmd->reinit(scan->fAddr, scan->fBuf+2, 1,
                                                         &readROMGlue, scan, true);
-            scan->fCmd->submit();
+            scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
+			scan->fCmd->submit();
             done = false;
 		}
     }
@@ -1462,7 +1479,8 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
             scan->fAddr.addressLo = kConfigROMBaseAddress+scan->fRead;
             scan->fCmd->reinit(scan->fAddr, scan->fBuf+scan->fRead/4, 1,
                                                         &readROMGlue, scan, true);
-            scan->fCmd->submit();
+            scan->fCmd->setMaxSpeed( kFWSpeed100MBit );
+			scan->fCmd->submit();
             done = false;
         }
         else
@@ -1874,7 +1892,7 @@ void IOFireWireController::buildTopology(bool doFWPlane)
         int childrenRemaining;
         IORegistryEntry *node;
     };
-    FWNodeScan scanList[kFWMaxNodeHops];
+    FWNodeScan scanList[kFWMaxNodesPerBus];
     FWNodeScan *level;
     maxDepth = 0;
     root = fNodes[fRootNodeID];
@@ -2053,6 +2071,16 @@ void IOFireWireController::updatePlane()
     }
 
     buildTopology(true);
+	
+	messageClients( kIOFWMessageTopologyChanged );
+	
+	// reset generation property to current FireWire Generation
+	char busGenerationStr[32];
+	sprintf(busGenerationStr, "%lx", fBusGeneration);
+	setProperty( kFireWireGenerationID, busGenerationStr);
+	FWKLOG(("IOFireWireController::updatePlane reset generation to '%s'\n", busGenerationStr));
+	
+	fUseHalfSizePackets = fRequestedHalfSizePackets;
 }
 
 #pragma mark -
@@ -2480,21 +2508,23 @@ IOReturn IOFireWireController::UpdateROM()
             IOLog("ROM[%d] = 0x%x\n", i, hack[i]);
     }
 #endif
-    if(fROMAddrSpace) {
-        freeAddress(fROMAddrSpace);
+    if(fROMAddrSpace) 
+	{
+        freeAddress( fROMAddrSpace );
         fROMAddrSpace->release();
         fROMAddrSpace = NULL;
     }
     
-    fROMAddrSpace = IOFWPseudoAddressSpace::simpleReadFixed(this,
+    fROMAddrSpace = IOFWPseudoAddressSpace::simpleReadFixed( this,
         FWAddress(kCSRRegisterSpaceBaseAddressHi, kConfigROMBaseAddress),
         (numQuads+1)*sizeof(UInt32), rom->getBytesNoCopy());
     ret = allocAddress(fROMAddrSpace);
-    if(kIOReturnSuccess == ret) {
+    if(kIOReturnSuccess == ret) 
+	{
         ret = fFWIM->updateROM(rom);
     }
     rom->release();
-    return (ret);
+    return ret ;
 }
 
 #pragma mark -
@@ -2596,7 +2626,22 @@ IOReturn IOFireWireController::asyncRead(	UInt32 				generation,
     }
     else
 	{
-        return fFWIM->asyncRead( nodeID, addrHi, addrLo, speed, label, size, cmd );
+		// reliabilty is more important than speed for IRM access
+		// perform IRM access at s100
+		
+		int actual_speed = speed;
+		if( addrHi == kCSRRegisterSpaceBaseAddressHi )
+        {
+			if( (addrLo == kCSRBandwidthAvailable) ||
+				(addrLo == kCSRChannelsAvailable31_0) ||
+				(addrLo == kCSRChannelsAvailable63_32) ||
+				(addrLo == kCSRBusManagerID) )
+			{
+				actual_speed = kFWSpeed100MBit;
+			}
+		}
+		
+        return fFWIM->asyncRead( nodeID, addrHi, addrLo, actual_speed, label, size, cmd );
 	}
 }
 
@@ -2694,10 +2739,28 @@ IOReturn IOFireWireController::asyncWrite(	UInt32 					generation,
     }
     else
 	{
+		// reliabilty is more important than speed for IRM access
+		// perform IRM access at s100
+	
+		// actually writes to the IRM are not allowed, so we are doing 
+		// this more for consistency than necessity
+		
+		int actual_speed = speed;
+		if( addrHi == kCSRRegisterSpaceBaseAddressHi )
+        {
+			if( (addrLo == kCSRBandwidthAvailable) ||
+				(addrLo == kCSRChannelsAvailable31_0) ||
+				(addrLo == kCSRChannelsAvailable63_32) ||
+				(addrLo == kCSRBusManagerID) )
+			{
+				actual_speed = kFWSpeed100MBit;
+			}
+		}
+		
         return fFWIM->asyncWrite( 	nodeID, 
 									addrHi, 
 									addrLo, 
-									speed, 
+									actual_speed, 
 									label, 
 									buf, 
 									offset, 
@@ -2780,10 +2843,25 @@ IOReturn IOFireWireController::asyncLock(	UInt32 					generation,
     }
     else
 	{
-        return fFWIM->asyncLock(	nodeID, 
+		// reliabilty is more important than speed for IRM access
+		// perform IRM access at s100
+		
+		int actual_speed = speed;
+		if( addrHi == kCSRRegisterSpaceBaseAddressHi )
+        {
+			if( (addrLo == kCSRBandwidthAvailable) ||
+				(addrLo == kCSRChannelsAvailable31_0) ||
+				(addrLo == kCSRChannelsAvailable63_32) ||
+				(addrLo == kCSRBusManagerID) )
+			{
+				actual_speed = kFWSpeed100MBit;
+			}
+		}
+		
+		return fFWIM->asyncLock(	nodeID, 
 									addrHi, 
 									addrLo, 
-									speed, 
+									actual_speed, 
 									label, 
 									type, 
 									buf,
@@ -3777,6 +3855,15 @@ IOFWSpeed IOFireWireController::FWSpeed(UInt16 nodeA, UInt16 nodeB) const
 	return (IOFWSpeed)fSpeedCodes[(kFWMaxNodesPerBus+1)*(nodeA & 63)+(nodeB & 63)];
 }
 
+// setNodeSpeed
+//
+//
+
+void IOFireWireController::setNodeSpeed( UInt16 nodeAddress, IOFWSpeed speed )
+{
+	fSpeedCodes[(kFWMaxNodesPerBus+1)*(nodeAddress & 63)+(fLocalNodeID & 63)] = speed;
+}
+
 // maxPackLog
 //
 // How big (as a power of two) can packets sent to/received from the node be?
@@ -3784,14 +3871,32 @@ IOFWSpeed IOFireWireController::FWSpeed(UInt16 nodeA, UInt16 nodeB) const
 int IOFireWireController::maxPackLog(bool forSend, UInt16 nodeAddress) const
 {
     int log;
+	
     log = 9+FWSpeed(nodeAddress);
-    if(forSend) {
-        if(log > fMaxSendLog)
+    if( forSend ) 
+	{
+        if( log > fMaxSendLog )
+		{
             log = fMaxSendLog;
-    }
-    else if(log > fMaxSendLog)
-        log = fMaxRecvLog;
-    return log;
+		}
+	}
+    else 
+	{
+		if( log > fMaxSendLog )
+		{
+			log = fMaxRecvLog;
+		}
+	}
+	
+	if( fUseHalfSizePackets )
+	{
+		if( log > 1 )
+		{
+			log--;
+		}
+	}
+	
+	return log;
 }
 
 // maxPackLog
@@ -3876,6 +3981,10 @@ IOReturn IOFireWireController::getIRMNodeID(UInt32 &generation, UInt16 &id) cons
 	return kIOReturnSuccess;
 }
 
+// clipMaxRec2K
+//
+//
+
 IOReturn IOFireWireController::clipMaxRec2K(Boolean clipMaxRec )
 {
     IOReturn res;
@@ -3918,6 +4027,16 @@ IOReturn IOFireWireController::makeRoot(UInt32 generation, UInt16 nodeID)
     openGate();
 
     return res;
+}
+
+// useHalfSizePackets
+//
+//
+
+void IOFireWireController::useHalfSizePackets( void )
+{
+	fUseHalfSizePackets = true;
+	fRequestedHalfSizePackets = true;
 }
  
 #pragma mark -

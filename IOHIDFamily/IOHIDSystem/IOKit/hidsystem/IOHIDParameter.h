@@ -55,6 +55,8 @@
 
 #define kIOHIDParametersKey				"HIDParameters"
 
+#define kIOHIDVirtualHIDevice                   "HIDVirtualDevice"
+
 #define kIOHIDKeyRepeatKey				"HIDKeyRepeat"
 #define kIOHIDInitialKeyRepeatKey		"HIDInitialKeyRepeat"
 #define kIOHIDKeyMappingKey				"HIDKeyMapping"

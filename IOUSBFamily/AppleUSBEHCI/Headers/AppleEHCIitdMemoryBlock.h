@@ -48,3 +48,4 @@ public:
     IOPhysicalAddress				GetPhysicalPtr(UInt32 index);
     EHCIIsochTransferDescriptorSharedPtr	GetLogicalPtr(UInt32 index);
     
+};

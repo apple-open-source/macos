@@ -36,6 +36,10 @@ public:
 	virtual	void					setWorkLoop(IOWorkLoop* inWorkLoop) {mWorkLoop = inWorkLoop; return;}					
 																
 	virtual	void					free();
+
+	virtual IOReturn				performPlatformSleep ( void );
+	virtual IOReturn				performPlatformWake ( IOService * device );
+
 	//
 	// Codec Methods
 	//
@@ -77,6 +81,10 @@ public:
 
 	virtual IOReturn				setI2SIOMIntControl(UInt32 intCntrl);
 	virtual UInt32					getI2SIOMIntControl();
+	
+	virtual IOReturn				setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue );
+	virtual UInt32					getPeakLevel ( UInt32 channelTarget );
+	
 	//
 	// GPIO Methods
 	//

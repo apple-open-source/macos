@@ -40,7 +40,142 @@ Exit:
 void	PlatformInterface::free ( void ) {
 	
 	debugIOLog ( "+ PlatformInterface::free\n" );
+	
+	unregisterInterrupts();
 
+	return super::free ();
+}
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bool	PlatformInterface::registerInterrupts ( IOService * device ) {
+	IOReturn	err;
+	bool		result = false;
+	
+	debug2IOLog ( "+ PlatformInterface::registerInterrupts ( %p )\n", device );
+
+	FailIf (NULL == device, Exit );
+
+	if ( kGPIO_Unknown != getHeadphoneConnected() ) {
+		//	IMPORTANT:	The headphone connector may also be a digital output connector.  If a 
+		//				digital out type is available then the headphone is a combo connector
+		//				supporting both the headphone and digital output connector.  In this 
+		//				case, there will be no low level registration of a digital output
+		//				interrupt at the derived class and the headphone handler will query
+		//				the detect type on insert to determine if the event is associated with
+		//				the headphone or the digital output.
+		if ( kGPIO_Unknown != getComboOutJackTypeConnected() ) {
+			mIsComboOutJack = true;
+		}
+		err = registerInterruptHandler ( device, (void*)headphoneDetectInterruptHandler, kHeadphoneDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "headphoneDetectInterruptHandler has been registered!!!\n" );
+		headphoneDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()\n");
+	}
+	
+	if ( kGPIO_Unknown != getSpeakerConnected() ) {
+		err = registerInterruptHandler ( device, (void*)speakerDetectInterruptHandler, kSpeakerDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "speakerDetectInterruptHandler has been registered!!!\n" );
+		speakerDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()\n");
+	}
+	
+	if ( kGPIO_Unknown != getLineInConnected() ) {
+		//	IMPORTANT:	The line input connector may also be a digital input connector.  If a 
+		//				digital out type is available then the line input is a combo connector
+		//				supporting both the line input and digital input connector.  In this 
+		//				case, there will be no low level registration of a digital input
+		//				interrupt at the derived class and the line input handler will query
+		//				the detect type on insert to determine if the event is associated with
+		//				the line input or the digital input.
+		if ( kGPIO_Unknown != getComboInJackTypeConnected() ) {
+			mIsComboInJack = true;
+		}
+		err = registerInterruptHandler ( device, (void*)lineInDetectInterruptHandler, kLineInputDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "lineInDetectInterruptHandler has been registered!!!\n" );
+		lineInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()\n");
+	}
+	
+	if ( kGPIO_Unknown != getLineOutConnected() ) {
+		err = registerInterruptHandler ( device, (void*)lineOutDetectInterruptHandler, kLineOutputDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "lineOutDetectInterruptHandler has been registered!!!\n" );
+		lineOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()\n");
+	}
+	
+	if ( kGPIO_Unknown != getDigitalInConnected() && kGPIO_Unknown == getComboInJackTypeConnected() ) {
+		//	IMPORTANT:	Only supported if the digital line input connector is not a combo connector
+		//				that is already being supported by the line input handler.
+		err = registerInterruptHandler ( device, (void*)digitalInDetectInterruptHandler, kDigitalInDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "digitalInDetectInterruptHandler has been registered!!!\n" );
+		digitalInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()\n");
+	}
+	
+	if ( kGPIO_Unknown != getDigitalOutConnected() && kGPIO_Unknown == getComboOutJackTypeConnected() ) {
+		//	IMPORTANT:	Only supported if the digital line output connector is not a combo connector
+		//				that is already being supported by the headphone handler.
+		err = registerInterruptHandler ( device, (void*)digitalOutDetectInterruptHandler, kDigitalOutDetectInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "digitalOutDetectInterruptHandler has been registered!!!\n" );
+		digitalOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()\n");
+	}
+
+	if ( kGPIO_Unknown != getCodecInterrupt() ) {
+		err = registerInterruptHandler ( device, (void*)codecInterruptHandler, kCodecInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "codecInterruptHandler has been registered!!!\n" );
+		codecInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()\n");
+	}
+	
+	if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
+		err = registerInterruptHandler ( device, (void*)codecErrorInterruptHandler, kCodecErrorInterrupt );
+		FailIf ( kIOReturnSuccess != err, Exit );
+		debugIOLog ( "codecErrorInterruptHandler has been registered!!!\n" );
+		codecErrorInterruptHandler ( device, NULL, 0, 0 );
+	}
+	else
+	{
+		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()\n");
+	}
+	
+	result = true;
+Exit:
+	debug2IOLog ( "- PlatformInterface::registerInterrupts ( %p )\n", device );
+	return result;
+}
+
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	PlatformInterface::unregisterInterrupts ( void ) {
 	if ( kGPIO_Unknown != getHeadphoneConnected() ) {
 		unregisterInterruptHandler ( NULL, NULL, kHeadphoneDetectInterrupt );
 	}
@@ -72,128 +207,8 @@ void	PlatformInterface::free ( void ) {
 	if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
 		unregisterInterruptHandler ( NULL, NULL, kCodecErrorInterrupt );
 	}
-
-	return super::free ();
 }
 
-//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-bool	PlatformInterface::registerInterrupts ( IOService * device ) {
-	IOReturn	err;
-	bool		result = false;
-	
-	debug2IOLog ( "+ PlatformInterface::registerInterrupts ( %p )\n", device );
-
-	FailIf (NULL == device, Exit );
-
-	if ( kGPIO_Unknown != getHeadphoneConnected() ) {
-		//	IMPORTANT:	The headphone connector may also be a digital output connector.  If a 
-		//				digital out type is available then the headphone is a combo connector
-		//				supporting both the headphone and digital output connector.  In this 
-		//				case, there will be no low level registration of a digital output
-		//				interrupt at the derived class and the headphone handler will query
-		//				the detect type on insert to determine if the event is associated with
-		//				the headphone or the digital output.
-		if ( kGPIO_Unknown != getComboOutJackTypeConnected() ) {
-			mIsComboOutJack = true;
-		}
-		err = registerInterruptHandler ( device, (void*)headphoneDetectInterruptHandler, kHeadphoneDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "headphoneDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()\n");
-	}
-	
-	if ( kGPIO_Unknown != getSpeakerConnected() ) {
-		err = registerInterruptHandler ( device, (void*)speakerDetectInterruptHandler, kSpeakerDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "speakerDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()\n");
-	}
-	
-	if ( kGPIO_Unknown != getLineInConnected() ) {
-		//	IMPORTANT:	The line input connector may also be a digital input connector.  If a 
-		//				digital out type is available then the line input is a combo connector
-		//				supporting both the line input and digital input connector.  In this 
-		//				case, there will be no low level registration of a digital input
-		//				interrupt at the derived class and the line input handler will query
-		//				the detect type on insert to determine if the event is associated with
-		//				the line input or the digital input.
-		if ( kGPIO_Unknown != getComboInJackTypeConnected() ) {
-			mIsComboInJack = true;
-		}
-		err = registerInterruptHandler ( device, (void*)lineInDetectInterruptHandler, kLineInputDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "lineInDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()\n");
-	}
-	
-	if ( kGPIO_Unknown != getLineOutConnected() ) {
-		err = registerInterruptHandler ( device, (void*)lineOutDetectInterruptHandler, kLineOutputDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "lineOutDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()\n");
-	}
-	
-	if ( kGPIO_Unknown != getDigitalInConnected() && kGPIO_Unknown == getComboInJackTypeConnected() ) {
-		//	IMPORTANT:	Only supported if the digital line input connector is not a combo connector
-		//				that is already being supported by the line input handler.
-		err = registerInterruptHandler ( device, (void*)digitalInDetectInterruptHandler, kDigitalInDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "digitalInDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()\n");
-	}
-	
-	if ( kGPIO_Unknown != getDigitalOutConnected() && kGPIO_Unknown == getComboOutJackTypeConnected() ) {
-		//	IMPORTANT:	Only supported if the digital line output connector is not a combo connector
-		//				that is already being supported by the headphone handler.
-		err = registerInterruptHandler ( device, (void*)digitalOutDetectInterruptHandler, kDigitalOutDetectInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "digitalOutDetectInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()\n");
-	}
-
-	if ( kGPIO_Unknown != getCodecInterrupt() ) {
-		err = registerInterruptHandler ( device, (void*)codecInterruptHandler, kCodecInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "codecInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()\n");
-	}
-	
-	if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
-		err = registerInterruptHandler ( device, (void*)codecErrorInterruptHandler, kCodecErrorInterrupt );
-		FailIf ( kIOReturnSuccess != err, Exit );
-		debugIOLog ( "codecErrorInterruptHandler has been registered!!!\n" );
-	}
-	else
-	{
-		debugIOLog("PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()\n");
-	}
-	
-	result = true;
-Exit:
-	debug2IOLog ( "- PlatformInterface::registerInterrupts ( %p )\n", device );
-	return result;
-}
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void PlatformInterface::headphoneDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 ) {

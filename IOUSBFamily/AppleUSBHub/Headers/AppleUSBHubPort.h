@@ -151,6 +151,7 @@ public:
     IOReturn		ReEnumeratePort(UInt32 options);
 
     void		DisplayOverCurrentNotice(bool individual);
+    bool 		willTerminate( IOService * provider, IOOptionBits options );
 
 };
 

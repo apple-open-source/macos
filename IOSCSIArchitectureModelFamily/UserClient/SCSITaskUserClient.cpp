@@ -709,8 +709,6 @@ SCSITaskUserClient::ReleaseTask ( SInt32 taskReference )
 	SCSITaskRefCon *		refCon	= NULL;
 	
 	STATUS_LOG ( ( "SCSITaskUserClient::ReleaseTask\n" ) );
-
-	require_action ( isInactive ( ) == false, GENERAL_ERR, status = kIOReturnNoDevice );
 	
 	require ( ( taskReference >= 0 ) && ( taskReference < kMaxSCSITaskArraySize ),
 			  GENERAL_ERR );
@@ -868,7 +866,7 @@ SCSITaskUserClient::ExecuteTask ( SCSITaskData * args, UInt32 argSize )
 			
 			// Make sure to complete any data buffers from client
 			status = CompleteBuffers ( buffer );
-		
+			
 		}
 		
 		release ( );
@@ -2565,7 +2563,11 @@ SCSITaskUserClient::didTerminate ( IOService * 		provider,
 								   bool *			defer )
 {
 	
-	HandleTerminate ( provider );	
+	if ( fOutstandingCommands == 0 )
+	{
+		HandleTerminate ( provider );
+	}
+	
 	return true;
 	
 }
@@ -2593,7 +2595,7 @@ SCSITaskUserClient::HandleTerminate ( IOService * provider )
 		provider->close ( this, kIOSCSITaskUserClientAccessMask );
 		
 	}
-		
+	
 	// Decouple us from the IORegistry.
 	detach ( provider );
 	fProvider = NULL;
@@ -2759,7 +2761,7 @@ SCSITaskUserClient::TaskCallback ( SCSITask * task, SCSITaskRefCon * refCon )
 		
 		OSAsyncReference	asyncRef;
 		
-		asyncRef = refCon->asyncReference;
+		bcopy ( refCon->asyncReference, asyncRef, sizeof ( OSAsyncReference ) );
 		
 		STATUS_LOG ( ( "asyncRef[0] = %d\n", asyncRef[0] ) );
 		
@@ -2780,6 +2782,9 @@ SCSITaskUserClient::TaskCallback ( SCSITask * task, SCSITaskRefCon * refCon )
 		
 	}
 	
+	if ( isInactive ( ) && ( fOutstandingCommands == 0 ) )
+		HandleTerminate ( fProvider );
+	
 }
 
 
@@ -2796,11 +2801,13 @@ SCSITaskUserClient::SetupTask ( SCSITask ** task )
 	
 	check ( task );
 	
-	newTask = new SCSITask;
+	newTask = OSTypeAlloc ( SCSITask );
 	require_nonzero ( newTask, TASK_CREATE_ERR );
 	require_action ( newTask->ResetForNewTask ( ),
 					 TASK_CREATE_ERR,
 					 newTask->release ( ) );
+	
+	newTask->SetTaskOwner ( this );
 	
 	*task 	= newTask;
 	status	= kIOReturnSuccess;

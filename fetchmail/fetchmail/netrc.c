@@ -37,8 +37,8 @@ maybe_add_to_list (netrc_entry **newentry, netrc_entry **list)
     a = *newentry;
     l = *list;
 
-    /* We need a login name in order to add the entry to the list. */
-    if (a && ! a->login)
+    /* We need an account name in order to add the entry to the list. */
+    if (a && ! a->account)
     {
 	/* Free any allocated space. */
 	if (a->host)
@@ -176,7 +176,7 @@ parse_netrc (file)
 	    {
 	    case tok_login:
 		if (current)
-		    current->login = (char *) xstrdup (tok);
+		    current->account = (char *) xstrdup (tok);
 		else
 		    premature_token = "login";
 		break;
@@ -294,15 +294,15 @@ parse_netrc (file)
 /* Return the netrc entry from LIST corresponding to HOST.  NULL is
    returned if no such entry exists. */
 netrc_entry *
-search_netrc (list, host, login)
+search_netrc (list, host, account)
      netrc_entry *list;
-     char *host, *login;
+     char *host, *account;
 {
     /* Look for the HOST in LIST. */
     while (list)
     {
 	if (list->host && !strcmp(list->host, host))
-	    if (!list->login || !strcmp(list->login, login))
+	    if (!list->account || !strcmp(list->account, account))
 		/* We found a matching entry. */
 		break;
 
@@ -326,13 +326,13 @@ main (argc, argv)
      char **argv;
 {
     struct stat sb;
-    char *program_name, *file, *host, *login;
+    char *program_name, *file, *host, *account;
     netrc_entry *head, *a;
 
     program_name = argv[0];
     file = argv[1];
     host = argv[2];
-    login = argv[3];
+    account = argv[3];
 
     if (stat (file, &sb))
     {
@@ -348,14 +348,14 @@ main (argc, argv)
 	exit (1);
     }
 
-    if (host && login)
+    if (host && account)
     {
 	int i, status;
 	status = 0;
 
-	printf("Host: %s, Login: %s\n", host, login);
+	printf("Host: %s, Account: %s\n", host, account);
 	    
-	a = search_netrc (head, host, login);
+	a = search_netrc (head, host, account);
 	if (a)
 	{
 	    /* Print out the password (if any). */
@@ -382,8 +382,8 @@ main (argc, argv)
 
 	fputc (' ', stdout);
 
-	/* Print the login name. */
-	fputs (a->login, stdout);
+	/* Print the account name. */
+	fputs (a->account, stdout);
 
 	if (a->password)
 	{

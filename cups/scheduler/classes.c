@@ -1,5 +1,5 @@
 /*
- * "$Id: classes.c,v 1.4 2003/08/09 20:48:23 jlovell Exp $"
+ * "$Id: classes.c,v 1.4.4.1 2003/11/14 23:48:30 jlovell Exp $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
@@ -610,7 +610,7 @@ SaveAllClasses(void)
   * Restrict access to the file...
   */
 
-  fchown(cupsFileNumber(fp), User, Group);
+  fchown(cupsFileNumber(fp), getuid(), Group);
 #ifdef __APPLE__
   fchmod(cupsFileNumber(fp), 0600);
 #else
@@ -693,5 +693,5 @@ SaveAllClasses(void)
 
 
 /*
- * End of "$Id: classes.c,v 1.4 2003/08/09 20:48:23 jlovell Exp $".
+ * End of "$Id: classes.c,v 1.4.4.1 2003/11/14 23:48:30 jlovell Exp $".
  */

@@ -1,0 +1,27 @@
+{
+    IBClasses = (
+        {
+            CLASS = DeviceDataSource; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {theTableView = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {selectDrive = id; }; 
+            CLASS = InterfaceController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                iconColumn = NSTableColumn; 
+                physicalInterconnectColumn = NSTableColumn; 
+                productColumn = NSTableColumn; 
+                revisionLevelColumn = NSTableColumn; 
+                theButton = NSButton; 
+                theTableView = NSTableView; 
+                vendorColumn = NSTableColumn; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

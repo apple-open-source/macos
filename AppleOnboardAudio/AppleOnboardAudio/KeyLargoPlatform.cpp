@@ -191,6 +191,20 @@ void KeyLargoPlatform::free() {
 	debugIOLog ("- KeyLargoPlatform::free()\n");
 }
 
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::performPlatformSleep ( void ) {
+	unregisterInterrupts();
+	return kIOReturnSuccess;
+}
+
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::performPlatformWake ( IOService * device ) {
+	registerInterrupts ( device );
+	return kIOReturnSuccess;
+}
+
+
 #pragma mark ---------------------------
 #pragma mark ¥ Codec Methods	
 #pragma mark ---------------------------
@@ -495,6 +509,34 @@ IOReturn KeyLargoPlatform::setI2SIOMIntControl (UInt32 intCntrl) {
 UInt32 KeyLargoPlatform::getI2SIOMIntControl () {
 	UInt32 result = OSReadLittleInt32(mI2SBaseAddress, kI2SIntCtlOffset);
 	debug2IOLog ( "KeyLargoPlatform::getI2SIOMIntControl = 0x%lX\n", result);
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+IOReturn KeyLargoPlatform::setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) {
+	IOReturn		result = kIOReturnSuccess;
+	
+	debug3IOLog ( "+ KeyLargoPlatform::setPeakLevel ( '%4s', %lX )\n", (char*)&channelTarget, levelMeterValue );
+	switch ( channelTarget ) {
+		case kStreamFrontLeft:		OSWriteLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn0Offset, levelMeterValue );		break;
+		case kStreamFrontRight:		OSWriteLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn1Offset, levelMeterValue );		break;
+		default:					result = kIOReturnBadArgument;															break;
+	}
+	debug4IOLog ( "- KeyLargoPlatform::setPeakLevel ( '%4s', %lX ) returns %X\n", (char*)&channelTarget, levelMeterValue, result );
+	return result;
+}
+
+//	--------------------------------------------------------------------------------
+UInt32 KeyLargoPlatform::getPeakLevel ( UInt32 channelTarget ) {
+	UInt32			result;
+	
+	debug2IOLog ( "+ KeyLargoPlatform::getPeakLevel ( '%4s' )\n", (char*)&channelTarget );
+	switch ( channelTarget ) {
+		case kStreamFrontLeft:		result = OSReadLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn0Offset );		break;
+		case kStreamFrontRight:		result = OSReadLittleInt32 ( mI2SBaseAddress, kI2SPeakLevelIn1Offset );		break;
+		default:					result = 0;																	break;
+	}
+	debug3IOLog ( "- KeyLargoPlatform::getPeakLevel ( '%4s' ) returns %lX\n", (char*)&channelTarget, result );
 	return result;
 }
 
@@ -914,7 +956,6 @@ IOReturn KeyLargoPlatform::setSpeakerMuteState ( GpioAttributes muteState ) {
 IOReturn KeyLargoPlatform::setCodecReset ( CODEC_RESET target, GpioAttributes reset ) {
 	IOReturn		result = kIOReturnError;
 	
-	debug3IOLog ( "+ KeyLargoPlatform::setCodecReset ( 0x%x, %d )\n", target, reset );
 	if ( kCODEC_RESET_Analog == target ) {
 		if ( NULL != mAnalogResetGpio ) {
 			result = setGpioAttributes ( kGPIO_Selector_AnalogCodecReset, reset );
@@ -924,7 +965,6 @@ IOReturn KeyLargoPlatform::setCodecReset ( CODEC_RESET target, GpioAttributes re
 			result = setGpioAttributes ( kGPIO_Selector_DigitalCodecReset, reset );
 		}
 	}
-	debug3IOLog ( "- KeyLargoPlatform::setCodecReset ( %d ) result = %X\n", reset, result );
 	return result;
 }
 
@@ -1237,13 +1277,13 @@ Exit:
 
 //	--------------------------------------------------------------------------------
 void KeyLargoPlatform::logFCR1( void ) {
-	debug2IOLog ( "logFCR1 = %lX\n", OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR1Offset ) );
+	debug2IOLog ( "logFCR1 = %X\n", OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR1Offset ) );
 	return;
 }
 
 //	--------------------------------------------------------------------------------
 void KeyLargoPlatform::logFCR3( void ) {
-	debug2IOLog ( "logFCR3 = %lX\n", OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR3Offset ) );
+	debug2IOLog ( "logFCR3 = %X\n", OSReadLittleInt32 ( mIOConfigurationBaseAddress, kFCR3Offset ) );
 	return;
 }
 
@@ -1265,7 +1305,6 @@ IOReturn KeyLargoPlatform::gpioWrite( UInt8* gpioAddress, UInt8 data ) {
 
 		*gpioAddress = gpioData;
 		result = kIOReturnSuccess;
-		debug4IOLog( "KeyLargoPlatform::gpioWrite( 0x%8.0X, 0x%2.0X ), *gpioAddress 0x%2.0X\n", (unsigned int)gpioAddress, gpioData, *gpioAddress );
 	}
 	return result;
 }
@@ -1567,8 +1606,10 @@ IOReturn	KeyLargoPlatform::getPlatformState ( PlatformStateStructPtr outState ) 
 	outState->i2s.frameCountToMatch = 0;
 	outState->i2s.dataWordSizes = getDataWordSizes ();
 	outState->i2s.peakLevelSfSel = 0;
-	outState->i2s.peakLevelIn0 = 0;
-	outState->i2s.peakLevelIn1 = 0;
+	outState->i2s.peakLevelIn0 = getPeakLevel ( kStreamFrontLeft );
+	outState->i2s.peakLevelIn1 = getPeakLevel ( kStreamFrontRight );
+	outState->i2s.newPeakLevelIn0 = 0;			/*	always 0 - triggers update on setPlatformState!		*/
+	outState->i2s.newPeakLevelIn1 = 0;			/*	always 0 - triggers update on setPlatformState!		*/
 	
 	outState->fcr.i2sEnable = getI2SEnable ();
 	outState->fcr.i2sClockEnable = getI2SClockEnable ();
@@ -1649,6 +1690,14 @@ IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		result = setDataWordSizes ( inState->i2s.dataWordSizes );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
+	if ( 0 != inState->i2s.newPeakLevelIn0 ) {
+		debug2IOLog ( "KeyLargoPlatform::setPeakLevel ( kStreamFrontLeft, %lX )\n", inState->i2s.peakLevelIn0 );
+		setPeakLevel ( kStreamFrontLeft, inState->i2s.peakLevelIn0 );
+	}
+	if ( 0 != inState->i2s.newPeakLevelIn1 ) {
+		debug2IOLog ( "KeyLargoPlatform::setPeakLevel ( kStreamFrontRight, %lX )\n", inState->i2s.peakLevelIn1 );
+		setPeakLevel ( kStreamFrontRight, inState->i2s.peakLevelIn1 );
+	}
 	if ( inState->fcr.i2sEnable != getI2SEnable () ) {
 		debug2IOLog ( "KeyLargoPlatform::setPlatformState setI2SEnable ( %lX )\n", inState->fcr.i2sEnable );
 		result = setI2SEnable ( inState->fcr.i2sEnable );
@@ -1665,37 +1714,37 @@ IOReturn	KeyLargoPlatform::setPlatformState ( PlatformStateStructPtr inState ) {
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_AnalogCodecReset ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %lX )\n", inState->gpio.gpio_AnalogCodecReset );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Analog, %X )\n", inState->gpio.gpio_AnalogCodecReset );
 		result = setCodecReset ( kCODEC_RESET_Analog, inState->gpio.gpio_AnalogCodecReset );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_ClockMux ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setClockMux ( %lX )\n", inState->gpio.gpio_ClockMux );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setClockMux ( %X )\n", inState->gpio.gpio_ClockMux );
 		result = setClockMux ( inState->gpio.gpio_ClockMux );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_DigitalCodecReset ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Digital, %lX )\n", inState->gpio.gpio_DigitalCodecReset );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setCodecReset ( kCODEC_RESET_Digital, %X )\n", inState->gpio.gpio_DigitalCodecReset );
 		result = setCodecReset ( kCODEC_RESET_Digital, inState->gpio.gpio_DigitalCodecReset );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_HeadphoneMute ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setHeadphoneMuteState ( %lX )\n", inState->gpio.gpio_HeadphoneMute );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setHeadphoneMuteState ( %X )\n", inState->gpio.gpio_HeadphoneMute );
 		result = setHeadphoneMuteState ( inState->gpio.gpio_HeadphoneMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_InputDataMux ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setInputDataMux ( %lX )\n", inState->gpio.gpio_InputDataMux );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setInputDataMux ( %X )\n", inState->gpio.gpio_InputDataMux );
 		result = setInputDataMux ( inState->gpio.gpio_InputDataMux );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_LineOutMute ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setLineOutMuteState ( %lX )\n", inState->gpio.gpio_LineOutMute );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setLineOutMuteState ( %X )\n", inState->gpio.gpio_LineOutMute );
 		result = setLineOutMuteState ( inState->gpio.gpio_LineOutMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}
 	if ( kGPIO_Unknown != inState->gpio.gpio_SpeakerMute ) {
-		debug2IOLog ( "KeyLargoPlatform::setPlatformState setSpeakerMuteState ( %lX )\n", inState->gpio.gpio_SpeakerMute );
+		debug2IOLog ( "KeyLargoPlatform::setPlatformState setSpeakerMuteState ( %X )\n", inState->gpio.gpio_SpeakerMute );
 		result = setSpeakerMuteState ( inState->gpio.gpio_SpeakerMute );
 		FailIf ( kIOReturnSuccess != result, Exit );
 	}

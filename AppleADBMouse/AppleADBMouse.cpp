@@ -44,7 +44,9 @@ my_abs(int x)
 }
 
 
-static bool check_usb_mouse(OSObject *, void *, IOService * );
+static bool add_usb_mouse(OSObject *, void *, IOService * );
+static bool remove_usb_mouse(OSObject *, void *, IOService * );
+
 
 // ****************************************************************************
 // NewMouseData
@@ -336,6 +338,14 @@ bool AppleADBMouseType4::start(IOService * provider)
 	//Don't even bother to set the property.  Its ABSENCE will be just as informative.
     }
   } //end of trackpad processing
+
+    if ( ! _notifierA)
+        _notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOHIPointing" ), 
+            (IOServiceNotificationHandler)add_usb_mouse, this, 0 ); 
+    if (! _notifierT)
+        _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOHIPointing" ), 
+            (IOServiceNotificationHandler)remove_usb_mouse, this, 0 ); 
+    //The same C function can handle both firstmatch and termination notifications
   
   return super::start(provider);
 }
@@ -372,15 +382,30 @@ void AppleADBMouseType4::free( void )
 	IOLockUnlock(lock);
 	IOLockFree(lock);
     }
+    
+    if (_externalMice) 
+    {
+        _externalMice->release();
+        _externalMice = 0;
+    }
 
     super::free();
 }
 
-bool check_usb_mouse(OSObject * us, void *, IOService * yourDevice)
+bool add_usb_mouse(OSObject * us, void *, IOService * yourDevice)
 {
     if (us)
     {
-	((AppleADBMouseType4 *)us)->_check_usb_mouse();
+	((AppleADBMouseType4 *)us)->_check_usb_mouse(yourDevice, true);
+    }
+    return true;
+}
+
+bool remove_usb_mouse(OSObject * us, void *, IOService * yourDevice)
+{
+    if (us)
+    {
+	((AppleADBMouseType4 *)us)->_check_usb_mouse(yourDevice, false);
     }
     return true;
 }
@@ -388,43 +413,33 @@ bool check_usb_mouse(OSObject * us, void *, IOService * yourDevice)
 /*
  *  If any extra  mouse is found, then disable the trackpad.
  */
-void AppleADBMouseType4::_check_usb_mouse( void ) 
+void AppleADBMouseType4::_check_usb_mouse( IOService * service, bool added ) 
 {
-    IOService		*pHIDDevice;
-    bool		foundUSBHIDMouse = false;
-	
-    OSIterator	*iterator = NULL;
-    OSDictionary	*dict = NULL;
+    // Check to see if we are interested in this service
+    if ( (service == this)                      ||
+         !OSDynamicCast(IOHIPointing, service)  || 
+         (service->getProperty(kIOHIDVirtualHIDevice) == kOSBooleanTrue))
+        return;
+        
+    IOLockLock(_mouseLock);
 
-    dict = IOService::serviceMatching( "IOHIPointing" );
-    if( dict )
+    if ( !_externalMice && 
+         !(_externalMice = OSSet::withCapacity(4)))
     {
-	iterator = IOService::getMatchingServices( dict );
-	if( iterator )
-	{
-	    int count=0;
-
-	    while( (pHIDDevice = (IOHIDDevice *) iterator->getNextObject()) )
-	    {
-		count++;
-	    }
-	    if (count > 1)
-	    {
-		_ignoreTrackpad = true;
-		foundUSBHIDMouse = true;
-	    }
-	}
-
-	if( dict ) dict->release();
-	if( iterator ) iterator->release();
+        IOLockUnlock(_mouseLock);
+        return;
     }
-
-    if (!foundUSBHIDMouse) 
+        
+    if (added) 
     {
-	//If USB mouse is unplugged, then restore trackpad operation in ::packet()
-	_ignoreTrackpad = false;
+        _externalMice->setObject(service);
     }
-    
+    else
+    {
+        _externalMice->removeObject(service);
+    }
+    IOLockUnlock(_mouseLock);
+
 }
 
 
@@ -437,12 +452,15 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
   int		  dx, dy, cnt, numExtraBytes;
   UInt32          buttonState = 0;
   AbsoluteTime	  now;
+  
+  IOLockLock(_mouseLock);
+  bool shouldIgnore = (_ignoreTrackpad && (_externalMice && (_externalMice->getCount() > 0 )));  
+  IOLockUnlock(_mouseLock);
 
-  if (_notifierA && _notifierT)
-  {
-    if (typeTrackpad && _ignoreTrackpad) 
+  
+  if (typeTrackpad && shouldIgnore) 
       return;
-  }
+
 
   if(_isWEnhanced)  //This also implies typeTrackpad == true
   {
@@ -1417,27 +1435,11 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 	    mode = datan->unsigned32BitValue();	
 	    setProperty("USBMouseStopsTrackpad", (unsigned long long)(mode), sizeof(mode)*8);
 	    if (mode)
-	    {
-		if ( ! _notifierA)
-		    _notifierA = addNotification( gIOFirstMatchNotification, serviceMatching( "IOHIPointing" ), 
-			(IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
-		if (! _notifierT)
-		    _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOHIPointing" ), 
-			(IOServiceNotificationHandler)check_usb_mouse, this, 0 ); 
-		//The same C function can handle both firstmatch and termination notifications
+	    {                
+                _ignoreTrackpad = true;
 	    }
 	    else
 	    {
-		if (_notifierA)
-		{
-		    _notifierA->remove();
-		    _notifierA = NULL;
-		}
-		if (_notifierT)
-		{
-		    _notifierT->remove();
-		    _notifierT = NULL;
-		}
 		_ignoreTrackpad = false;
 	    }
     

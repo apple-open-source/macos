@@ -93,6 +93,9 @@ public:
 	
 	void					transportSetTransportInterfaceType ( UInt32 transportType );
 	
+	virtual IOReturn		transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) { return kIOReturnError; }
+	virtual UInt32			transportGetPeakLevel ( UInt32 channelTarget ) { return 0; }
+
 	//	------------------------------
 	//	USER CLIENT
 	//	------------------------------

@@ -62,6 +62,15 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.34  2003/11/20 19:14:08  niels
+	*** empty log message ***
+	
+	Revision 1.33  2003/11/07 21:24:28  niels
+	*** empty log message ***
+	
+	Revision 1.32  2003/11/07 21:01:19  niels
+	*** empty log message ***
+	
 	Revision 1.31  2003/09/10 23:01:48  collin
 	*** empty log message ***
 	
@@ -119,7 +128,16 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 // ============================================================
 
 //
-// version 6
+// version 7
+//
+// kIOFireWireDeviceInterface_v7
+//		uuid: 188517DE-10B4-11D8-B5CC-000393CFACEA
+#define kIOFireWireDeviceInterfaceID_v7	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
+											0x18, 0x85, 0x17, 0xDE, 0x10, 0xB4, 0x11, 0xD8,\
+											0xB5, 0xCC, 0x00, 0x03, 0x93, 0xCF, 0xAC, 0xEA )
+
+//
+// version 6 (obsolete)
 //
 
 // kIOFireWireDeviceInterface_v6
@@ -1066,8 +1084,8 @@ public:
 		@param doIRM Controls whether the channel automatically performs IRM operations. 
 			Pass true if the channel should allocate its channel and bandwidth with
 			the IRM. Pass false to ignore the IRM.
-		@param packetSize Size in bytes of packets being sent or received with this channel.
-			This is automatically translated into a bandwidth allocation appropriate
+		@param packetSize Size of payload in bytes of packets being sent or received with this channel,
+			excluding headers. This is automatically translated into a bandwidth allocation appropriate
 			for the speed passed in prefSpeed.
 		@param prefSpeed The preferred bus speed of this channel.
 		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
@@ -1403,6 +1421,12 @@ public:
 	
 	IOReturn (*ClipMaxRec2K)( IOFireWireLibDeviceRef self, Boolean clipMaxRec ) ;
 	IOFireWireLibNuDCLPoolRef				(*CreateNuDCLPool)( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
+
+	//
+	// v7
+	//
+	
+	IOFireWireSessionRef		(*GetSessionRef)( IOFireWireLibDeviceRef self ) ;
 	
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
 #endif // ifdef KERNEL

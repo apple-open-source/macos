@@ -319,7 +319,7 @@ Example:
 @/textblock
 </pre>
 */
-#define kIOPropertyInterconnectFileKey				"File"
+#define kIOPropertyInterconnectFileKey						"File"
 
 
 /*!
@@ -346,7 +346,7 @@ Example:
 @/textblock
 </pre>
 */
-#define kIOPropertyInterconnectRAMKey				"RAM"
+#define kIOPropertyInterconnectRAMKey						"RAM"
 
 
 /*!
@@ -371,6 +371,30 @@ Example:
 </pre>
 */
 #define kIOPropertyPhysicalInterconnectTypeATA				"ATA"
+
+
+/*!
+@defined kIOPropertyPhysicalInterconnectTypeSerialATA
+@discussion This key defines the value of ATA for the key
+kIOPropertyPhysicalInterconnectTypeKey. If the device is connected
+to an ATA bus, this key should be set.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>SATA</string>
+		<key>Physical Interconnect Location</key>
+		<string>Internal</string>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertyPhysicalInterconnectTypeSerialATA		"SATA"
 
 
 /*!

@@ -932,7 +932,8 @@ static long GetBootPaths(void)
       
       // Get just the partition number
       strncpy(gBootFile, gBootDevice + cnt + 1, cnt2 - cnt - 1);
-      partNum = atoi(gBootFile);
+      partNum = strtol(gBootFile, 0, 10);
+      if (partNum == 0) partNum = strtol(gBootFile, 0, 16);
       
       // Adjust the partition number.
       // Pass 0 & 1, no offset. Pass 2 & 3, offset 1, Pass 4 & 5, offset 2.
@@ -942,18 +943,18 @@ static long GetBootPaths(void)
       strncpy(gBootFile, gBootDevice, cnt + 1);
       sprintf(gBootFile + cnt + 1, "%d,%s\\mach_kernel",
 	      partNum, ((gBootSourceNumber & 1) ? "" : "\\"));
-
+      
       // and the cache file name
-
+      
       bzero(gCacheNameAdler + 64, sizeof(gBootFile));
       strcpy(gCacheNameAdler + 64, gBootFile);
       adler32 = Alder32(gCacheNameAdler, sizeof(gCacheNameAdler));
-
+      
       strncpy(gBootKernelCacheFile, gBootDevice, cnt + 1);
       sprintf(gBootKernelCacheFile + cnt + 1, 
 		"%d,\\System\\Library\\Caches\\com.apple.kernelcaches\\kernelcache.%08lX", partNum, adler32);
       break;
-
+      
     default:
       printf("Failed to infer Boot Device Type.\n");
       return -1;

@@ -50,6 +50,7 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
 ///w:start
+#include <sys/stat.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 ///w:stop
 
@@ -186,7 +187,6 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
 void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void * info )
 {
     CFStringRef key;
-    Boolean haveConsoleInfo = FALSE;
 
     DALogDebugHeader( "configd [0] -> %s", gDAProcessNameID );
 
@@ -217,27 +217,17 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
         {
             CFIndex count;
             CFIndex index;
+///w:start
+            CFArrayRef users;
+
+            users = SCDynamicStoreCopyConsoleInformation( session );
+///w:stop
 
             DALogDebug( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
 
             /*
              * A console user has logged in.
              */
-
-///w:start
-            if ( session )
-            {
-                CFArrayRef array;
-
-                array = SCDynamicStoreCopyConsoleInformation( session );
-
-                if ( array )
-                {
-                    CFRelease( array );
-		    haveConsoleInfo = TRUE;
-                }
-            }
-///w:stop
 
             count = CFArrayGetCount( gDADiskList );
 
@@ -246,25 +236,49 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                 DADiskRef disk;
 
                 disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
+///w:start
                 /*
                  * Set the BSD permissions for this media object.
                  */
             
                 if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
                 {
-                    DADiskSetUserEGID( disk, gDAConsoleUserGID );
-                    DADiskSetUserEUID( disk, gDAConsoleUserUID );
-            
-                    chown( DADiskGetBSDPath( disk, TRUE  ), ( uid_t ) gDAConsoleUserUID, -1 );
-                    chown( DADiskGetBSDPath( disk, FALSE ), ( uid_t ) gDAConsoleUserUID, -1 );
+                    mode_t deviceMode;
+                    uid_t  deviceUser;
+
+                    deviceMode = 0640;
+                    deviceUser = gDAConsoleUserUID;
+
+                    if ( users )
+                    {
+                        if ( CFArrayGetCount( users ) > 1 )
+                        {
+                            deviceMode = 0666;
+                            deviceUser = ___UID_ROOT;
+                        }
+                    }
+
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+                    {
+                        deviceMode &= 0444;
+                    }
+
+                    chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                    chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+
+                    chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                    chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
                 }
-///w:start
-		if ( haveConsoleInfo )
-		{
-                    continue;
-		}
+
+                if ( users )
+                {
+                    if ( session )
+                    {
+                        continue;
+                    }
+                }
 ///w:stop
+
                 /*
                  * Mount this volume.
                  */
@@ -277,15 +291,14 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                     }
                 }
             }
-///w:start
-	    if ( haveConsoleInfo )
-	    {
-		CFRelease( key );
-		return;
-	    }
-///w:stop
 
             DAStageSignal( );
+///w:start
+            if ( users )
+            {
+                CFRelease( users );
+            }
+///w:stop
         }
         else
         {
@@ -305,19 +318,31 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
                 DADiskRef disk;
 
                 disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
+///w:start
                 /*
                  * Set the BSD permissions for this media object.
                  */
-            
+
                 if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
                 {
-                    DADiskSetUserEGID( disk, ___GID_ADMIN );
-                    DADiskSetUserEUID( disk, ___UID_ROOT  );
+                    mode_t deviceMode;
+                    uid_t  deviceUser;
 
-                    chown( DADiskGetBSDPath( disk, TRUE  ), ___UID_ROOT, -1 );
-                    chown( DADiskGetBSDPath( disk, FALSE ), ___UID_ROOT, -1 );
+                    deviceMode = 0640;
+                    deviceUser = ___UID_ROOT;
+
+                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+                    {
+                        deviceMode &= 0444;
+                    }
+
+                    chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                    chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+
+                    chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                    chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
                 }
+///w:stop
 
                 /*
                  * Unmount this volume.
@@ -381,6 +406,11 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
      */
 
     io_service_t media;
+///w:start
+    CFArrayRef users;
+
+    users = SCDynamicStoreCopyConsoleInformation( NULL );
+///w:stop
 
     /*
      * Iterate through the media objects.
@@ -445,11 +475,33 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                     {
                         if ( gDAConsoleUser )
                         {
-                            DADiskSetUserEGID( disk, gDAConsoleUserGID );
-                            DADiskSetUserEUID( disk, gDAConsoleUserUID );
+///w:start
+                            mode_t deviceMode;
+                            uid_t  deviceUser;
 
-                            chown( DADiskGetBSDPath( disk, TRUE  ), gDAConsoleUserUID, -1 );
-                            chown( DADiskGetBSDPath( disk, FALSE ), gDAConsoleUserUID, -1 );
+                            deviceMode = 0640;
+                            deviceUser = gDAConsoleUserUID;
+
+                            if ( users )
+                            {
+                                if ( CFArrayGetCount( users ) > 1 )
+                                {
+                                    deviceMode = 0666;
+                                    deviceUser = ___UID_ROOT;
+                                }
+                            }
+
+                            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+                            {
+                                deviceMode &= 0444;
+                            }
+
+                            chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                            chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+
+                            chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                            chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
+///w:stop
 
                             ___DADisplayUpdateActivity( );
                         }
@@ -495,6 +547,12 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
     }
 
     DAStageSignal( );
+///w:start
+    if ( users )
+    {
+        CFRelease( users );
+    }
+///w:stop
 }
 
 void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
@@ -1238,6 +1296,9 @@ kern_return_t _DAServerSessionCopyCallbackQueue( mach_port_t _session, vm_addres
                     DACallbackSetDisk( callback, NULL );
 
                     DACallbackSetSession( callback, NULL );
+///w:start
+                    CFDictionaryRemoveValue( ( void * ) callback, _kDACallbackMatchKey );
+///w:stop
                 }
 
                 queue = _DASerialize( kCFAllocatorDefault, callbacks );

@@ -24,6 +24,8 @@
  */
 
 // public
+#import "FWDebugging.h"
+
 #import <IOKit/firewire/IOFireWireFamilyCommon.h>
 #import <IOKit/firewire/IOLocalConfigDirectory.h>
 #import <IOKit/firewire/IOFWUtils.h>
@@ -78,7 +80,7 @@ IOConfigDirectory::free();
 const UInt32 *IOLocalConfigDirectory::getBase()
 {
     if(fROM)
-        return ((const UInt32 *)fROM->getBytesNoCopy())+fStart+1;
+        return ((const UInt32 *)fROM->getBytesNoCopy()) ;//+fStart+1;
     else
         return &fHeader;
 }
@@ -99,19 +101,6 @@ const UInt32 * IOLocalConfigDirectory::lockData( void )
 void IOLocalConfigDirectory::unlockData( void )
 {
 	// nothing to do
-}
-
-// getSubDir
-//
-//
-
-IOConfigDirectory *IOLocalConfigDirectory::getSubDir(int start, int type)
-{
-    IOConfigDirectory *subDir;
-    subDir = OSDynamicCast(IOConfigDirectory, fEntries->getObject(start-fStart-1));
-    if(subDir)
-        subDir->retain();
-    return subDir;
 }
 
 // create
@@ -202,17 +191,24 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
 
     rom->ensureCapacity(size + sizeof(UInt32)*(1+numEntries));
     tmp = OSData::withCapacity(sizeof(UInt32)*(numEntries));
-    for(i=0; i<numEntries; i++) {
+    for( i = 0; i < numEntries; i++ ) 
+	{
         IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
         UInt32 val;
         if(!entry)
+		{
+			IOLog(__FILE__" %d internal error!\n", __LINE__ )  ;
             return kIOReturnInternalError;	// Oops!
-
-        switch(entry->fType) {
+		}
+		
+        switch(entry->fType) 
+		{
             case kConfigImmediateKeyType:
                 if(entry->fKey == kConfigGenerationKey)
+				{
                     entry->fValue++;
-                val = entry->fValue;
+                }
+				val = entry->fValue;
                 break;
             case kConfigOffsetKeyType:
                 val = (entry->fAddr.addressLo-kCSRRegisterSpaceBaseAddressLo)/sizeof(UInt32);
@@ -223,13 +219,17 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
                 offset += entry->totalSize();
                 break;
             default:
+				IOLog(__FILE__" %d internal error!\n", __LINE__ )  ;
                 return kIOReturnInternalError;	// Oops!
         }
+		
         val |= entry->fKey << kConfigEntryKeyValuePhase;
         val |= entry->fType << kConfigEntryKeyTypePhase;
         crc = FWUpdateCRC16(crc, val);
+		
         tmp->appendBytes(&val, sizeof(UInt32));
     }
+	
     header = numEntries << kConfigLeafDirLengthPhase;
     header |= crc;
     rom->appendBytes(&header, sizeof(UInt32));
@@ -237,12 +237,16 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
     tmp->release();
 
     // Now (recursively) append each leaf and directory.
-    for(i=0; i<numEntries; i++) {
+    for(i=0; i<numEntries; i++) 
+	{
         IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
         UInt32 val;
         if(!entry)
+		{
             return kIOReturnInternalError;	// Oops!
-        switch(entry->fType) {
+        }
+		switch(entry->fType) 
+		{
             case kConfigImmediateKeyType:
             case kConfigOffsetKeyType:
                 break;
@@ -251,10 +255,12 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
                 OSData *data = OSDynamicCast(OSData, entry->fData);
                 const void *buffer;
                 unsigned int len, pad;
-                if(data) {
+                if(data) 
+				{
                     len = data->getLength();
                     pad = (4 - (len & 3)) & 3;
-                    if(pad) {
+                    if(pad) 
+					{
                         len += pad;
                         // Make sure the buffer is big enough for the CRC calc.
                         data->ensureCapacity(len);
@@ -262,8 +268,11 @@ IOReturn IOLocalConfigDirectory::compile(OSData *rom)
                     buffer = data->getBytesNoCopy();
                 }
                 else
+				{
                     return kIOReturnInternalError;	// Oops!
-                crc = FWComputeCRC16((const UInt32 *)buffer, len / 4);
+                }
+				
+				crc = FWComputeCRC16((const UInt32 *)buffer, len / 4);
                 val = (len/4) << kConfigLeafDirLengthPhase;
                 val |= crc;
                 rom->appendBytes(&val, sizeof(UInt32));
@@ -297,18 +306,32 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, UInt32 value, OSString* desc 
 {
     IOReturn res;
 
-    IOConfigEntry *entry = IOConfigEntry::create(key, value);
-    if(!entry)
-        return kIOReturnNoMemory;
-    if(!fEntries->setObject(entry))
-        res = kIOReturnNoMemory;
-    else
-        res = kIOReturnSuccess;
-    entry->release();	// In array now.
-    if(desc) {
-        addEntry(desc);
-    }
-    return res;
+	IOConfigEntry *entry = IOConfigEntry::create(key, value);
+	
+	if(!entry)
+	{
+		return kIOReturnNoMemory;
+	}
+	if(!fEntries->setObject(entry))
+	{
+		res = kIOReturnNoMemory;
+	}
+	else
+	{
+		res = kIOReturnSuccess;
+	}
+	
+	entry->release();	// In array now.
+
+	if(desc) 
+	{
+		addEntry(desc);
+	}
+	
+	// keep our count current...
+	fNumEntries = fEntries->getCount() ;
+	
+	return res;
 }
 
 // addEntry
@@ -319,18 +342,30 @@ IOReturn IOLocalConfigDirectory::addEntry( int key, IOLocalConfigDirectory *valu
 {
     IOReturn res;
 
-    IOConfigEntry *entry = IOConfigEntry::create(key, kConfigDirectoryKeyType, value);
-    if(!entry)
-        return kIOReturnNoMemory;
-    if(!fEntries->setObject(entry))
-        res = kIOReturnNoMemory;
-    else
-        res = kIOReturnSuccess;
-    entry->release();	// In array now.
-    if(desc) {
-        addEntry(desc);
-    }
-    return res;
+	IOConfigEntry *entry = IOConfigEntry::create(key, kConfigDirectoryKeyType, value);
+	if(!entry)
+	{
+		return kIOReturnNoMemory;
+	}
+	if(!fEntries->setObject(entry))
+	{
+		res = kIOReturnNoMemory;
+	}
+	else
+	{
+		res = kIOReturnSuccess;
+	}
+
+	entry->release();	// In array now.
+	if(desc) 
+	{
+		addEntry(desc);
+	}
+
+	// keep our count current...
+	fNumEntries = fEntries->getCount() ;
+
+	return res;
 }
 
 // addEntry
@@ -348,25 +383,34 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString* desc
 	if( valueCopy == NULL )
 		return kIOReturnNoMemory;
 		
-    IOConfigEntry *entry = IOConfigEntry::create(key, kConfigLeafKeyType, valueCopy );
-    if( entry == NULL )
-        return kIOReturnNoMemory;
+	IOConfigEntry *entry = IOConfigEntry::create(key, kConfigLeafKeyType, valueCopy );
+	if( entry == NULL )
+	{
+		return kIOReturnNoMemory;
+	}
 	
 	valueCopy->release();
 	valueCopy = NULL;
 	
-    if(!fEntries->setObject(entry))
-        res = kIOReturnNoMemory;
-    else
-        res = kIOReturnSuccess;
-   
-	 entry->release();	// In array now.
-    
+	if(!fEntries->setObject(entry))
+	{
+		res = kIOReturnNoMemory;
+	}
+	else
+	{
+		res = kIOReturnSuccess;
+	}
+	
+	entry->release();	// In array now.
+	
 	if(desc) 
 	{
-        addEntry(desc);
-    }
-    
+		addEntry(desc);
+	}
+	
+	// keep our count current...
+	fNumEntries = fEntries->getCount() ;
+
 	return res;
 }
 
@@ -378,18 +422,29 @@ IOReturn IOLocalConfigDirectory::addEntry( int key, FWAddress value, OSString* d
 {
     IOReturn res;
 
-    IOConfigEntry *entry = IOConfigEntry::create(key, value);
-    if(!entry)
-        return kIOReturnNoMemory;
-    if(!fEntries->setObject(entry))
-        res = kIOReturnNoMemory;
-    else
-        res = kIOReturnSuccess;
-    entry->release();	// In array now.
-    if(desc) {
-        addEntry(desc);
-    }
-    return res;
+	IOConfigEntry *entry = IOConfigEntry::create(key, value);
+	if(!entry)
+	{
+		return kIOReturnNoMemory;
+	}
+	if(!fEntries->setObject(entry))
+	{
+		res = kIOReturnNoMemory;
+	}
+	else
+	{
+		res = kIOReturnSuccess;
+	}
+	entry->release();	// In array now.
+	if(desc) 
+	{
+		addEntry(desc);
+	}
+
+	// keep our count current...
+	fNumEntries = fEntries->getCount() ;
+
+	return res;
 }
 
 // addEntry
@@ -407,10 +462,12 @@ IOReturn IOLocalConfigDirectory::addEntry(OSString *desc)
 	int paddingLength = (4 - (stringLength & 3)) & 3;
 	int headerLength = 8;
 	
-    // make an OSData containing the string
-    value = OSData::withCapacity( headerLength + stringLength + paddingLength );
-    if( !value )
-        return kIOReturnNoMemory;
+	// make an OSData containing the string
+	value = OSData::withCapacity( headerLength + stringLength + paddingLength );
+	if( !value )
+	{
+		return kIOReturnNoMemory;
+	}
 
 	// append zeros for header
  	value->appendBytes( &zeros, headerLength );
@@ -421,10 +478,13 @@ IOReturn IOLocalConfigDirectory::addEntry(OSString *desc)
 	// append zeros to pad to nearest quadlet
 	value->appendBytes( &zeros, paddingLength );
 
-    res = addEntry( kConfigTextualDescriptorKey, value );
+	res = addEntry( kConfigTextualDescriptorKey, value );
 
-    value->release(); 	// In ROM now
-    desc->release();	// call eats a retain count
+	value->release(); 	// In ROM now
+	desc->release();	// call eats a retain count
+
+	// keep our count current...
+	fNumEntries = fEntries->getCount() ;
 
     return res;
 }
@@ -438,18 +498,27 @@ IOReturn IOLocalConfigDirectory::removeSubDir(IOLocalConfigDirectory *value)
     unsigned int i, numEntries;
     numEntries = fEntries->getCount();
 
-    for(i=0; i<numEntries; i++) {
-        IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
-        if(!entry)
-            return kIOReturnInternalError;	// Oops!
-        if(entry->fType == kConfigDirectoryKeyType) {
-            if(entry->fData == value) {
-                fEntries->removeObject(i);
-                return kIOReturnSuccess;
-            }
-        }
-    }
-    return kIOConfigNoEntry;
+	for(i=0; i<numEntries; ++i) 
+	{
+		IOConfigEntry *entry = OSDynamicCast(IOConfigEntry, fEntries->getObject(i));
+		if(!entry)
+		{
+			return kIOReturnInternalError;	// Oops!
+		}
+		if(entry->fType == kConfigDirectoryKeyType) 
+		{
+			if(entry->fData == value) 
+			{
+				fEntries->removeObject(i);
+
+				// keep our count current...
+				fNumEntries = fEntries->getCount() ;
+
+				return kIOReturnSuccess;
+			}
+		}
+	}
+	return kIOConfigNoEntry;
 }
 
 // getEntries
@@ -459,4 +528,43 @@ IOReturn IOLocalConfigDirectory::removeSubDir(IOLocalConfigDirectory *value)
 const OSArray * IOLocalConfigDirectory::getEntries() const
 { 
 	return fEntries; 
+}
+
+// getIndexValue
+//
+//
+
+IOReturn 
+IOLocalConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
+{
+	IOReturn error = checkROMState();
+	if ( error )
+	{
+		return error ;
+	}
+	
+	if( index < 0 || index >= fNumEntries )
+	{
+		return kIOReturnBadArgument;
+	}
+
+	{
+		lockData();
+
+		value = OSDynamicCast( IOConfigDirectory, ((IOConfigEntry*)fEntries->getObject( index ) )->fData ) ;
+
+		unlockData();
+
+		if ( value )
+		{
+			value->retain() ;
+		}
+		else
+		{
+			error = kIOReturnBadArgument ;
+		}
+		
+	}
+    
+	return error ;
 }

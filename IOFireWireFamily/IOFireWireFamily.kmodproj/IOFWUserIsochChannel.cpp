@@ -73,66 +73,6 @@ IOFWUserIsochChannel::stop()
 	return kIOReturnUnsupported ;
 }
 
-
-// Note: userAllocateChannelBegin is equivalent to IOFWUserIsochChannel::allocateChannel()
-// minus the bits that actually call IOFWIsochPort::allocatePort(). This is because we must
-// call that function from user space to avoid deadlocking the user process. Perhaps
-// the superclass IOFWIsochChannel should contain this function to avoid the potential
-// for out-of-sync code.
-
-IOReturn
-IOFWUserIsochChannel::userAllocateChannelBegin(
-	IOFWSpeed		speed,
-	UInt32			allowedChansHi,
-	UInt32			allowedChansLo,
-	IOFWSpeed*		outActualSpeed,
-	UInt32*			outActualChannel)
-{
-	IOReturn 	err = kIOReturnSuccess;
-
-	if (!fBandwidthAllocated)
-	{
-		err = allocateChannelBegin( speed, (UInt64)allowedChansHi<<32 | allowedChansLo, fChannel ) ;
-	}
-	
-	if ( !err )
-	{
-//		DebugLog("IOFWUserIsochChannel :: userAllocateChannelBegin: result=0x%08x, fSpeed=%u, fChannel=0x%08lX\n", err, fSpeed, fChannel) ;
-
-		// set channel's speed
-		fSpeed = speed ;
-
-		fBandwidthAllocated = true ;
-
-		// return results to user space
-		*outActualSpeed 	= fSpeed ;
-		*outActualChannel	= fChannel ;
-	}
-
-    if( err ) {
-        releaseChannel();
-    }
-	
-    return err ;
-}
-
-IOReturn
-IOFWUserIsochChannel :: userReleaseChannelComplete ()
-{
-	// allocate hardware resources for each port
-	// ** note: this bit of the code moved to user space. this allows us to directly call
-	// user space ports to avoid potential deadlock in user apps.
-
-    // release bandwidth and channel
-
-	if ( !fBandwidthAllocated )
-		return kIOReturnSuccess ;
-
-	fBandwidthAllocated = false ;	
-		
-    return releaseChannelComplete() ;
-}
-
 IOReturn
 IOFWUserIsochChannel::allocateListenerPorts()
 {

@@ -118,11 +118,6 @@ class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 											UInt32			numDCLs,
 											void *			data,
 											IOByteCount		dataSize ) ;
-
-#if 0
-		IOReturn					runNuDCLUpdateList( UInt32 dclProgramIndex ) ;
-		IOReturn					runDCLUpdateList( UInt32 dclCompilerData ) ;
-#endif
 } ;
 
 #endif //_IOKIT_IOFWUserIsochPortProxy_H

@@ -1,0 +1,515 @@
+fetchmail (5.0.1-1) unstable; urgency=low
+
+  * new upstream version
+  
+ -- Eric S. Raymond <esr@thyrsus.com>  Sun, 18 Apr 14:59:56 EDT 1999
+  
+fetchmail (5.0.0-1) stable; urgency=low
+
+  * new upstream version
+  
+ -- Eric S. Raymond <esr@thyrsus.com>  Mon,  5 Apr 11:00:24 EDT 1999
+  
+fetchmail (4.7.9-1) unstable; urgency=low
+
+  * new upstream version
+  
+ -- Eric S. Raymond <esr@thyrsus.com>  Tue,  9 Mar 13:25:01 EST 1999
+  
+fetchmail (4.7.8-1) unstable; urgency=low
+
+  * new upstream version
+  
+ -- Eric S. Raymond <esr@thyrsus.com>  Sun,  3 Jan 1999 20:05:14 -0500
+  
+fetchmail (4.7.3-1) unstable; urgency=low
+
+  * new upstream version
+  * changed description in control file
+
+ -- Paul Haggart <phaggart@debian.org>  Sun,  3 Jan 1999 20:05:14 -0500
+
+fetchmail (4.7.2-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 25 Dec 1998 10:47:13 -0500
+
+fetchmail (4.7.0-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 16 Dec 1998 18:45:46 -0500
+
+fetchmail (4.6.9-1) unstable; urgency=low
+
+  * enabled NLS 
+  * new upstream version
+  * fixes #29913: -M on the command line causes SEGV in daemon mode
+
+ -- Paul Haggart <phaggart@debian.org>  Wed,  2 Dec 1998 08:05:41 -0500
+
+fetchmail (4.6.7-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 21 Nov 1998 17:02:28 -0500
+
+fetchmail (4.6.6-2) unstable; urgency=low
+
+  * fixed #29455: fetchmailconf.1.gz is linked to the right place 
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 14 Nov 1998 13:30:22 -0500
+
+fetchmail (4.6.6-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Sun,  8 Nov 1998 12:52:47 -0500
+
+fetchmail (4.6.4-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 27 Oct 1998 10:27:42 -0500
+
+fetchmail (4.6.0-3) unstable; urgency=low
+
+  * switched over to debhelper
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 11 Oct 1998 10:40:09 -0400
+
+fetchmail (4.6.0-2) unstable; urgency=low
+
+  * reupload with proper .orig file
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 26 Sep 1998 19:39:39 -0400
+
+fetchmail (4.6.0-1) unstable; urgency=low
+
+  * new upstream "gold" release
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 20 Sep 1998 10:10:50 -0400
+
+fetchmail (4.5.6-1) unstable; urgency=low
+
+  * new upstream source
+  * fixed #25997: >Recieved headers are now handled properly
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 25 Aug 1998 10:33:28 -0400
+
+fetchmail (4.5.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Tue,  4 Aug 1998 11:10:21 -0400
+
+fetchmail (4.5.1-1) unstable; urgency=low
+
+  * new upstream source
+  * fixes #23808: strips from lines
+
+ -- Paul Haggart <phaggart@debian.org>  Thu,  2 Jul 1998 08:27:04 -0400
+
+fetchmail (4.5.0-1) unstable; urgency=low
+
+  * new upstream source "gold version"
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 16 Jun 1998 07:23:37 -0400
+
+fetchmail (4.4.9-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Mon, 15 Jun 1998 21:16:45 -0400
+
+fetchmail (4.4.7-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 23 May 1998 11:38:36 -0400
+
+fetchmail (4.4.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 14 May 1998 23:28:12 -0400
+
+fetchmail (4.4.3-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Mon, 20 Apr 1998 19:55:16 -0400
+
+fetchmail (4.4.2-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 19 Apr 1998 11:31:06 -0400
+
+fetchmail (4.4.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 27 Mar 1998 15:03:24 -0500
+
+fetchmail (4.4.0-1) unstable; urgency=low
+
+  * new upstream source 
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 22 Mar 1998 16:10:37 -0500
+
+fetchmail (4.3.9-1) unstable; urgency=low
+
+  * new upstream source
+  * fixed #19150: IMAP handling is fixed in this version
+  * fixed #19135: ppp ip-up.d and ip-down.d are to be handled MANUALLY until
+    there's a cleaner way to do it.  update-ipup.d anyone? 
+  * linked manpage for popclient to fetchmail's manpage
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 10 Mar 1998 09:11:12 -0500
+
+fetchmail (4.3.8-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed,  4 Mar 1998 18:21:27 -0500
+
+fetchmail (4.3.6-2) unstable; urgency=low
+
+  * fixed #18021: ppp ip-{up,down} scripts no longer suck, thanks to 
+    Brian Mays
+
+ -- Paul Haggart <phaggart@debian.org>  Mon,  9 Feb 1998 19:52:07 -0500
+
+fetchmail (4.3.6-1) unstable; urgency=low
+
+  * new upstream source
+  * fixed #13534: now uses ftp style url in debian/copyright
+  * fixed #13536: fetchmail uses pristine sources
+  * fixed #11649: buildinfo.debian should be there
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 28 Jan 1998 18:56:27 -0500
+
+fetchmail (4.3.5-2) unstable; urgency=low
+
+  * added ppp ip-up/down scripts
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 23 Jan 1998 10:13:31 -0500
+
+fetchmail (4.3.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 20 Dec 1997 10:16:22 -0500
+
+fetchmail (4.3.4-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Fri,  5 Dec 1997 18:17:01 -0500
+
+fetchmail (4.3.3-1) unstable; urgency=low
+
+  * install contrib software in /usr/doc/fetchmail/contrib
+  * new upstream source
+  * fixed bug #14185: runfetchmail is now DFSG compliant
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 22 Nov 1997 15:08:36 -0500
+
+fetchmail (4.3.2-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 23 Oct 1997 08:16:48 -0400
+
+fetchmail (4.3.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 16 Oct 1997 19:01:48 -0400
+
+fetchmail (4.3.0-2) unstable; urgency=low
+
+  * fixed #13536: uses pristine source files
+
+ -- Paul Haggart <phaggart@debian.org>  Wed,  8 Oct 1997 21:40:45 -0400
+
+fetchmail (4.3.0-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed,  8 Oct 1997 20:59:31 -0400
+
+fetchmail (4.2.8-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Mon, 29 Sep 1997 15:50:52 -0400
+
+fetchmail (4.2.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 23 Sep 1997 08:39:09 -0400
+
+fetchmail (4.2.4-1) unstable; urgency=low
+
+  * new upstream source
+  * fixed #13225: INSTALL and MANIFEST files no longer distributed
+  * fixed #13221: message size consistancy check removed
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 21 Sep 1997 14:05:25 -0400
+
+fetchmail (4.2.3-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 19 Sep 1997 08:07:39 -0400
+
+fetchmail (4.1.8-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 11 Sep 1997 21:46:20 -0400
+
+fetchmail (4.1.7-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 10 Sep 1997 08:04:43 -0400
+
+fetchmail (4.1.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 20 Aug 1997 21:14:22 -0400
+
+fetchmail (4.0.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 30 Jul 1997 19:28:39 -0400
+
+fetchmail (4.0.1-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 27 Jul 1997 21:09:12 -0400
+
+fetchmail (4.0.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Paul Haggart <phaggart@debian.org>  Wed,  9 Jul 1997 14:11:25 -0400
+
+fetchmail (3.9.9-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 25 Jun 1997 23:02:51 -0400
+
+fetchmail (3.9.8-2) unstable; urgency=low
+
+  * grrrr.. forgot to patch driver.c.  fixed.
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 17 Jun 1997 22:03:32 -0400
+
+fetchmail (3.9.7-3) unstable; urgency=low
+
+  * new upstream release
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 15 Jun 1997 18:51:48 -0400
+
+fetchmail (3.9.7-2) unstable; urgency=low
+
+  * rebuilt with libc6
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 13 Jun 1997 18:20:29 -0400
+
+fetchmail (3.9.7-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 10 Jun 1997 02:54:08 -0400
+
+fetchmail (3.9.6-2) unstable; urgency=low
+
+  * i'm sick of switching between libc5 and 6.  fetchmail's staying libc5 
+    until I can move all my other packages over to 6, just for the sake of 
+    my own sanity.
+  * fixed bug #10410: driver.c patched again
+
+ -- Paul Haggart <phaggart@debian.org>  Sat,  7 Jun 1997 11:53:43 -0400
+
+fetchmail (3.9.6-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 30 May 1997 15:08:03 -0400
+
+fetchmail (3.9.4-1) unstable; urgency=low
+
+  * back to libc6.  someone, please, make up my mind.  :)
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 15 May 1997 02:14:36 -0400
+
+fetchmail (3.9.3-1) unstable; urgency=low
+
+  * new upstream version
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 7 May 1997 16:37:59 -0401
+
+fetchmail (3.9.2-3) unstable; urgency=low
+
+  * back to libc5, until all the libc6 problems are worked out
+  * patched driver.c to do xx/xx numbering of messages
+
+ -- Paul Haggart <phaggart@debian.org>  Mon, 5 May 1997 02:39:38 -0400
+
+fetchmail (3.9.2-2) unstable; urgency=low
+
+  * make clean changed to make distclean in debian/rules
+  * recompiled with libc6
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 4 May 1997 14:52:54 -0400
+
+fetchmail (3.9.2-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 24 Apr 1997 12:39:05 -0400
+
+fetchmail (3.9.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 18 Apr 1997 04:23:54 -0400
+
+fetchmail (3.9-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Thu, 3 Apr 1997 00:38:35 -0500
+
+fetchmail (3.8-0) unstable; urgency=low
+
+  * new upstream source
+  * converted debian/rules over to new debmake rules file
+  * updated copyright text
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 8 Mar 1997 23:01:29 -0500
+
+fetchmail (3.7-0) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 21 Feb 1997 19:54:37 -0500
+
+fetchmail (3.6-0) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 19 Feb 1997 14:32:15 -0500
+
+fetchmail (3.5-0) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 15 Feb 1997 20:40:56 -0500
+
+fetchmail (3.4-0) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 12 Feb 1997 15:59:28 -0500
+
+fetchmail (3.3-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sun, 2 Feb 1997 02:13:11 -0500
+
+fetchmail (3.2-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 28 Jan 1997 20:03:00 -0500
+
+fetchmail (3.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 26 Jan 1997 14:00:35 -0500
+
+fetchmail (3.0-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 22 Jan 1997 18:44:30 -0500
+
+fetchmail (2.8-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 15 Jan 1997 21:16:39 -0500
+
+fetchmail (2.6-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 1 Jan 1997 13:34:23 -0500
+
+fetchmail (2.5-3) unstable; urgency=low
+
+  * fetchmail now replaces popclient
+
+ -- Paul Haggart <phaggart@debian.org>  Fri, 27 Dec 1996 19:55:49 -0500
+
+fetchmail (2.5-2) unstable; urgency=low
+
+  * removed RFCs from /usr/doc/fetchmail
+
+ -- Paul Haggart <phaggart@debian.org>  Wed, 25 Dec 1996 13:04:55 -0500
+
+fetchmail (2.5-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Mon, 23 Dec 1996 18:40:30 -0500
+
+fetchmail (2.4-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Sat, 21 Dec 1996 18:03:30 -0500
+
+fetchmail (2.2-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@debian.org>  Tue, 10 Dec 1996 11:56:58 -0500
+
+fetchmail (2.1-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@cybertap.com>  Mon, 9 Dec 1996 16:48:04 -0500
+
+fetchmail (2.0-1) unstable; urgency=low
+
+  * new upstream source
+
+ -- Paul Haggart <phaggart@cybertap.com>  Mon, 18 Nov 1996 16:58:49 -0500
+
+fetchmail (1.9-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Paul Haggart <phaggart@cybertap.com>  Mon, 4 Nov 1996 10:42:37 -0500
+
+Local variables:
+mode: debian-changelog
+End:
+  

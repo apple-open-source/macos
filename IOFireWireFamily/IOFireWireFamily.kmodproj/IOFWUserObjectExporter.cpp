@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWUserObjectExporter.cpp,v $
+ *	Revision 1.6  2003/11/20 21:32:58  niels
+ *	fix radar 3490815
+ *	
  *	Revision 1.5  2003/08/30 00:16:44  collin
  *	*** empty log message ***
  *	
@@ -119,7 +122,7 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 	// if at capacity, expand pool
 	if ( fObjectCount == fCapacity )
 	{
-		unsigned newCapacity = fCapacity + fCapacity >> 1 ;
+		unsigned newCapacity = fCapacity + ( fCapacity >> 1 ) ;
 		if ( newCapacity > 0xFFFE )
 			newCapacity = 0xFFFE ;
 			

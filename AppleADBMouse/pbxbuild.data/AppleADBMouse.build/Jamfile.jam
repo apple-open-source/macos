@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleADBMouse ;
-export deferred SRCROOT = /Volumes/OS9-7gig/FromYosemite/sources/projects/postwwdc/AppleADBMouse ;
+export deferred SRCROOT = /Users/Shared/AppleADBMouse ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Apple
 
 # Implicitly computed build settings for target "AppleADBMouse"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = AppleADBMouse ;
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleADBMouse ;
-export deferred MODULE_VERSION = 2.0.9d3 ;
+export deferred MODULE_VERSION = 2.0.10 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -85,6 +85,12 @@ ProcessRezFiles "<AppleADBMouse>AppleADBMouse.kext" : "$(REZ_FILES)" : BPTag004 
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleADBMouse.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<AppleADBMouse>AppleADBMouse.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<AppleADBMouse>AppleADBMouse.kext" ;
 
 EndBundle "<AppleADBMouse>AppleADBMouse.kext" ;
 

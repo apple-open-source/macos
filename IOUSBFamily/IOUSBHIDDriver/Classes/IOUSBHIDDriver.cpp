@@ -775,6 +775,7 @@ IOUSBHIDDriver::start(IOService *provider)
     IOWorkLoop		*wl = NULL;
     OSNumber		*locationIDProperty;
     UInt32		locationID = 0;
+    UInt32		maxInputReportSize = 0;
     
     USBLog(7, "%s[%p]::start", getName(), this);
     IncrementOutstandingIO();			// make sure that once we open we don't close until start is open
@@ -826,9 +827,10 @@ IOUSBHIDDriver::start(IOService *provider)
             }
         }
 
-        // Set the device into Report Protocol
+        // Set the device into Report Protocol if it's a bootInterface subClass device
         //
-        err = SetProtocol( kHIDReportProtocolValue );
+        if (_interface->GetInterfaceSubClass() == kUSBHIDBootInterfaceSubClass)
+            err = SetProtocol( kHIDReportProtocolValue );
         
         //
         request.type = kUSBInterrupt;
@@ -845,19 +847,19 @@ IOUSBHIDDriver::start(IOService *provider)
             break;
         }
 
-        _maxReportSize = getMaxReportSize();
-        if (_maxReportSize != 0)
-        {
-            _buffer = IOBufferMemoryDescriptor::withCapacity(_maxReportSize, kIODirectionIn);
-            if ( !_buffer )
-            {
-                USBError(1, "%s[%p]::start - unable to get create buffer", getName(), this);
-                break;
-            }
-        }
-        else
-            USBError(1,"%s[%p]::start Input and Feature report sizes are 0!",getName(), this);
+        OSNumber * inputReportSize = (OSNumber *)getProperty(kIOHIDMaxInputReportSizeKey);
+        if ( inputReportSize )
+            maxInputReportSize = inputReportSize->unsigned32BitValue();
 
+        if (maxInputReportSize == 0)
+            maxInputReportSize = _interruptPipe->GetMaxPacketSize();
+
+        _buffer = IOBufferMemoryDescriptor::withCapacity(maxInputReportSize, kIODirectionIn);
+        if ( !_buffer )
+        {
+            USBError(1, "%s[%p]::start - unable to get create buffer", getName(), this);
+            break;
+        }
 
         // allocate a thread_call structure
         _deviceDeadCheckThread = thread_call_allocate((thread_call_func_t)CheckForDeadDeviceEntry, (thread_call_param_t)this);
