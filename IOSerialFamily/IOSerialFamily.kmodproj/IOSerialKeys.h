@@ -63,6 +63,9 @@ Note only the IOProviderClass is mandatory.  The other keys allow the searcher t
 #define kIOCalloutDeviceKey		"IOCalloutDevice"
 #define kIODialinDeviceKey		"IODialinDevice"
 
+// Property 'ioctl' wait for the tty device to go idle.
+#define kIOTTYWaitForIdleKey		"IOTTYWaitForIdle"
+
 #if KERNEL
 extern const OSSymbol *gIOSerialBSDServiceValue;
 extern const OSSymbol *gIOSerialBSDTypeKey;

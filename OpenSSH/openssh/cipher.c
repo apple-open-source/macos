@@ -11,7 +11,7 @@
  *
  *
  * Copyright (c) 1999 Niels Provos.  All rights reserved.
- * Copyright (c) 1999,2000 Markus Friedl.  All rights reserved.
+ * Copyright (c) 1999, 2000 Markus Friedl.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: cipher.c,v 1.43 2001/02/04 15:32:23 stevesk Exp $");
+RCSID("$OpenBSD: cipher.c,v 1.47 2001/08/23 11:31:59 markus Exp $");
 
 #include "xmalloc.h"
 #include "log.h"
@@ -43,24 +43,23 @@ RCSID("$OpenBSD: cipher.c,v 1.43 2001/02/04 15:32:23 stevesk Exp $");
 
 #include <openssl/md5.h>
 
-
 /* no encryption */
-void
+static void
 none_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 }
-void
+static void
 none_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
 }
-void
+static void
 none_crypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	memcpy(dest, src, len);
 }
 
 /* DES */
-void
+static void
 des_ssh1_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	static int dowarn = 1;
@@ -71,18 +70,18 @@ des_ssh1_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 	}
 	des_set_key((void *)key, cc->u.des.key);
 }
-void
+static void
 des_ssh1_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
 	memset(cc->u.des.iv, 0, sizeof(cc->u.des.iv));
 }
-void
+static void
 des_ssh1_encrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	des_ncbc_encrypt(src, dest, len, cc->u.des.key, &cc->u.des.iv,
 	    DES_ENCRYPT);
 }
-void
+static void
 des_ssh1_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	des_ncbc_encrypt(src, dest, len, cc->u.des.key, &cc->u.des.iv,
@@ -90,30 +89,31 @@ des_ssh1_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 }
 
 /* 3DES */
-void
+static void
 des3_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	des_set_key((void *) key, cc->u.des3.key1);
 	des_set_key((void *) (key+8), cc->u.des3.key2);
 	des_set_key((void *) (key+16), cc->u.des3.key3);
 }
-void
+static void
 des3_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
+	memset(cc->u.des3.iv1, 0, sizeof(cc->u.des3.iv1));
 	memset(cc->u.des3.iv2, 0, sizeof(cc->u.des3.iv2));
 	memset(cc->u.des3.iv3, 0, sizeof(cc->u.des3.iv3));
 	if (iv == NULL)
 		return;
 	memcpy(cc->u.des3.iv3, (char *)iv, 8);
 }
-void
+static void
 des3_cbc_encrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	des_ede3_cbc_encrypt(src, dest, len,
 	    cc->u.des3.key1, cc->u.des3.key2, cc->u.des3.key3,
 	    &cc->u.des3.iv3, DES_ENCRYPT);
 }
-void
+static void
 des3_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	des_ede3_cbc_encrypt(src, dest, len,
@@ -135,7 +135,7 @@ des3_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
  * result of that there is no longer any known iv1 to use when
  * choosing the X block.
  */
-void
+static void
 des3_ssh1_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	des_set_key((void *) key, cc->u.des3.key1);
@@ -145,42 +145,36 @@ des3_ssh1_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 	else
 		des_set_key((void *) (key+16), cc->u.des3.key3);
 }
-void
+static void
 des3_ssh1_encrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
-	des_cblock iv1;
-	des_cblock *iv2 = &cc->u.des3.iv2;
-	des_cblock *iv3 = &cc->u.des3.iv3;
-
-	memcpy(&iv1, iv2, 8);
-
-	des_ncbc_encrypt(src,  dest, len, cc->u.des3.key1, &iv1, DES_ENCRYPT);
-	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key2, iv2, DES_DECRYPT);
-	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key3, iv3, DES_ENCRYPT);
+	des_ncbc_encrypt(src,  dest, len, cc->u.des3.key1, &cc->u.des3.iv1,
+	    DES_ENCRYPT);
+	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key2, &cc->u.des3.iv2,
+	    DES_DECRYPT);
+	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key3, &cc->u.des3.iv3,
+	    DES_ENCRYPT);
 }
-void
+static void
 des3_ssh1_decrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
-	des_cblock iv1;
-	des_cblock *iv2 = &cc->u.des3.iv2;
-	des_cblock *iv3 = &cc->u.des3.iv3;
-
-	memcpy(&iv1, iv2, 8);
-
-	des_ncbc_encrypt(src,  dest, len, cc->u.des3.key3, iv3, DES_DECRYPT);
-	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key2, iv2, DES_ENCRYPT);
-	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key1, &iv1, DES_DECRYPT);
+	des_ncbc_encrypt(src,  dest, len, cc->u.des3.key3, &cc->u.des3.iv3,
+	    DES_DECRYPT);
+	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key2, &cc->u.des3.iv2,
+	    DES_ENCRYPT);
+	des_ncbc_encrypt(dest, dest, len, cc->u.des3.key1, &cc->u.des3.iv1,
+	    DES_DECRYPT);
 }
 
 /* Blowfish */
-void
+static void
 blowfish_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	BF_set_key(&cc->u.bf.key, keylen, (u_char *)key);
 }
-void
+static void
 blowfish_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
 	if (iv == NULL)
@@ -188,14 +182,14 @@ blowfish_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 	else
 		memcpy(cc->u.bf.iv, (char *)iv, 8);
 }
-void
+static void
 blowfish_cbc_encrypt(CipherContext *cc, u_char *dest, const u_char *src,
      u_int len)
 {
 	BF_cbc_encrypt((void *)src, dest, len, &cc->u.bf.key, cc->u.bf.iv,
 	    BF_ENCRYPT);
 }
-void
+static void
 blowfish_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src,
      u_int len)
 {
@@ -226,7 +220,7 @@ swap_bytes(const u_char *src, u_char *dst, int n)
 	}
 }
 
-void
+static void
 blowfish_ssh1_encrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
@@ -235,7 +229,7 @@ blowfish_ssh1_encrypt(CipherContext *cc, u_char *dest, const u_char *src,
 	    BF_ENCRYPT);
 	swap_bytes(dest, dest, len);
 }
-void
+static void
 blowfish_ssh1_decrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
@@ -246,37 +240,37 @@ blowfish_ssh1_decrypt(CipherContext *cc, u_char *dest, const u_char *src,
 }
 
 /* alleged rc4 */
-void
+static void
 arcfour_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	RC4_set_key(&cc->u.rc4, keylen, (u_char *)key);
 }
-void
+static void
 arcfour_crypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	RC4(&cc->u.rc4, len, (u_char *)src, dest);
 }
 
 /* CAST */
-void
+static void
 cast_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
 	CAST_set_key(&cc->u.cast.key, keylen, (u_char *) key);
 }
-void
+static void
 cast_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
 	if (iv == NULL)
 		fatal("no IV for %s.", cc->cipher->name);
 	memcpy(cc->u.cast.iv, (char *)iv, 8);
 }
-void
+static void
 cast_cbc_encrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	CAST_cbc_encrypt(src, dest, len, &cc->u.cast.key, cc->u.cast.iv,
 	    CAST_ENCRYPT);
 }
-void
+static void
 cast_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 {
 	CAST_cbc_encrypt(src, dest, len, &cc->u.cast.key, cc->u.cast.iv,
@@ -286,69 +280,68 @@ cast_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src, u_int len)
 /* RIJNDAEL */
 
 #define RIJNDAEL_BLOCKSIZE 16
-void
+static void
 rijndael_setkey(CipherContext *cc, const u_char *key, u_int keylen)
 {
-	rijndael_set_key(&cc->u.rijndael.enc, (u4byte *)key, 8*keylen, 1);
-	rijndael_set_key(&cc->u.rijndael.dec, (u4byte *)key, 8*keylen, 0);
+	rijndael_set_key(&cc->u.rijndael.enc, (char *)key, 8*keylen, 1);
+	rijndael_set_key(&cc->u.rijndael.dec, (char *)key, 8*keylen, 0);
 }
-void
+static void
 rijndael_setiv(CipherContext *cc, const u_char *iv, u_int ivlen)
 {
-	if (iv == NULL)
-		fatal("no IV for %s.", cc->cipher->name);
-	memcpy((u_char *)cc->u.rijndael.iv, iv, RIJNDAEL_BLOCKSIZE);
+	if (iv == NULL || ivlen != RIJNDAEL_BLOCKSIZE) 
+		fatal("bad/no IV for %s.", cc->cipher->name);
+	memcpy(cc->u.rijndael.iv, iv, RIJNDAEL_BLOCKSIZE);
 }
-void
+static void
 rijndael_cbc_encrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
 	rijndael_ctx *ctx = &cc->u.rijndael.enc;
-	u4byte *iv = cc->u.rijndael.iv;
-	u4byte in[4];
-	u4byte *cprev, *cnow, *plain;
-	int i, blocks = len / RIJNDAEL_BLOCKSIZE;
+	u_char *iv = cc->u.rijndael.iv;
+	u_char in[RIJNDAEL_BLOCKSIZE];
+	u_char *cprev, *cnow, *plain;
+	int i, j, blocks = len / RIJNDAEL_BLOCKSIZE;
+
 	if (len == 0)
 		return;
 	if (len % RIJNDAEL_BLOCKSIZE)
 		fatal("rijndael_cbc_encrypt: bad len %d", len);
-	cnow  = (u4byte*) dest;
-	plain = (u4byte*) src;
+	cnow  = dest;
+	plain = (u_char *) src;
 	cprev = iv;
-	for(i = 0; i < blocks; i++, plain+=4, cnow+=4) {
-		in[0] = plain[0] ^ cprev[0];
-		in[1] = plain[1] ^ cprev[1];
-		in[2] = plain[2] ^ cprev[2];
-		in[3] = plain[3] ^ cprev[3];
+	for (i = 0; i < blocks; i++, plain+=RIJNDAEL_BLOCKSIZE,
+	    cnow+=RIJNDAEL_BLOCKSIZE) {
+		for (j = 0; j < RIJNDAEL_BLOCKSIZE; j++)
+			in[j] = plain[j] ^ cprev[j];
 		rijndael_encrypt(ctx, in, cnow);
 		cprev = cnow;
 	}
 	memcpy(iv, cprev, RIJNDAEL_BLOCKSIZE);
 }
-
-void
+static void
 rijndael_cbc_decrypt(CipherContext *cc, u_char *dest, const u_char *src,
     u_int len)
 {
 	rijndael_ctx *ctx = &cc->u.rijndael.dec;
-	u4byte *iv = cc->u.rijndael.iv;
-	u4byte ivsaved[4];
-	u4byte *cnow =  (u4byte*) (src+len-RIJNDAEL_BLOCKSIZE);
-	u4byte *plain = (u4byte*) (dest+len-RIJNDAEL_BLOCKSIZE);
-	u4byte *ivp;
-	int i, blocks = len / RIJNDAEL_BLOCKSIZE;
+	u_char *iv = cc->u.rijndael.iv;
+	u_char ivsaved[RIJNDAEL_BLOCKSIZE];
+	u_char *cnow  = (u_char *) (src+len-RIJNDAEL_BLOCKSIZE);
+	u_char *plain = dest+len-RIJNDAEL_BLOCKSIZE;
+	u_char *ivp;
+	int i, j, blocks = len / RIJNDAEL_BLOCKSIZE;
+
 	if (len == 0)
 		return;
 	if (len % RIJNDAEL_BLOCKSIZE)
 		fatal("rijndael_cbc_decrypt: bad len %d", len);
 	memcpy(ivsaved, cnow, RIJNDAEL_BLOCKSIZE);
-	for(i = blocks; i > 0; i--, cnow-=4, plain-=4) {
+	for (i = blocks; i > 0; i--, cnow-=RIJNDAEL_BLOCKSIZE,
+	    plain-=RIJNDAEL_BLOCKSIZE) {
 		rijndael_decrypt(ctx, cnow, plain);
-		ivp =  (i == 1) ? iv : cnow-4;
-		plain[0] ^= ivp[0];
-		plain[1] ^= ivp[1];
-		plain[2] ^= ivp[2];
-		plain[3] ^= ivp[3];
+		ivp = (i == 1) ? iv : cnow-RIJNDAEL_BLOCKSIZE;
+		for (j = 0; j < RIJNDAEL_BLOCKSIZE; j++)
+			plain[j] ^= ivp[j];
 	}
 	memcpy(iv, ivsaved, RIJNDAEL_BLOCKSIZE);
 }

@@ -39,7 +39,7 @@
 
 #include "AppleTexas2EQPrefs.cpp"
 
-#define durationMillisecond 1000	// number of microseconds in a millisecond
+//#define durationMillisecond 1000	// number of microseconds in a millisecond
 
 #define super AppleOnboardAudio
 
@@ -104,6 +104,7 @@ void AppleTexas2Audio::free()
 			workLoop->removeEventSource (notifierHandlerTimer);
 	}
 
+	publishResource (gAppleAudioVideoJackStateKey, NULL);
 	super::free();
 	debugIOLog("- AppleTexas2Audio::free\n");
 }
@@ -635,10 +636,10 @@ void AppleTexas2Audio::sndHWPostDMAEngineInit (IOService *provider) {
 	}
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
 		if (TRUE == hasVideo) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, headphonesConnected ? kOSBooleanTrue : kOSBooleanFalse);
+			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
 		}
 		if (NULL != dallasIntProvider) {
 			// Set the correct EQ
@@ -1133,10 +1134,10 @@ IOReturn AppleTexas2Audio::performDeviceWake () {
 
 	//	Mute the amplifiers as needed
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
 		if (TRUE == hasVideo) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, headphonesConnected ? kOSBooleanTrue : kOSBooleanFalse);
+			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
 		}
 		if (NULL != dallasIntProvider) {
 			// Set the correct EQ
@@ -1394,9 +1395,9 @@ void AppleTexas2Audio::RealHeadphoneInterruptHandler (IOInterruptEventSource *so
 	headphonesConnected = IsHeadphoneConnected ();
 
 	if (TRUE == headphonesConnected) {
-		SetActiveOutput (kSndHWOutput1, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput1, kBiquadUntouched);
 	} else {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
 	}
 
 	if (TRUE == hasVideo) {
@@ -1979,6 +1980,8 @@ void AppleTexas2Audio::DeviceInterruptService (void) {
 		err = SndHWSetDRC ((DRCInfoPtr)&localDRC);
 
 		err = SndHWSetOutputBiquadGroup (eqPrefs->filterCount, eqPrefs->filter[0].coefficient);
+	} else {
+		SetUnityGainAllPass ();
 	}
 
 	// Set the level controls to their (possibly) new min and max values
@@ -2216,7 +2219,7 @@ IOReturn AppleTexas2Audio::SetActiveOutput (UInt32 output, Boolean touchBiquad) 
 			SetAnalogPowerDownMode (kPowerNormalAnalog);
 			SetAmplifierMuteState (kSPEAKER_AMP, ASSERT_GPIO (ampActiveState));		//	mute
 			SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	//	unmute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
+			IOSleep (kAmpRecoveryMuteDuration);
 			break;
 		case kSndHWOutput2:																//	fall through to kSndHWOutput4
 		case kSndHWOutput3:																//	fall through to kSndHWOutput4
@@ -2224,11 +2227,9 @@ IOReturn AppleTexas2Audio::SetActiveOutput (UInt32 output, Boolean touchBiquad) 
 			SetAnalogPowerDownMode (kPowerNormalAnalog);
 			//	The TA1101B amplifier can 'crowbar' when inserting the speaker jack.
 			//	Muting the amplifier will release it from the crowbar state.
-			SetAmplifierMuteState (kSPEAKER_AMP, ASSERT_GPIO (ampActiveState));		// mute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
 			SetAmplifierMuteState (kHEADPHONE_AMP, ASSERT_GPIO (hdpnActiveState));	//	mute
 			SetAmplifierMuteState (kSPEAKER_AMP, NEGATE_GPIO (ampActiveState));		//	unmute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
+			IOSleep (kAmpRecoveryMuteDuration);
 			if (!dontReleaseHPMute)													//	[2660341] unmute if std hw
 				SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	// unmute
 			break;

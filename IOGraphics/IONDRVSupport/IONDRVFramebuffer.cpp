@@ -44,6 +44,7 @@
 #include <libkern/c++/OSContainers.h>
 
 #include "IONDRV.h"
+#include "IONDRVI2CInterface.h"
 
 IOReturn _IONDRVLibrariesInitialize( IOService * provider );
 
@@ -743,6 +744,8 @@ IOReturn IONDRVFramebuffer::checkDriver( void )
 
         // allow calls to ndrv
         ndrvState = 2;
+        
+        IONDRVI2CInterface::create( this );
 
 #if IONDRVI2CLOG
         do {
@@ -832,14 +835,20 @@ IOReturn IONDRVFramebuffer::checkDriver( void )
 
         do {
             VDDisplayTimingRangeRec	rangeRec;
-                
-            bzero( &rangeRec, sizeof( rangeRec));
-            err = doStatus( cscGetTimingRanges, &rangeRec );
-            if( kIOReturnSuccess != err)
-                continue;
+            VDScalerInfoRec		scalerRec;
 
-            setProperty( kIOFBTimingRangeKey, &rangeRec, sizeof( rangeRec));
-        
+            bzero( &rangeRec, sizeof( rangeRec));
+            rangeRec.csRangeSize = sizeof( rangeRec);
+            err = doStatus( cscGetTimingRanges, &rangeRec );
+            if( kIOReturnSuccess == err)
+                setProperty( kIOFBTimingRangeKey, &rangeRec, sizeof( rangeRec));
+
+            bzero( &scalerRec, sizeof( scalerRec));
+            scalerRec.csScalerInfoSize = sizeof( scalerRec);
+            err = doStatus( cscGetScalerInfo, &scalerRec );
+            if( kIOReturnSuccess == err)
+                setProperty( kIOFBScalerInfoKey, &scalerRec, sizeof( scalerRec));
+
         } while( false );
 
 #if 1
@@ -999,13 +1008,15 @@ IOReturn IONDRVFramebuffer::setDetailedTiming(
             IODisplayModeID mode, IOOptionBits options,
             void * _desc, IOByteCount descripSize )
 {
-    IOReturn		  err;
-    VDResolutionInfoRec	  info;
-    VDDetailedTimingRec	* desc = (VDDetailedTimingRec *)_desc;
-    VDDetailedTimingRec	  look;
-    IOIndex		  index;
-    UInt32		  checkCurrent = (UInt32) currentDisplayMode;
-    bool		  notPreflight = (0 == (options & kModePreflight));
+    IOReturn		  	    err;
+    VDResolutionInfoRec	  	    info;
+    IODetailedTimingInformationV2 * desc = (IODetailedTimingInformationV2 *)_desc;
+    VDDetailedTimingRec	  	    look;
+    VDDetailedTimingRec	  	    newTiming;
+    IOIndex		  	    index;
+    UInt32		            checkCurrent = (UInt32) currentDisplayMode;
+    bool		            notPreflight = (0 == (options & kModePreflight));
+    bool		            hasScale;
 
     // current must be ok
     if( mode == currentDisplayMode)
@@ -1053,18 +1064,39 @@ IOReturn IONDRVFramebuffer::setDetailedTiming(
             if( err != kIOReturnSuccess)
                 continue;
         }
-        // set it ready
-	desc->csDisplayModeID    = info.csDisplayModeID;
-        desc->csDisplayModeAlias = mode;
-        desc->csDisplayModeSeed  = look.csDisplayModeSeed;
-        desc->csDisplayModeState = kDMSModeReady;
-        err = doControl( cscSetDetailedTiming, desc );
+
+        // set it
+        hasScale = (desc->horizontalScaled && desc->verticalScaled);
+
+        newTiming = *((VDDetailedTimingRec *) desc);
+	newTiming.csDisplayModeID    = info.csDisplayModeID;
+        newTiming.csDisplayModeAlias = mode;
+        newTiming.csDisplayModeSeed  = look.csDisplayModeSeed;
+        newTiming.csDisplayModeState = hasScale ? kDMSModeNotReady : kDMSModeReady;
+        err = doControl( cscSetDetailedTiming, &newTiming );
+
+        if( hasScale && (kIOReturnSuccess == err)) {
+            VDScalerRec	scaler;
+
+            // set scale
+            bzero( &scaler, sizeof( scaler));
+            scaler.csScalerSize	      = sizeof( scaler);
+            scaler.csScalerFlags      = desc->scalerFlags;
+            scaler.csHorizontalPixels = desc->horizontalScaled;
+            scaler.csVerticalPixels   = desc->verticalScaled;
+            scaler.csDisplayModeID    = info.csDisplayModeID;
+            scaler.csDisplayModeSeed  = newTiming.csDisplayModeSeed;
+            scaler.csDisplayModeState = kDMSModeReady;
+
+            err = doControl( cscSetScaler, &scaler );
+
+            newTiming.csDisplayModeSeed  = scaler.csDisplayModeSeed;
+        }
 
         if( kIOReturnSuccess == err) {
-            if( notPreflight)
-                // don't stomp orig record
-                desc = &look;
-            err = doStatus( cscGetDetailedTiming, desc );
+            err = doStatus( cscGetDetailedTiming, &newTiming );
+            if( !notPreflight && (kIOReturnSuccess == err))
+                bcopy( &newTiming, _desc, descripSize );
         }
         if( notPreflight && (kIOReturnSuccess == err))
             detailedTimingsCurrent[index] = detailedTimingsSeed;
@@ -1478,6 +1510,7 @@ IOReturn IONDRVFramebuffer::getTimingInfoForDisplayMode(
 		IODisplayModeID displayMode, IOTimingInformation * info )
 {
     VDTimingInfoRec		timingInfo;
+    
     OSStatus			err;
 
     err = validateDisplayMode( displayMode, 0, 0 );
@@ -1496,6 +1529,7 @@ IOReturn IONDRVFramebuffer::getTimingInfoForDisplayMode(
 
         if( info->flags & kIODetailedTimingValid) {
             VDDetailedTimingRec	* look = (VDDetailedTimingRec *) &info->detailedInfo.v2;
+            VDScalerRec		  scaler;
 
             bzero( look, sizeof( VDDetailedTimingRec) );
             look->csTimingSize = sizeof( VDDetailedTimingRec);
@@ -1503,6 +1537,26 @@ IOReturn IONDRVFramebuffer::getTimingInfoForDisplayMode(
             err = doStatus( cscGetDetailedTiming, look );
             if( kIOReturnSuccess != err)
                 info->flags &= ~kIODetailedTimingValid;
+            else {
+
+                bzero( &info->detailedInfo.v2.__reservedA[0], sizeof( info->detailedInfo.v2.__reservedA));
+                bzero( &info->detailedInfo.v2.__reservedB[0], sizeof( info->detailedInfo.v2.__reservedB));
+
+                bzero( &scaler, sizeof( VDScalerRec) );
+                scaler.csScalerSize = sizeof( VDScalerRec);
+                scaler.csDisplayModeID = displayMode;
+                err = doStatus( cscGetScaler, &scaler );
+                if( kIOReturnSuccess == err) {
+                    info->flags |= kIOScalingInfoValid;
+                    info->detailedInfo.v2.scalerFlags      = scaler.csScalerFlags;
+                    info->detailedInfo.v2.horizontalScaled = scaler.csHorizontalPixels;
+                    info->detailedInfo.v2.verticalScaled   = scaler.csVerticalPixels;
+                } else {
+                    info->detailedInfo.v2.scalerFlags      = 0;
+                    info->detailedInfo.v2.horizontalScaled = 0;
+                    info->detailedInfo.v2.verticalScaled   = 0;
+                }
+            }
         }
 
 	return( kIOReturnSuccess);
@@ -1715,6 +1769,20 @@ IOReturn IONDRVFramebuffer::getAttribute( IOSelect attribute, UInt32 * value )
 			doStatus( cscSupportsHardwareCursor, &hwCrsrSupport))
                     && true && (hwCrsrSupport.csSupportsHardwareCursor));
 	    break;
+
+
+        case kIOMirrorDefaultAttribute:
+            IORegistryEntry * entry;
+
+            value[0] = 0;
+            if( (entry = IORegistryEntry::fromPath("mac-io/battery", gIODTPlane))
+             || (entry = IORegistryEntry::fromPath("mac-io/via-pmu/battery", gIODTPlane))) {
+    
+                value[0] |= kIOMirrorDefault;
+                entry->release();
+            }
+            err = kIOReturnSuccess;
+            break;
 
 	default:
 	    err = super::getAttribute( attribute, value );
@@ -2037,6 +2105,7 @@ IOReturn IONDRVFramebuffer::getAttributeForConnection( IOIndex connectIndex,
             UInt32 connectEnabled;
             ret = getAttributeForConnection( 0, kConnectionEnable, &connectEnabled );
             setDetailedTimings( 0 );
+            removeProperty( kIOFBConfigKey );
             ret = kIOReturnSuccess;
 
         default:
@@ -2540,10 +2609,7 @@ IODeviceMemory * IOATINDRV::findVRAM( void )
     lengths = (IOByteCount *) prop->getBytesNoCopy();
     count = prop->getLength() / sizeof(IOByteCount);
 
-    prop = OSDynamicCast( OSData, nub->getProperty("ATY,Base"));
-
-    if( prop && (count > 1)) {
-        vramBase =  *((IOPhysicalAddress *)prop->getBytesNoCopy());
+    if( count > 1) {
         vramBase = physicalFramebuffer;
         vramLength = lengths[1];
         //

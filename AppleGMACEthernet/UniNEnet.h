@@ -186,7 +186,7 @@ private:	// Instance variables:
     bool                      debugTxPoll;
         
     IOEthernetAddress         myAddress;
-    bool                      isPromiscuous;
+	bool		fIsPromiscuous;
     bool                      multicastEnabled;
     bool                      isFullDuplex;
 

@@ -47,9 +47,8 @@
  * @discussion
  * The kIOCDMediaTOCKey property contains the CD's full table of contents,
  * formatted as a CDTOC structure.  The CDTOC structure is same as what is
- * returned by a READ TOC command, format 0x02, but with BCD numbers converted
- * to binary-encoded numbers, and the multi-byte fields converted to
- * host-endianess.
+ * returned by a READ TOC command, format 0x02.  All fields in the TOC are
+ * guaranteed to be binary-encoded (no BCD-encoded numbers are ever passed).
  */
 
 #define kIOCDMediaTOCKey "TOC"
@@ -227,7 +226,7 @@ public:
 
     /*!
      * @function readISRC
-     * @abstract
+     * @discussion
      * Read the International Standard Recording Code for the specified track.
      * @param track
      * Track number from which to read the ISRC.
@@ -241,7 +240,7 @@ public:
     
     /*!
      * @function readMCN
-     * @abstract
+     * @discussion
      * Read the Media Catalog Number (also known as the Universal Product Code).
      * @param mcn
      * Buffer for the MCN data.  Buffer contents will be zero-terminated.
@@ -257,7 +256,7 @@ public:
      * Get the full Table Of Contents.
      *
      * All CDTOC fields passed across I/O Kit APIs are guaranteed to be
-     * binary-encoded numbers (not BCD) and converted to host-endianess.
+     * binary-encoded (no BCD-encoded numbers are ever passed).
      * @result
      * Returns a pointer to the TOC buffer (do not deallocate).
      */
@@ -298,9 +297,75 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOCDMedia, 1); /* 10.1.0 */
 
-    OSMetaClassDeclareReservedUnused(IOCDMedia,  2);
-    OSMetaClassDeclareReservedUnused(IOCDMedia,  3);
-    OSMetaClassDeclareReservedUnused(IOCDMedia,  4);
+    /*!
+     * @function readTOC
+     * @discussion
+     * Issue an MMC READ TOC/PMA/ATIP command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param format
+     * As documented by MMC.
+     * @param formatAsTime
+     * As documented by MMC.
+     * @param trackOrSessionNumber
+     * As documented by MMC.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn readTOC(IOMemoryDescriptor * buffer,
+                             CDTOCFormat          format,
+                             UInt8                formatAsTime,
+                             UInt8                trackOrSessionNumber,
+                             UInt16 *             actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDMedia, 2); /* 10.1.3 */
+
+    /*!
+     * @function readDiscInfo
+     * @discussion
+     * Issue an MMC READ DISC INFORMATION command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn readDiscInfo(IOMemoryDescriptor * buffer,
+                                  UInt16 *             actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDMedia, 3); /* 10.1.3 */
+
+    /*!
+     * @function readTrackInfo
+     * @discussion
+     * Issue an MMC READ TRACK INFORMATION command.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param address
+     * As documented by MMC.
+     * @param addressType
+     * As documented by MMC.
+     * @param actualByteCount
+     * Returns the actual number of bytes transferred in the data transfer.
+     * @result
+     * Returns the status of the data transfer.
+     */
+
+    virtual IOReturn readTrackInfo(IOMemoryDescriptor *   buffer,
+                                   UInt32                 address,
+                                   CDTrackInfoAddressType addressType,
+                                   UInt16 *               actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDMedia, 4); /* 10.1.3 */
+
     OSMetaClassDeclareReservedUnused(IOCDMedia,  5);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  6);
     OSMetaClassDeclareReservedUnused(IOCDMedia,  7);

@@ -51,6 +51,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -173,14 +174,15 @@ lru_init(unsigned max)
 static void
 lru_markone(lrustuff *lru, unsigned which)
 {
-	int i, j, mark;
+	int i, j, mark, new;
 
+	new = 1;
 	mark = lru->len;
-
 	for (i = 0; i < lru->len; i++)
 	{
 		if (lru->val[i] == which)
 		{
+			new = 0;
 			mark = i;
 			lru->len--; /* don't double count */
 			break;
@@ -191,9 +193,13 @@ lru_markone(lrustuff *lru, unsigned which)
 	{
 		lru->val[j] = lru->val[j - 1];
 	}
-
 	lru->val[0] = which;
 	lru->len++;
+
+	if (new == 1)
+	{
+		setsockopt(which, IPPROTO_TCP, TCP_NODELAY, &new, sizeof(int));
+	}
 }
 
 

@@ -1106,6 +1106,73 @@ IODVDServices::readTOC ( IOMemoryDescriptor * buffer )
 }
 
 //---------------------------------------------------------------------------
+// readTOC
+
+IOReturn
+IODVDServices::readTOC ( IOMemoryDescriptor * 		buffer,
+						 CDTOCFormat				format,
+						 UInt8						msf,
+						 UInt8						trackSessionNumber,
+						 UInt16 *					actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadTOC ( buffer, format, msf, trackSessionNumber, actualByteCount );
+	
+}
+
+//---------------------------------------------------------------------------
+// readDiscInfo
+
+IOReturn
+IODVDServices::readDiscInfo ( IOMemoryDescriptor * 		buffer,
+							  UInt16 *					actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadDiscInfo ( buffer, actualByteCount );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// readTrackInfo
+
+IOReturn
+IODVDServices::readTrackInfo ( IOMemoryDescriptor *		buffer,
+							   UInt32					address,
+							   CDTrackInfoAddressType	addressType,
+							   UInt16 *					actualByteCount )
+{
+	
+	// Return errors for incoming activity if we have been terminated
+	if ( isInactive ( ) != false )
+	{
+		return kIOReturnNotAttached;
+	}
+	
+	fProvider->CheckPowerState ( );	
+	
+	return fProvider->ReadTrackInfo ( buffer, address, addressType, actualByteCount );
+	
+}
+
+
+//---------------------------------------------------------------------------
 // audioPause
 
 IOReturn
@@ -1484,12 +1551,13 @@ IODVDServices::handleIsOpen ( const IOService * client ) const
 	
 }
 
+
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused( IODVDServices, 1 );
-OSMetaClassDefineReservedUnused( IODVDServices, 2 );
-OSMetaClassDefineReservedUnused( IODVDServices, 3 );
-OSMetaClassDefineReservedUnused( IODVDServices, 4 );
-OSMetaClassDefineReservedUnused( IODVDServices, 5 );
-OSMetaClassDefineReservedUnused( IODVDServices, 6 );
-OSMetaClassDefineReservedUnused( IODVDServices, 7 );
-OSMetaClassDefineReservedUnused( IODVDServices, 8 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 1 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 2 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 3 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 4 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 5 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 6 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 7 );
+OSMetaClassDefineReservedUnused ( IODVDServices, 8 );

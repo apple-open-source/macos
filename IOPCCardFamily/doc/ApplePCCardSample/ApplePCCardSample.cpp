@@ -10,7 +10,7 @@ Apple software.
 
 In consideration of your agreement to abide by the following terms, and
 subject to these terms, Apple grants you a personal, non-exclusive
-license, under Apple’s copyrights in this original Apple software (the
+license, under Apple's copyrights in this original Apple software (the
 "Apple Software"), to use, reproduce, modify and redistribute the Apple
 Software, with or without modifications, in source and/or binary forms;
 provided that if you redistribute the Apple Software in its entirety and
@@ -46,6 +46,17 @@ OF SUCH DAMAGE.
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/pccard/IOPCCard.h>
 
+// most of the time drivers will not need a custom enabler to get their
+// card configured properly, below is quick example of how to set up 
+// a enabler and then in the start method, how to register it with the 
+// system.  if your driver does not register a enabler, the system will use
+// the built in default enabler.  hence, most of time the code below is
+// now required to have a functioning driver.
+
+#define NEEDS_A_ENABLER
+
+#ifdef NEEDS_A_ENABLER
+
 class ApplePCCardSampleEnabler : public IOPCCard16Enabler
 {
     OSDeclareDefaultStructors(ApplePCCardSampleEnabler);
@@ -76,13 +87,23 @@ ApplePCCardSampleEnabler::withDevice(IOPCCard16Device *provider)
 bool
 ApplePCCardSampleEnabler::sortConfigurations(void)
 {
-    // a "custom" enabler could look for a specific configuration
-    // and put it at the top of list if needed.
+    // the most common use of a "custom" enabler could look for a
+    // specific configuration and put it at the top of list if needed.
+    // this would most likely be done in a driver that matches against
+    // a class of cards (like serial, ata, ...). The default enabler
+    // sorts the available configurations by the number of windows
+    // that are presented, preferring memory windows.
+
+    // if a driver is matching against a particular card, it can
+    // just ask for a specific configuration when calling the nub's
+    // configure method.  see the start method below.
     
     IOLog("ApplePCCardSampleEnabler::sortConfigurations entered\n");
 
     return super::sortConfigurations();
 }
+
+#endif NEEDS_A_ENABLER
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -96,16 +117,21 @@ class ApplePCCardSample : public IOService
     IOInterruptEventSource              * interruptSource;
     IOWorkLoop                          * workLoop;
 
+    unsigned				windowCount;
+    IOMemoryMap 			* windowMap[10];
+
 public:
     virtual IOService * probe(IOService *provider, SInt32 *score);
     virtual bool start(IOService * provider);
     virtual void stop(IOService * provider);
 
+    virtual IOReturn setPowerState(unsigned long powerState, IOService * whatDevice);
     virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0);
 
     void interruptOccurred(IOInterruptEventSource * src, int i);
-};
 
+    void dumpWindows();
+};
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -127,9 +153,10 @@ ApplePCCardSample::probe(IOService * provider, SInt32 * score)
 
     if (!super::probe(provider, score)) return NULL;
 
-    // the score passed in comes from this driver's XML file, normally
-    // there is no need to mess with it, or to even subclass probe()
-    // in the first place.  
+    // most of the time you will not need to override probe to
+    // determine if this is the correct driver.  it is much better to
+    // use passive matching (in the XML file) then to actually load
+    // the driver into the kernel and call this probe method.
 
     // however, this is a good place to to check if this is actually
     // our card. if not we can reject it right here by returning NULL.
@@ -137,16 +164,33 @@ ApplePCCardSample::probe(IOService * provider, SInt32 * score)
     // class of cards.  another check might be to see if the hardware
     // above the card can support the card, for example zoom video.
 
-    // the recommended match score for a driver that matches against a
-    // class of cards is 1000.  the recommended match score for a
-    // driver that matches against a specific card is 10000.
+    // the score passed in comes from this driver's XML file, normally
+    // there is no need to mess with it
+
+    // the recommended match score for a pc card driver that matches
+    // against a class of cards is 1000.  the recommended match score
+    // for a driver that matches against a specific card is 10000.
     
-    // check nub's properties and/or read extra cis tuples, ...
+    // to see if this is the right driver you can check nubs properties
+    // and or read extra cis tuples, ... here.  remember other drivers
+    // may also be probing the same card, you should not assume that
+    // any state is preserved between here and start.
+
+    // let's try scanning the CIS (for the fun of it, you don't need this in a real driver)
+    cisinfo_t cisinfo;
+    int ret = CardServices(ValidateCIS, nub->getCardServicesHandle(), &cisinfo);
+    if (ret != CS_SUCCESS) {
+	IOLog("ApplePCCardSample: ValidateCIS failed %d.\n", ret);
+	stop(provider);
+	return false;
+    }
+    IOLog("ApplePCCardSample: ValidateCIS Chains=%d.\n", cisinfo.Chains);
 
     // if (not our card) return NULL;
 
     return this;
 }
+
 
 bool
 ApplePCCardSample::start(IOService * provider)
@@ -158,8 +202,24 @@ ApplePCCardSample::start(IOService * provider)
 	IOLog("%s: provider is not of class IOPCCard16Device?\n", getName());
 	return false;
     }
-    
-    // get the default pccard workloop
+
+    static const IOPMPowerState myPowerStates[ kIOPCCard16DevicePowerStateCount ] = 
+    {
+	{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
+	{ 1, IOPMPowerOn, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0 }
+    };
+
+    // initialize our PM superclass variables
+    PMinit();
+    // register as the controlling driver
+    registerPowerDriver(this, (IOPMPowerState *)myPowerStates, kIOPCCard16DevicePowerStateCount);
+    // add ourselves into the PM tree
+    provider->joinPMtree( this);
+    // set current pm state
+    changePowerStateTo(kIOPCCard16DeviceOnState);
+
+    // get the default pccard family workloop
     workLoop = getWorkLoop();
     if (!workLoop) {
         IOLog("%s: could not get the workLoop.\n", getName());
@@ -189,31 +249,24 @@ ApplePCCardSample::start(IOService * provider)
     // enable the interrupt delivery.
     workLoop->enableAllInterrupts();
     
-    // try scanning the CIS (for the fun of it, you don't need this in a real driver)
-    cisinfo_t cisinfo;
-    int ret = CardServices(ValidateCIS, nub->getCardServicesHandle(), &cisinfo);
-    if (ret != CS_SUCCESS) {
-	IOLog("ApplePCCardSample: ValidateCIS failed %d.\n", ret);
-	stop(provider);
-	return false;
-    }
-    IOLog("ApplePCCardSample: ValidateCIS Chains=%d.\n", cisinfo.Chains);
+#ifdef NEEDS_A_ENABLER
 
     // this is a good place to override the default enabler (if needed)
     // the nub handles releasing the enabler so we can forget about it.
-#if 1
+
     ApplePCCardSampleEnabler *customEnabler = ApplePCCardSampleEnabler::withDevice(nub);
     if (!customEnabler) IOLog("%s: ApplePCCardSampleEnabler::withDevice(nub) failed\n", getName());
     
     bool success = nub->installEnabler(customEnabler);
     if (!success) IOLog("%s: nub->installEnabler(customEnabler) failed\n", getName());
     customEnabler->release();
-#endif	
+
+#endif
     
     // configure card, if the card's CIS contains multiple configurations, the enabler will
     // select the card with the least number of resources, if this turns out to not work
     // for your driver, you may also specify the index of the configuration that you want
-    // by calling configure(index).
+    // by calling configure(index) or by overriding the default enabler.
     
     if (!nub->configure()) {
 	stop(provider);
@@ -226,66 +279,27 @@ ApplePCCardSample::start(IOService * provider)
 	    getName(), (config.Attributes & CONF_VALID_CLIENT) ? "" : "not ", config.ConfigBase, 
 	    config.BasePort1, config.NumPorts1, config.BasePort2, config.NumPorts2);
     
-    unsigned windowCount = nub->getWindowCount();
-        
+
+
+    // find out how many windows we have configured
+    windowCount = nub->getWindowCount();
+
+    // map in the windows
     for (unsigned i=0; i < windowCount; i++) {
     
 	UInt32 attributes;
 	if (!nub->getWindowAttributes(i, &attributes)) IOLog("%s: getWindowAttributes failed\n", getName());
 
 	IOLog("%s: mapping window index %d, size = 0x%x, attributes = 0x%x\n", getName(), i, (int)nub->getWindowSize(i), (int)attributes);
-	IOMemoryMap * map = nub->mapDeviceMemoryWithIndex(i);
-	if (!map) {
+	windowMap[i] = nub->mapDeviceMemoryWithIndex(i);
+	if (!windowMap[i]) {
 	    IOLog("%s: Failed to map device memory index %d.\n", getName(), i);
 	    stop(provider);
 	    return false;
 	}
-
-	if (nub->getWindowType(i) == IOPCCARD16_MEMORY_WINDOW) {
-	    UInt32 offset;
-	    if (!nub->getWindowOffset(i, &offset)) IOLog("%s: getWindowOffset failed\n", getName());
-	    IOLog("%s: window %d physical 0x%x virtual 0x%x offset 0x%x length 0x%x (memory)\n", 
-		  getName(), i, (int)map->getPhysicalAddress(), map->getVirtualAddress(), (int)offset, (int)map->getLength());
-
-	    IOLog("%x %x %x %x %x %x %x %x\n", 
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 0),  (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 4),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 8),  (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 12),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 16), (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 20),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 24), (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 28));
-		
-#if 1
-	    // move window offset to 0x1000
-	    if (!nub->setWindowOffset(i, 0x1000)) IOLog("%s: setWindowOffset failed\n", getName());
-	    if (!nub->getWindowOffset(i, &offset)) IOLog("%s: getWindowOffset failed (case 2)\n", getName());
-	    IOLog("%s: window %d physical 0x%x virtual 0x%x offset 0x%x length 0x%x (memory)\n", 
-		  getName(), i, (int)map->getPhysicalAddress(), map->getVirtualAddress(), (int)offset, (int)map->getLength());
-
-	    IOLog("%x %x %x %x %x %x %x %x\n", 
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 0),  (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 4),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 8),  (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 12),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 16), (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 20),
-		(int)OSReadSwapInt32((void *)map->getVirtualAddress(), 24), (int)OSReadSwapInt32((void *)map->getVirtualAddress(), 28));
-#endif	    
-	} else {
-	    IOLog("%s: window %d physical 0x%x virtual 0x%x length 0x%x (io)\n", 
-		  getName(), i, (int)map->getPhysicalAddress(), map->getVirtualAddress(), (int)map->getLength());
-
-	    // I don't think the data path width even matters on apple hardware, but ...
-	    if (attributes & IO_DATA_PATH_WIDTH == IO_DATA_PATH_WIDTH_16) {
-		int l = map->getLength(); l = l > 0x10 ? 0x10 : l;
-		for (int j=0; j < l; j++,j++) {
-		    IOLog("%x ", nub->ioRead16(j, map));
-		}
-	    } else {
-		int l = map->getLength(); l = l > 0x10 ? 0x10 : l;
-		for (int j=0; j < l; j++) {
-		    IOLog("%x ", nub->ioRead8(j, map));
-		}
-	    }
-	    IOLog("\n");
-	}
-	map->release();
     }
+
+    dumpWindows();
 
     IOLog("ApplePCCardSample::start(provider=%p, this=%p) ending\n", provider, this);
 
@@ -302,11 +316,20 @@ ApplePCCardSample::stop(IOService * provider)
 	return;
     }
 
-    // in a real driver you should release any previously mapped windows here
+    // unmap in the windows
+    for (unsigned i=0; i < windowCount; i++) {
+
+	IOLog("%s: unmapping window index %d, size = 0x%x\n", getName(), i, (int)nub->getWindowSize(i));
+
+	if (windowMap[i]) windowMap[i]->release();
+    }
 
 
     // release this device's enabler
     nub->unconfigure();
+
+    // take ourselves out of PM tree
+    PMstop();
 
     if (workLoop && interruptSource) {
 	workLoop->removeEventSource(interruptSource);
@@ -319,16 +342,209 @@ ApplePCCardSample::stop(IOService * provider)
 }
 
 IOReturn
+ApplePCCardSample::setPowerState(unsigned long powerState, IOService * whatDevice)
+{
+
+    switch (powerState) {
+
+    case kIOPCCard16DeviceOnState:
+    case kIOPCCard16DeviceDozeState:
+
+	// this is where you can either restore your cards state from 
+	// what was saved below, or reinitialize your state from scratch
+	
+	// unless you can do something special with the doze state
+	// you can just treat it the same as the on state.
+
+	IOLog("ApplePCCardSample::setPowerState setting power state to on\n");
+
+	// are we still alive?
+	dumpWindows();
+
+	break;
+
+    case kIOPCCard16DeviceOffState:
+
+	// the card is going to be powered off after this method returns
+	// this is a good place to save your device's state.
+
+	// any windows that were created by calling
+	// mapDeviceMemoryWithIndex() will be unmapped by the PC Card
+	// family in between the off and on power states.  If you have
+	// timers (or whatever) that could go off during that time you
+	// should either stop them here or keep track of your device's
+	// state with this object's instance variables.
+
+	IOLog("ApplePCCardSample::setPowerState setting power state to off\n");
+	break;
+	
+    default:
+
+	IOLog("ApplePCCardSample::setPowerState unknown state=%d?\n", (int)powerState);
+	break;
+    }
+
+    return IOPMAckImplied;
+}
+
+IOReturn
 ApplePCCardSample::message(UInt32 type, IOService * provider, void * argument)
 {
-    if (type == kIOPCCardCSEventMessage) {
-	IOLog("ApplePCCardSample::message, nub=%p, CS event received type=0x%x.\n", nub, (unsigned int)argument);
+    switch(type) {
+	 
+    case kIOPCCardCSEventMessage: {
+
+	// by default, the events types below are registered for your
+	// driver.  you can change these if you like.  the two most
+	// important ones are "card removal" and "ejection request".
+	// the events types are described in more detail in the
+	// documentation
+
+	// note: unlike the linux pc card drivers, the events for
+	// CS_EVENT_PM_SUSPEND and CS_EVENT_PM_RESUME are not used
+	// here.  you should instead rely on the normal iokit power
+	// management methods for notification.
+
+	UInt32 cs_event = (UInt32) argument;
+
+	switch (cs_event) {
+
+	case CS_EVENT_CARD_INSERTION:
+	
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_CARD_INSERTION.\n", nub);
+
+	    // card services generates a fake insertion when a driver
+	    // registers with it
+
+	    break;
+
+	case CS_EVENT_CARD_REMOVAL:
+
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_CARD_REMOVAL.\n", nub);
+
+	    // this event is telling you that the card has been
+	    // removed, this is a good place to set a flag telling the
+	    // driver that the hardware is no longer present
+
+	    // note: if the card has been removed your driver will
+	    // also be terminated very shortly after receiving this
+	    // message.  regardless, if you try to do something here
+	    // or not there may still be a race between you accessing
+	    // the hardware and this event.  the pc card bridge chips
+	    // on all apple hardware will allow accesses through the
+	    // configured hardware windows even if the card has been
+	    // removed so you will not crash the system.  obviously
+	    // you won't be talking to the card though.
+	    break;
+
+	case CS_EVENT_EJECTION_REQUEST:
+
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_EJECTION_REQUEST.\n", nub);
+
+	    // the user or system is asking if it is safe to shutdown
+	    // and eject the card, you can say no here by returning
+	    // kIOReturnBusy.
+	    break;
+
+	case CS_EVENT_RESET_REQUEST:
+
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_RESET_REQUEST.\n", nub);
+
+	    // card services is asking if is is ok to reset the card.
+	    // this usually only interesting if there are multiple
+	    // clients for this card
+	    break;
+
+	case CS_EVENT_RESET_PHYSICAL:
+
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_RESET_PHYSICAL.\n", nub);
+
+	    // the card is about to be reset
+	    break;
+
+	case CS_EVENT_CARD_RESET:
+
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event CS_EVENT_CARD_RESET.\n", nub);
+
+	    // the card was reset
+	    break;
+
+	default:
+	
+	    IOLog("ApplePCCardSample::message, nub=%p, card services event type=0x%x.\n", nub, (int)cs_event);
+	    break;
+	}
     }
-    return 0;
+    break;
+
+    default:
+
+	return super::message(type, provider, argument);
+	break;
+    }
+
+    return kIOReturnSuccess;
 }
 
 void
 ApplePCCardSample::interruptOccurred(IOInterruptEventSource * src, int i)
 {
     IOLog("ApplePCCardSample::interruptOccurred, nub=%p, src=%p, i=0x%x.\n", nub, src, i);
+}
+
+void
+ApplePCCardSample::dumpWindows()
+{
+    for (unsigned i=0; i < windowCount; i++) {
+    
+	if (nub->getWindowType(i) == IOPCCARD16_MEMORY_WINDOW) {
+	    UInt32 offset;
+	    if (!nub->getWindowOffset(i, &offset)) IOLog("%s: getWindowOffset failed\n", getName());
+	    IOLog("%s: window %d physical 0x%x virtual 0x%x offset 0x%x length 0x%x (memory)\n", 
+		  getName(), i, (int)windowMap[i]->getPhysicalAddress(), windowMap[i]->getVirtualAddress(), (int)offset, (int)windowMap[i]->getLength());
+
+	    IOLog("%x %x %x %x %x %x %x %x\n", 
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 0),  (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 4),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 8),  (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 12),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 16), (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 20),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 24), (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 28));
+		
+#if 1
+	    // try moving window offset to 0x1000
+	    if (!nub->setWindowOffset(i, 0x1000)) IOLog("%s: setWindowOffset failed\n", getName());
+	    if (!nub->getWindowOffset(i, &offset)) IOLog("%s: getWindowOffset failed (case 2)\n", getName());
+	    IOLog("%s: window %d physical 0x%x virtual 0x%x offset 0x%x length 0x%x (memory)\n", 
+		  getName(), i, (int)windowMap[i]->getPhysicalAddress(), windowMap[i]->getVirtualAddress(), (int)offset, (int)windowMap[i]->getLength());
+
+	    IOLog("%x %x %x %x %x %x %x %x\n", 
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 0),  (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 4),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 8),  (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 12),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 16), (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 20),
+		(int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 24), (int)OSReadSwapInt32((void *)windowMap[i]->getVirtualAddress(), 28));
+#endif	    
+	} else {
+	    IOLog("%s: window %d physical 0x%x virtual 0x%x length 0x%x (io)\n", 
+		  getName(), i, (int)windowMap[i]->getPhysicalAddress(), windowMap[i]->getVirtualAddress(), (int)windowMap[i]->getLength());
+
+	    UInt32 attributes;
+	    if (!nub->getWindowAttributes(i, &attributes)) {
+		IOLog("%s: getWindowAttributes failed\n", getName());
+		return;
+	    }
+
+	    // I don't think the data path width even matters on apple hardware, but ...
+	    if (attributes & IO_DATA_PATH_WIDTH == IO_DATA_PATH_WIDTH_16) {
+		int l = windowMap[i]->getLength(); l = l > 0x10 ? 0x10 : l;
+		for (int j=0; j < l; j++,j++) {
+		    IOLog("%x ", nub->ioRead16(j, windowMap[i]));
+		}
+	    } else {
+		int l = windowMap[i]->getLength(); l = l > 0x10 ? 0x10 : l;
+		for (int j=0; j < l; j++) {
+		    IOLog("%x ", nub->ioRead8(j, windowMap[i]));
+		}
+	    }
+	    IOLog("\n");
+	}
+    }
 }

@@ -17,11 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
+	<string>1.0.3</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ANSI</key>

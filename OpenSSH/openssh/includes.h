@@ -1,4 +1,4 @@
-/*	$OpenBSD: includes.h,v 1.14 2001/01/29 01:58:16 niklas Exp $	*/
+/*	$OpenBSD: includes.h,v 1.15 2001/06/08 15:25:40 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -51,6 +51,9 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_GETOPT_H
 # include <getopt.h>
 #endif
+#ifndef HAVE_GETOPT_OPTRESET
+#define getopt(ac, av, o)  BSDgetopt(ac, av, o)
+#endif
 #ifdef HAVE_BSTRING_H
 # include <bstring.h>
 #endif
@@ -94,9 +97,6 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #endif
 #ifdef HAVE_UTIME_H
 # include <utime.h>
-#endif
-#ifdef HAVE_VIS_H
-# include <vis.h>
 #endif
 #include "version.h"
 #include "openbsd-compat/openbsd-compat.h"

@@ -10,9 +10,6 @@ Programming:
 	-lresolv -lkrb -lz -lnsl  -lutil -lcrypto -lkafs -lkrb -ldes
   fixing the problem.
 
-- Integrate contrib/mdoc2man.pl so platforms which only have the troff 
-  'an' macros can have readable manpages.
-
 - Write a test program that calls stat() to search for EGD/PRNGd socket
   rather than use the (non-portable) "test -S". 
 
@@ -32,6 +29,8 @@ Programming:
    and order to try them in e.g. "ChallengeResponseAuthentication skey, pam"
 
 - Complete Tru64 SIA support
+ - It looks like we could merge it into the password auth code to cut down
+   on diff size. Maybe PAM password auth too?
 
 - Finish integrating kernel-level auditing code for IRIX and SOLARIS
   (Gilbert.r.loomis@saic.com)
@@ -48,12 +47,8 @@ Programming:
 
 - Build an automated test suite
 
-- Verify that It's safe to enable NGROUPS_MAX under NeXTStep for
-  groupaccess features. (mouring@eviladmin.org)
-
 - 64-bit builds on HP-UX 11.X (stevesk@pobox.com):
   - utmp/wtmp get corrupted (something in loginrec?)
-  - no 64-bit vhangup(); ptmx systems shouldn't need this
   - can't build with PAM (no 64-bit libpam yet)
 
 Documentation:
@@ -67,7 +62,7 @@ Documentation:
 - Create a Documentation/ directory?
 
 Clean up configure/makefiles:
-- Clean up configure.in - There are a few double #defined variables
+- Clean up configure.ac - There are a few double #defined variables
   left to do.  HAVE_LOGIN is one of them.  Consider NOT looking for
   information in wtmpx or utmpx or any of that stuff if it's not detected
   from the start
@@ -88,4 +83,4 @@ Packaging:
 - HP-UX: Provide DEPOT package scripts.
   (gilbert.r.loomis@saic.com)
 
-$Id: TODO,v 1.1.1.7 2001/05/03 16:50:58 zarzycki Exp $
+$Id: TODO,v 1.1.1.9 2001/12/01 00:46:40 bbraun Exp $

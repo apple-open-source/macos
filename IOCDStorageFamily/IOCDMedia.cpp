@@ -186,12 +186,6 @@ void IOCDMedia::readCD(IOService *          client,
         return;
     }
 
-    if (_mediaSize < byteStart + buffer->getLength())
-    {
-        complete(completion, kIOReturnBadArgument);
-        return;
-    }
-
     byteStart += _mediaBase;
     getProvider()->readCD( /* client     */ this,
                            /* byteStart  */ byteStart,
@@ -263,6 +257,11 @@ IOReturn IOCDMedia::getSpeed(UInt16 * kilobytesPerSecond)
     // Get the current speed used for data transfers.
     //
     
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
     return getProvider()->getSpeed(kilobytesPerSecond);
 }
 
@@ -276,6 +275,11 @@ IOReturn IOCDMedia::setSpeed(UInt16 kilobytesPerSecond)
     // Set the speed to be used for data transfers.
     //
     
+    if (isInactive())
+    {
+        return kIOReturnNoMedia;
+    }
+
     return getProvider()->setSpeed(kilobytesPerSecond);
 }
 
@@ -283,15 +287,70 @@ OSMetaClassDefineReservedUsed(IOCDMedia, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOCDMedia, 2);
+IOReturn IOCDMedia::readTOC(IOMemoryDescriptor * buffer,
+                            CDTOCFormat          format,
+                            UInt8                formatAsTime,
+                            UInt8                trackOrSessionNumber,
+                            UInt16 *             actualByteCount)
+{
+    if (isInactive())
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnNoMedia;
+    }
+
+    return getProvider()->readTOC(
+                                /* buffer               */ buffer,
+                                /* format               */ format,
+                                /* formatAsTime         */ formatAsTime,
+                                /* trackOrSessionNumber */ trackOrSessionNumber,
+                                /* actualByteCount      */ actualByteCount );
+}
+
+OSMetaClassDefineReservedUsed(IOCDMedia, 2);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOCDMedia, 3);
+IOReturn IOCDMedia::readDiscInfo(IOMemoryDescriptor * buffer,
+                                 UInt16 *             actualByteCount)
+{
+    if (isInactive())
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnNoMedia;
+    }
+
+    return getProvider()->readDiscInfo(
+                                /* buffer               */ buffer,
+                                /* actualByteCount      */ actualByteCount );
+}
+
+OSMetaClassDefineReservedUsed(IOCDMedia, 3);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOCDMedia, 4);
+IOReturn IOCDMedia::readTrackInfo(IOMemoryDescriptor *   buffer,
+                                  UInt32                 address,
+                                  CDTrackInfoAddressType addressType,
+                                  UInt16 *               actualByteCount)
+{
+    if (isInactive())
+    {
+        if (actualByteCount)  *actualByteCount = 0;
+
+        return kIOReturnNoMedia;
+    }
+
+    return getProvider()->readTrackInfo(
+                                /* buffer               */ buffer,
+                                /* address              */ address,
+                                /* addressType          */ addressType,
+                                /* actualByteCount      */ actualByteCount );
+}
+
+OSMetaClassDefineReservedUsed(IOCDMedia, 4);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

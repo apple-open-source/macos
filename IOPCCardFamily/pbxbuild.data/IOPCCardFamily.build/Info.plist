@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.2</string>
+	<string>1.1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.2</string>
+	<string>1.1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -95,6 +95,24 @@
 					</array>
 				</dict>
 				<key>PowerBook3,3</key>
+				<dict>
+					<key>I/O Port Ranges</key>
+					<array>
+						<data>
+						8gAAAPIAj/8=
+						</data>
+						<data>
+						8gCgAPIA//8=
+						</data>
+					</array>
+					<key>Memory Ranges</key>
+					<array>
+						<data>
+						kAAAAJ////8=
+						</data>
+					</array>
+				</dict>
+				<key>PowerBook3,4</key>
 				<dict>
 					<key>I/O Port Ranges</key>
 					<array>

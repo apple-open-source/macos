@@ -1,4 +1,3 @@
-
 SFTP-SERVER(8)              System Manager's Manual             SFTP-SERVER(8)
 
 NAME
@@ -9,14 +8,14 @@ SYNOPSIS
 
 DESCRIPTION
      sftp-server is a program that speaks the server side of SFTP protocol to
-     stdout and expects client requests from stdin.  sftp-server is not inM--
-     tended to be called directly, but from sshd(8) using the Subsystem opM--
-     tion.  See sshd(8) for more information.
+     stdout and expects client requests from stdin.  sftp-server is not
+     intended to be called directly, but from sshd(8) using the Subsystem
+     option.  See sshd(8) for more information.
 
 SEE ALSO
-     sftp(1),  ssh(1),  sshd(8)
+     sftp(1), ssh(1), sshd(8)
 
-     T. Ylonen, and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
+     T. Ylonen and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
      filexfer-00.txt, January 2001, work in progress material.
 
 AUTHORS
@@ -25,4 +24,4 @@ AUTHORS
 HISTORY
      sftp-server first appeared in OpenBSD 2.8 .
 
-BSD Experimental                August 30, 2000                              1
+BSD                             August 30, 2000                            BSD

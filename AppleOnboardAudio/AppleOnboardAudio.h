@@ -32,6 +32,7 @@ enum {
     kNumControls
 };
 
+#define kPowerDownDelayTime 30000000000ULL
 
 class IOAudioControl;
 
@@ -69,12 +70,11 @@ protected:
     bool						gExpertMode;			//when off we are in a OS 9 like config. On we 
     UInt32						fMaxVolume;
     UInt32						fMinVolume;
-	IOInterruptEventSource *	powerMgrIntEventSource;
-	IOAudioDevicePowerState		fOldPowerState;
 	IOAudioDevicePowerState		fNewPowerState;
 	IOAudioDevicePowerState		ourPowerState;
 	Boolean						shuttingDown;
 	IONotifier *				powerHandler;
+	IOTimerEventSource *		idleTimer;
 
             //we keep the engines around to have a cleaner initHardware
     AppleDBDMAAudioDMAEngine 	*driverDMAEngine;
@@ -132,8 +132,6 @@ public:
     static IOReturn inputSelectorChangeHandler(IOService *target, IOAudioControl *inputSelector, SInt32 oldValue, SInt32 newValue);
     virtual IOReturn inputSelectorChanged(IOAudioControl *passThruControl, SInt32 oldValue, SInt32 newValue);
 
-	virtual void GoIdlePower (void);
-	virtual void GoFullPower (void);
     virtual IOReturn performPowerStateChange(IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState,
                                                                                             UInt32 *microsecondsUntilComplete);
 
@@ -161,12 +159,15 @@ protected:
     IOReturn configureAudioInputs(IOService *provider);
     IOReturn configurePowerObject(IOService *provider);
 
-	static void PowerMgrInterruptHandler (OSObject *owner, IOInterruptEventSource *source, int count);
 	static IOReturn sysPowerDownHandler (void * target, void * refCon, UInt32 messageType, IOService * provider, void * messageArgument, vm_size_t argSize);
 
     sndHWDeviceSpec getCurrentDevices();
     void setCurrentDevices(sndHWDeviceSpec devices);
     void changedDeviceHandler(UInt32 odevices);
+
+	static void IdleSleepHandlerTimer (OSObject *owner, IOTimerEventSource *sender);
+	void ScheduleIdle (void);
+
 public:
     virtual void setDeviceDetectionActive() = 0;
     virtual void setDeviceDetectionInActive() = 0;

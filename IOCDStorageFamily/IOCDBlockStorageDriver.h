@@ -187,9 +187,23 @@ public:
 
     OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 1); /* 10.1.0 */
 
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  2);
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  3);
-    OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  4);
+    virtual IOReturn	readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
+                    	        UInt8 formatAsTime,UInt8 trackOrSessionNumber,
+                    	        UInt16 *actualByteCount); 
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 2); /* 10.1.3 */
+
+    virtual IOReturn	readDiscInfo(IOMemoryDescriptor *buffer,
+                    	             UInt16 *actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 3); /* 10.1.3 */
+
+    virtual IOReturn	readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
+                    	              CDTrackInfoAddressType addressType,
+                    	              UInt16 *actualByteCount);
+
+    OSMetaClassDeclareReservedUsed(IOCDBlockStorageDriver, 4); /* 10.1.3 */
+
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  5);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  6);
     OSMetaClassDeclareReservedUnused(IOCDBlockStorageDriver,  7);

@@ -577,7 +577,7 @@ IOSCSIPrimaryCommandsDevice::CheckPowerConditionsModePage ( void )
 	if ( MODE_SENSE_10 ( request,
 						 bufferDesc,
 						 0x00,
-						 0x00,
+						 0x01,	/* Disable block descriptors */
 						 0x00,
 						 kPowerConditionsModePage,
 						 kPowerConditionsModePageSize,

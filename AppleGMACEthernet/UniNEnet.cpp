@@ -1047,12 +1047,14 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 	rxMACStatus = READ_REGISTER( RxMACStatus );
 	ELG( txMACStatus, rxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
 
+#ifdef NOT_NOW
 {
 	UInt32	interruptStatus, rxKick;
-	interruptStatus	= READ_REGISTER( Status );
+	interruptStatus	= READ_REGISTER( StatusAlias );
 	rxKick			= READ_REGISTER( RxKick );
 	ELG( rxKick, interruptStatus, 'rxIS', "timeoutOccurred" );
 }
+#endif // NOT_NOW
 
 
 		/* Update statistics from the GMAC statistics registers:	*/
@@ -1127,16 +1129,14 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
              */
             if ( txRingIndex != txCommandTail )
             {
-                UInt32        interruptStatus, compReg, kickReg;
+                UInt32        intStatus, compReg, kickReg;
  
-				interruptStatus = READ_REGISTER( Status );
-				compReg			= READ_REGISTER( TxCompletion );
-				kickReg			= READ_REGISTER( TxKick );
+				intStatus	= READ_REGISTER( StatusAlias );
+				compReg		= READ_REGISTER( TxCompletion );
+				kickReg		= READ_REGISTER( TxKick );
 
-                IOLog( "Tx Int Timeout - Comp = %04x Kick = %04x Int = %08x\n\r", (int)compReg, (int)kickReg, (int)interruptStatus ); 
+                ALRT( intStatus, kickReg << 16 | compReg, 'Tx--', "UniNEnet::timeoutOccurred - Tx Int Timeout" );
             }
-
-//          dumpRegisters();
 
             transmitInterruptOccurred();
 
@@ -1148,7 +1148,7 @@ void UniNEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
     }
     else
     {
-        txWDCount        = 0;
+        txWDCount = 0;
     }
     
     // Monitor receiver's health.
@@ -1248,15 +1248,18 @@ IOReturn UniNEnet::setPromiscuousMode( bool active )
 
 	reserveDebuggerLock();
 
-	isPromiscuous	= active;
+	fIsPromiscuous = active;
 
-	fRxMACConfiguration	= READ_REGISTER( RxMACConfiguration );
-
-	if ( active )
-		 fRxMACConfiguration |=  kRxMACConfiguration_Promiscuous;
-	else fRxMACConfiguration &= ~kRxMACConfiguration_Promiscuous;
-
-	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
+	if ( enetClockOff == false )
+	{
+		fRxMACConfiguration	= READ_REGISTER( RxMACConfiguration );
+	
+		if ( active )
+			 fRxMACConfiguration |=  kRxMACConfiguration_Promiscuous;
+		else fRxMACConfiguration &= ~kRxMACConfiguration_Promiscuous;
+	
+		WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
+	}
 
 	releaseDebuggerLock();
 

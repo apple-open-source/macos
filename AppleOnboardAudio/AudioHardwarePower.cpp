@@ -602,7 +602,7 @@ IOReturn AudioProj16PowerObject::setHardwarePowerOn(){
 UInt32 AudioProj16PowerObject::GetTimeToChangePowerState (IOAudioDevicePowerState oldPowerState, IOAudioDevicePowerState newPowerState) {
 	UInt32						microSecondsRequired;
 
-	if (kIOAudioDeviceActive == newPowerState && kIOAudioDeviceSleep == oldPowerState) {
+	if (kIOAudioDeviceActive == newPowerState && newPowerState != oldPowerState) {
 		microSecondsRequired = 2000000;
 	} else {
 		microSecondsRequired = 0;

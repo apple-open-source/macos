@@ -1,0 +1,5 @@
+Package: applei2c
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: AppleI2C support
+Version: 1.0.1d3.A
+Build-Depends: build-base, jam, xnu

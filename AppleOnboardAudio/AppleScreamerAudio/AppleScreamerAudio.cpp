@@ -57,16 +57,18 @@
 #include "AudioHardwareMux.h"
 #include "AudioHardwarePower.h"
 
-#include "AppleScreamerAudio.h"
 #include "awacs_hw.h"
+#include "AppleScreamerAudio.h"
 
 #include "AppleDBDMAAudioDMAEngine.h"
-
 
 static void 	Screamer_writeCodecControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value );
 static void 	Screamer_writeSoundControlReg( volatile awacs_regmap_t *ioBaseAwacs, int value );
 static UInt32   Screamer_ReadStatusRegisters( volatile awacs_regmap_t *ioBaseAwacs );
-static int Screamer_readCodecControlReg(volatile awacs_regmap_t *ioBaseAwacs, int regNum);
+static int		Screamer_readCodecControlReg(volatile awacs_regmap_t *ioBaseAwacs, int regNum);
+
+#define	LEFTATTEN(x)				((x & kAWACsOutputLeftAtten) >> kAWACsOutputLeftShift)
+#define RIGHTATTEN(x)				(x & kAWACsOutputRightAtten)
 
 // Not used at the moment, turned off just to kill warning
 
@@ -210,7 +212,7 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
        
    
     codecStatus &= ~kAllSense;
-    gCanPollSatus = true;    
+    gCanPollStatus = true;    
     checkStatus(true);
    
             //create and flush ports, controls
@@ -260,18 +262,18 @@ bool AppleScreamerAudio::initHardware(IOService *provider)
         //Prepare the timer loop --> should go on the workloop
     nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
     addTimerEvent(this, &AppleScreamerAudio::timerCallback, timerInterval);
-    
+    powerState = kIOAudioDeviceActive;
     duringInitialization = false;
     DEBUG_IOLOG("- AppleScreamerAudio::initHardware\n");
     return myreturn;
 }
 
 void AppleScreamerAudio::setDeviceDetectionActive(){
-    gCanPollSatus = true;
+    gCanPollStatus = true;
 }
     
 void AppleScreamerAudio::setDeviceDetectionInActive(){
-    gCanPollSatus = false;
+    gCanPollStatus = false;
 }
 
         //IOAudio subclasses
@@ -292,7 +294,7 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
     chipInformation.preRecalDelay = kPreRecalDelayCrystal;      // assume Crystal for recalibrate (safest)
     chipInformation.rampDelay = kRampDelayNational;		// assume National for ramping (safest)
     
-    soundControlRegister = ( kInSubFrame0  |kOutSubFrame0 | kHWRate44100);
+    soundControlRegister = ( kInSubFrame0 | kOutSubFrame0 | kHWRate44100);
     Screamer_writeSoundControlReg( ioBase, soundControlRegister);
 
     codecControlRegister[0] = kCodecCtlAddress0 | kCodecCtlEMSelect0;
@@ -300,10 +302,10 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
     codecControlRegister[2] = kCodecCtlAddress2 | kCodecCtlEMSelect0;
     codecControlRegister[4] = kCodecCtlAddress4 | kCodecCtlEMSelect0;
     
-    Screamer_writeCodecControlReg(  ioBase, codecControlRegister[0] );
-    Screamer_writeCodecControlReg(  ioBase, codecControlRegister[1] );
-    Screamer_writeCodecControlReg(  ioBase, codecControlRegister[2] );
-    Screamer_writeCodecControlReg(  ioBase, codecControlRegister[4] );
+    Screamer_writeCodecControlReg( ioBase, codecControlRegister[0] );
+    Screamer_writeCodecControlReg( ioBase, codecControlRegister[1] );
+    Screamer_writeCodecControlReg( ioBase, codecControlRegister[2] );
+    Screamer_writeCodecControlReg( ioBase, codecControlRegister[4] );
     
     if ( chipInformation.awacsVersion > kAWACsAwacsRevision ) {
         codecControlRegister[5] = kCodecCtlAddress5 | kCodecCtlEMSelect0;
@@ -334,8 +336,6 @@ void AppleScreamerAudio::sndHWInitialize(IOService *provider)
         //input objects
     codecControlRegister[0] |= (kUnusedInput | kDefaultMicGain);
 
-    
-   
         //we should add the Screamer info
     DEBUG_IOLOG("- AppleScreamerAudio::sndHWInitialize\n");
 }
@@ -359,9 +359,9 @@ void AppleScreamerAudio::checkStatus(bool force) {
     UInt32 newCodecStatus, inSense, extdevices;
     AudioHardwareDetect *theDetect;
     OSArray *AudioDetects;
-        
+
 //    DEBUG_IOLOG("+ AppleScreamerAudio::checkStatus\n");        
-    if(false == gCanPollSatus)
+    if(false == gCanPollStatus)
         return;
     
     newCodecStatus = Screamer_ReadStatusRegisters(ioBase);
@@ -373,19 +373,21 @@ void AppleScreamerAudio::checkStatus(bool force) {
         codecStatus = newCodecStatus;
         extdevices = 0;
         inSense = sndHWGetInSenseBits();
-            
-        AudioDetects = super::getDetectArray();
+
+        AudioDetects = getDetectArray();
         if(AudioDetects) {
             for(i = 0; i < AudioDetects->getCount(); i++) {
                 theDetect = OSDynamicCast(AudioHardwareDetect, AudioDetects->getObject(i));
-                if (theDetect) extdevices |= theDetect->refreshDevices(inSense);
+                if (theDetect) {
+					extdevices |= theDetect->refreshDevices(inSense);
+				}
             }
-            super::setCurrentDevices(extdevices);
+            setCurrentDevices(extdevices);
         } else {
-            DEBUG_IOLOG("I didn;t get the array\n");
+            DEBUG_IOLOG("I didn't get the array\n");
         }
         
-           }
+		}
   //  DEBUG_IOLOG("- AppleScreamerAudio::checkStatus\n");
 }
 
@@ -820,6 +822,42 @@ void AppleScreamerAudio::GC_Recalibrate()
     DEBUG_IOLOG("- AppleScreamerAudio::GC_Recalibrate\n");
 }
 
+/*
+void AppleScreamerAudio::GC_Recalibrate () {
+	UInt32					awacsReg;
+	UInt32					saveReg;
+	UInt32					codecStatus;
+	UInt32					partReady;
+	UInt32					loopCount;
+
+	debugIOLog ("+ AppleScreamerAudio::GC_Recalibrate\n");
+
+	IOSleep (kPreRecalDelayCrystal); 		// This recalibrate delay is a hack for some broken Crystal parts
+
+	awacsReg = sndHWGetRegister (kAWACsRecalibrateReg);
+	saveReg = awacsReg;
+
+	awacsReg |= (kMuteInternalSpeaker | kMuteHeadphone); //mute the outputs
+	awacsReg |= kAWACsRecalibrate;			 //set the recalibrate bits
+
+	sndHWSetRegister (kAWACsRecalibrateReg, awacsReg);
+
+	// Wait for the part to become ready after recalibrating...
+	loopCount = 0;
+	do {
+		loopCount++;
+		IOSleep (1);
+		codecStatus = Screamer_ReadStatusRegisters (ioBase);
+		partReady = codecStatus & 1 << 22;
+	} while (loopCount < 1000 && !partReady);
+	debug2IOLog ("loopCount = %ld\n", loopCount);
+//	IOSleep (1000 - loopCount);
+
+	sndHWSetRegister (kAWACsRecalibrateReg, saveReg);
+	debugIOLog ("- AppleScreamerAudio::GC_Recalibrate\n");
+}
+*/
+
 void AppleScreamerAudio::restoreSndHWRegisters( void )
 {
         Screamer_writeCodecControlReg(  ioBase, codecControlRegister[0] );
@@ -833,9 +871,26 @@ void AppleScreamerAudio::restoreSndHWRegisters( void )
 }
 
 
+void AppleScreamerAudio::InitializeShadowRegisters(void){
+    UInt32 regNumber;
+    
+    switch(chipInformation.partType) {
+        case kSndHWTypeScreamer:
+            codecControlRegister[kMaxSndHWRegisters] = 0;
+            for (regNumber = 0; regNumber < kMaxSndHWRegisters-1; regNumber++)
+                codecControlRegister[regNumber] = Screamer_readCodecControlReg(ioBase,regNumber);
+            break;
+        case kSndHWTypeAWACs:
+            for (regNumber = 0; regNumber < kMaxSndHWRegisters; regNumber++)
+                    codecControlRegister[regNumber] = 0;
+            break;
+    }
+
+}
+
+
 void AppleScreamerAudio::setAWACsPowerState( IOAudioDevicePowerState state )
 {
-    
     switch (state){
         case kIOAudioDeviceActive : 
             restoreSndHWRegisters();
@@ -848,24 +903,204 @@ void AppleScreamerAudio::setAWACsPowerState( IOAudioDevicePowerState state )
     }
 }
 
-void AppleScreamerAudio::setScreamerPowerState(IOAudioDevicePowerState state) {
-    setAWACsPowerState(state);  //we should do better !!!
+IOAudioDevicePowerState AppleScreamerAudio::SndHWGetPowerState( void )
+{
+	return powerState;							// return the cached copy, since part might not have power
 }
 
+void AppleScreamerAudio::setScreamerPowerState(IOAudioDevicePowerState state) {
+	IOAudioDevicePowerState			curState;
 
-void AppleScreamerAudio::InitializeShadowRegisters(void){
-    UInt32 regNumber;
-    
-    switch(chipInformation.partType) {
-        case kSndHWTypeScreamer:
-            codecControlRegister[kMaxSndHWRegisters] = 0;
-            for (regNumber = 0; regNumber < kMaxSndHWRegisters-1; regNumber++)
-                codecControlRegister[regNumber] = Screamer_readCodecControlReg(ioBase,regNumber);;
-            break;
-        case kSndHWTypeAWACs:
-            for (regNumber = 0; regNumber < kMaxSndHWRegisters; regNumber++)
-                    codecControlRegister[regNumber] = 0;
-            break;
-    }
+	curState = SndHWGetPowerState ();
 
+	debug3IOLog ("[AppleScreamerAudio] going to power state %d from %d\n", state, curState);
+	switch (state) {
+		case kIOAudioDeviceActive:
+			GoRunState(curState);
+			break;
+		case kIOAudioDeviceIdle:
+			break;
+		case kIOAudioDeviceSleep:
+			GoSleepState(curState);
+			break;
+		default:
+			FailMessage("Invalid set power state");
+			break;
+	}
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Take the part from the curState into the run state.
+// 	
+// 	From SLEEP to RUN:
+//		Indicate that recalibrate should actually happen next time
+// 		Wait up to 583 ms for sndHW ready
+// 		Restore complete contents of registers 0, 2, 4, and 5
+// 		Restore register 1 except for mute bits
+// 		Restore register 6 except for state bits
+// 		Mute both outputs
+// 		Set state bits to RUN
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+//		Recalibrate if necessary
+// 		Restore DMA to previous state
+// 		Enable port change interrupts
+// 		Restore muting on both outputs
+// 		Remember state is RUN
+// 	
+// 	From IDLE to RUN:
+// 		Mute both outputs
+// 		Set state bits to RUN
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+//		Recalibrate if necessary
+// 		Enable port change interrupts
+// 		Restore muting on both outputs
+// 		Remember state is RUN
+// 	
+// 	From DOZE to RUN:
+// 		Mute both outputs
+// 		Set state bits to RUN
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+// 		Restore muting on both outputs
+// 		Remember state is RUN
+void AppleScreamerAudio::GoRunState( IOAudioDevicePowerState curState )
+{
+	Boolean						detectsActive;
+
+	switch (curState) {
+		case kIOAudioDeviceSleep :							// Sleep -> Run
+			recalibrateNecessary = true;					// after powering-up, need to recalibrate
+		case kIOAudioDeviceIdle : 							// Idle -> Run
+			restoreSndHWRegisters ();
+			SetStateBits (kScreamerRunState1, kIdleRunDelay);// Clear both idle and doze bits
+			GC_Recalibrate ();								// recalibrate if necessary
+			detectsActive = gCanPollStatus;
+			gCanPollStatus = TRUE;
+			checkStatus (TRUE);
+			sndHWSetSystemMute (mIsMute);					// restore muting from run state
+			gCanPollStatus = detectsActive;
+			break;
+		case kIOAudioDeviceActive :							// Run -> Run
+			break;
+		default :
+			FailMessage("Invalid curState in GoRunState");
+			break;
+	}
+	powerState = kIOAudioDeviceActive;						// Set state global to run
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Take the part from the curState into the idle state.
+// 	
+// 	From SLEEP to IDLE:
+//		Indicate that recalibrate should actually happen next time
+// 		Wait up to 583 ms for sndHW ready
+// 		Restore complete contents of registers 0, 2, 4, and 5
+// 		Restore register 1 except for mute bits
+// 		Restore register 6 except for state bits
+// 		Remember state is IDLE
+// 	
+// 	From DOZE to IDLE:
+// 		Disable port change interrupts
+// 		Mute both outputs
+// 		Set state bits to IDLE
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+// 		Remember state is IDLE
+// 	
+// 	From RUN to IDLE:
+// 		Disable port change interrupts
+// 		Mute both outputs
+// 		Set state bits to IDLE
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+// 		Remember state is IDLE
+void AppleScreamerAudio::GoIdleState( IOAudioDevicePowerState curState )
+{
+	switch (curState) {
+		case kIOAudioDeviceSleep :							// Sleep -> Idle
+			recalibrateNecessary = true;					// after powering-up, need to recalibrate
+		case kIOAudioDeviceIdle :							// Idle -> Idle
+			break;
+		case kIOAudioDeviceActive :							// Run -> Idle
+			SetStateBits(kScreamerIdleState, kIdleRunDelay);// Set idle, clear doze
+			break;
+		default :
+			FailMessage("Invalid curState in GoIdleState");
+			break;
+	}
+	powerState = kIOAudioDeviceIdle;						// Set state global to idle
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Take the part from the curState into the sleep state.
+//	I know this can be "optimized" by utilizing the case statements falling
+//	through. It is more clear and readable the way it is, please leave it.
+//
+// 	From IDLE to SLEEP:
+// 		Disable port change interrupts
+//		Do necessary steps to power down part quietly (currently nothing)
+// 		Remember state is SLEEP
+// 	
+// 	From DOZE to SLEEP:
+// 		Mute both outputs
+// 		Set state bits to IDLE
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+// 		Disable port change interrupts
+//		Do necessary steps to power down part quietly (currently nothing)
+// 		Remember state is SLEEP
+// 	
+// 	From RUN to SLEEP:
+// 		Save current DMA state for restore on wake
+// 		Mute both outputs
+// 		Set state bits to IDLE
+// 		Wait for 5 ms
+// 		Wait up to 583 ms for sndHW ready
+// 		Disable port change interrupts
+//		Do necessary steps to power down part quietly (currently nothing)
+// 		Remember state is SLEEP
+void AppleScreamerAudio::GoSleepState( IOAudioDevicePowerState curState )
+{
+	switch (curState) {
+		case kIOAudioDeviceSleep :							// Sleep -> Sleep
+			break;
+		case kIOAudioDeviceIdle : 							// Idle -> Sleep
+			break;
+		case kIOAudioDeviceActive :							// Run -> Sleep
+			SetStateBits(kScreamerIdleState, kIdleRunDelay);// Set idle, clear doze
+			setCurrentDevices(0);
+			break;
+		default :
+			FailMessage("Invalid curState in GoSleepState");
+			break;
+	}
+	powerState = kIOAudioDeviceSleep;						// Set state global to sleep
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	Mute all outputs and set the state bits. At the end, restore the global mute
+//	state to the proper user-selected state.
+void AppleScreamerAudio::SetStateBits( UInt32 stateBits, UInt32 delay )
+{
+	UInt32		tempReg;
+	Boolean		localMuted;
+
+	FailMessage((stateBits & kScreamerStateField) != stateBits);
+
+	localMuted = sndHWGetSystemMute();							// we'll want to restore this after muting
+	sndHWSetSystemMute(true);									// Mute all outputs
+
+	tempReg = sndHWGetRegister(kAWACsPowerReg);					// Get current state
+	tempReg &= ~kScreamerStateField;							// Clear Idle and Doze bits
+	tempReg |= (stateBits & kScreamerStateField);				// Or in the state bits
+
+	IOSleep (delay);
+	sndHWSetRegister (kAWACsPowerReg, tempReg);
+
+	mIsMute = localMuted;										// restore actual mute state
+
+	return;
 }

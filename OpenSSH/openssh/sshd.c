@@ -40,7 +40,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshd.c,v 1.195 2001/04/15 16:58:03 markus Exp $");
+RCSID("$OpenBSD: sshd.c,v 1.209 2001/11/10 13:19:45 markus Exp $");
 
 #include <openssl/dh.h>
 #include <openssl/bn.h>
@@ -71,6 +71,7 @@ RCSID("$OpenBSD: sshd.c,v 1.195 2001/04/15 16:58:03 markus Exp $");
 #include "auth.h"
 #include "misc.h"
 #include "dispatch.h"
+#include "channels.h"
 
 #ifdef LIBWRAP
 #include <tcpd.h>
@@ -112,6 +113,9 @@ int IPv4or6 = AF_UNSPEC;
  * the first connection.
  */
 int debug_flag = 0;
+
+/* Flag indicating that the daemon should only test the configuration and keys. */
+int test_flag = 0;
 
 /* Flag indicating that the daemon is being started from inetd. */
 int inetd_flag = 0;
@@ -167,8 +171,9 @@ struct {
  */
 int key_do_regen = 0;
 
-/* This is set to true when SIGHUP is received. */
+/* This is set to true when a signal is received. */
 int received_sighup = 0;
+int received_sigterm = 0;
 
 /* session identifier, used by RSA-auth */
 u_char session_id[16];
@@ -181,16 +186,15 @@ int session_id2_len = 0;
 u_int utmp_len = MAXHOSTNAMELEN;
 
 /* Prototypes for various functions defined later in this file. */
-void do_ssh1_kex(void);
-void do_ssh2_kex(void);
+void destroy_sensitive_data(void);
 
-void ssh_dh1_server(Kex *, Buffer *_kexinit, Buffer *);
-void ssh_dhgex_server(Kex *, Buffer *_kexinit, Buffer *);
+static void do_ssh1_kex(void);
+static void do_ssh2_kex(void);
 
 /*
  * Close all listening sockets
  */
-void
+static void
 close_listen_socks(void)
 {
 	int i;
@@ -204,7 +208,7 @@ close_listen_socks(void)
  * the effect is to reread the configuration file (and to regenerate
  * the server key).
  */
-void
+static void
 sighup_handler(int sig)
 {
 	received_sighup = 1;
@@ -215,7 +219,7 @@ sighup_handler(int sig)
  * Called from the main program after receiving SIGHUP.
  * Restarts the server.
  */
-void
+static void
 sighup_restart(void)
 {
 	log("Received SIGHUP; restarting.");
@@ -227,23 +231,18 @@ sighup_restart(void)
 
 /*
  * Generic signal handler for terminating signals in the master daemon.
- * These close the listen socket; not closing it seems to cause "Address
- * already in use" problems on some machines, which is inconvenient.
  */
-void
+static void
 sigterm_handler(int sig)
 {
-	log("Received signal %d; terminating.", sig);
-	close_listen_socks();
-	unlink(options.pid_file);
-	exit(255);
+	received_sigterm = sig;
 }
 
 /*
  * SIGCHLD handler.  This is called whenever a child dies.  This will then
- * reap any zombies left by exited c.
+ * reap any zombies left by exited children.
  */
-void
+static void
 main_sigchld_handler(int sig)
 {
 	int save_errno = errno;
@@ -259,9 +258,11 @@ main_sigchld_handler(int sig)
 /*
  * Signal handler for the alarm after the login grace period has expired.
  */
-void
+static void
 grace_alarm_handler(int sig)
 {
+	/* XXX no idea how fix this signal handler */
+
 	/* Close the connection. */
 	packet_close();
 
@@ -276,7 +277,7 @@ grace_alarm_handler(int sig)
  * Thus there should be no concurrency control/asynchronous execution
  * problems.
  */
-void
+static void
 generate_ephemeral_server_key(void)
 {
 	u_int32_t rand = 0;
@@ -299,7 +300,7 @@ generate_ephemeral_server_key(void)
 	arc4random_stir();
 }
 
-void
+static void
 key_regeneration_alarm(int sig)
 {
 	int save_errno = errno;
@@ -308,7 +309,7 @@ key_regeneration_alarm(int sig)
 	key_do_regen = 1;
 }
 
-void
+static void
 sshd_exchange_identification(int sock_in, int sock_out)
 {
 	int i, mismatch;
@@ -336,7 +337,7 @@ sshd_exchange_identification(int sock_in, int sock_out)
 		/* Send our protocol version identification. */
 		if (atomicio(write, sock_out, server_version_string, strlen(server_version_string))
 		    != strlen(server_version_string)) {
-			log("Could not write ident string to %s.", get_remote_ipaddr());
+			log("Could not write ident string to %s", get_remote_ipaddr());
 			fatal_cleanup();
 		}
 
@@ -344,7 +345,7 @@ sshd_exchange_identification(int sock_in, int sock_out)
 		memset(buf, 0, sizeof(buf));
 		for (i = 0; i < sizeof(buf) - 1; i++) {
 			if (atomicio(read, sock_in, &buf[i], 1) != 1) {
-				log("Did not receive identification string from %s.",
+				log("Did not receive identification string from %s",
 				    get_remote_ipaddr());
 				fatal_cleanup();
 			}
@@ -435,8 +436,6 @@ sshd_exchange_identification(int sock_in, int sock_out)
 		    server_version_string, client_version_string);
 		fatal_cleanup();
 	}
-	if (compat20)
-		packet_set_ssh2_format();
 }
 
 
@@ -460,7 +459,7 @@ destroy_sensitive_data(void)
 	memset(sensitive_data.ssh1_cookie, 0, SSH_SESSION_KEY_LENGTH);
 }
 
-char *
+static char *
 list_hostkey_types(void)
 {
 	static char buf[1024];
@@ -485,7 +484,7 @@ list_hostkey_types(void)
 	return buf;
 }
 
-Key *
+static Key *
 get_hostkey_by_type(int type)
 {
 	int i;
@@ -503,7 +502,7 @@ get_hostkey_by_type(int type)
  * of (max_startups_rate/100). the probability increases linearly until
  * all connections are dropped for startups > max_startups
  */
-int
+static int
 drop_connection(int startups)
 {
 	double p, r;
@@ -565,7 +564,7 @@ main(int ac, char **av)
 	initialize_server_options(&options);
 
 	/* Parse command-line arguments. */
-	while ((opt = getopt(ac, av, "f:p:b:k:h:g:V:u:dDeiqQ46")) != -1) {
+	while ((opt = getopt(ac, av, "f:p:b:k:h:g:V:u:dDeiqtQ46")) != -1) {
 		switch (opt) {
 		case '4':
 			IPv4or6 = AF_INET;
@@ -618,10 +617,16 @@ main(int ac, char **av)
 			}
 			break;
 		case 'g':
-			options.login_grace_time = atoi(optarg);
+			if ((options.login_grace_time = convtime(optarg)) == -1) {
+				fprintf(stderr, "Invalid login grace time.\n");
+				exit(1);
+			}
 			break;
 		case 'k':
-			options.key_regeneration_time = atoi(optarg);
+			if ((options.key_regeneration_time = convtime(optarg)) == -1) {
+				fprintf(stderr, "Invalid key regeneration interval.\n");
+				exit(1);
+			}
 			break;
 		case 'h':
 			if (options.num_host_key_files >= MAX_HOSTKEYS) {
@@ -635,6 +640,9 @@ main(int ac, char **av)
 			/* only makes sense with inetd_flag, i.e. no listen() */
 			inetd_flag = 1;
 			break;
+		case 't':
+			test_flag = 1;
+			break;
 		case 'u':
 			utmp_len = atoi(optarg);
 			break;
@@ -647,6 +655,7 @@ main(int ac, char **av)
 			fprintf(stderr, "  -d         Debugging mode (multiple -d means more debugging)\n");
 			fprintf(stderr, "  -i         Started from inetd\n");
 			fprintf(stderr, "  -D         Do not fork into daemon mode\n");
+			fprintf(stderr, "  -t         Only test configuration file and keys\n");
 			fprintf(stderr, "  -q         Quiet (no logging)\n");
 			fprintf(stderr, "  -p port    Listen on the specified port (default: 22)\n");
 			fprintf(stderr, "  -k seconds Regenerate server key every this many seconds (default: 3600)\n");
@@ -661,6 +670,7 @@ main(int ac, char **av)
 		}
 	}
 	SSLeay_add_all_algorithms();
+	channel_set_af(IPv4or6);
 
 	/*
 	 * Force logging to stderr until we have loaded the private host
@@ -670,6 +680,13 @@ main(int ac, char **av)
 	    options.log_level == -1 ? SYSLOG_LEVEL_INFO : options.log_level,
 	    options.log_facility == -1 ? SYSLOG_FACILITY_AUTH : options.log_facility,
 	    !inetd_flag);
+
+#ifdef _CRAY
+	/* Cray can define user privs drop all prives now!
+	 * Not needed on PRIV_SU systems!
+	 */
+	drop_cray_privs();
+#endif
 
 	seed_rng();
 
@@ -753,6 +770,10 @@ main(int ac, char **av)
 			    options.server_key_bits);
 		}
 	}
+
+	/* Configuration looks good, so exit if in test mode. */
+	if (test_flag)
+		exit(0);
 
 #ifdef HAVE_SCO_PROTECTED_PW
 	(void) set_auth_parameters(ac, av);
@@ -875,6 +896,22 @@ main(int ac, char **av)
 		if (!num_listen_socks)
 			fatal("Cannot bind any address.");
 
+		if (options.protocol & SSH_PROTO_1)
+			generate_ephemeral_server_key();
+
+		/*
+		 * Arrange to restart on SIGHUP.  The handler needs
+		 * listen_sock.
+		 */
+		signal(SIGHUP, sighup_handler);
+
+		signal(SIGTERM, sigterm_handler);
+		signal(SIGQUIT, sigterm_handler);
+
+		/* Arrange SIGCHLD to be caught. */
+		signal(SIGCHLD, main_sigchld_handler);
+
+		/* Write out the pid file after the sigterm handler is setup */
 		if (!debug_flag) {
 			/*
 			 * Record our pid in /var/run/sshd.pid to make it
@@ -889,17 +926,6 @@ main(int ac, char **av)
 				fclose(f);
 			}
 		}
-		if (options.protocol & SSH_PROTO_1)
-			generate_ephemeral_server_key();
-
-		/* Arrange to restart on SIGHUP.  The handler needs listen_sock. */
-		signal(SIGHUP, sighup_handler);
-
-		signal(SIGTERM, sigterm_handler);
-		signal(SIGQUIT, sigterm_handler);
-
-		/* Arrange SIGCHLD to be caught. */
-		signal(SIGCHLD, main_sigchld_handler);
 
 		/* setup fd set for listen */
 		fdset = NULL;
@@ -935,6 +961,13 @@ main(int ac, char **av)
 			ret = select(maxfd+1, fdset, NULL, NULL, NULL);
 			if (ret < 0 && errno != EINTR)
 				error("select: %.100s", strerror(errno));
+			if (received_sigterm) {
+				log("Received signal %d; terminating.",
+				    received_sigterm);
+				close_listen_socks();
+				unlink(options.pid_file);
+				exit(255);
+			}
 			if (key_used && key_do_regen) {
 				generate_ephemeral_server_key();
 				key_used = 0;
@@ -1101,23 +1134,23 @@ main(int ac, char **av)
 	remote_port = get_remote_port();
 	remote_ip = get_remote_ipaddr();
 
-	/* Check whether logins are denied from this host. */
 #ifdef LIBWRAP
-	/* XXX LIBWRAP noes not know about IPv6 */
+	/* Check whether logins are denied from this host. */
 	{
 		struct request_info req;
 
-		request_init(&req, RQ_DAEMON, __progname, RQ_FILE, sock_in, NULL);
+		request_init(&req, RQ_DAEMON, __progname, RQ_FILE, sock_in, 0);
 		fromhost(&req);
 
 		if (!hosts_access(&req)) {
+			debug("Connection refused by tcp wrapper");
 			refuse(&req);
-			close(sock_in);
-			close(sock_out);
+			/* NOTREACHED */
+			fatal("libwrap refuse returns");
 		}
-/*XXX IPv6 verbose("Connection from %.500s port %d", eval_client(&req), remote_port); */
 	}
 #endif /* LIBWRAP */
+
 	/* Log the connection. */
 	verbose("Connection from %.500s port %d", remote_ip, remote_port);
 
@@ -1144,16 +1177,16 @@ main(int ac, char **av)
 	if (remote_port >= IPPORT_RESERVED ||
 	    remote_port < IPPORT_RESERVED / 2) {
 		debug("Rhosts Authentication disabled, "
-		    "originating port not trusted.");
+		    "originating port %d not trusted.", remote_port);
 		options.rhosts_authentication = 0;
 	}
-#ifdef KRB4
+#if defined(KRB4) && !defined(KRB5)
 	if (!packet_connection_is_ipv4() &&
 	    options.kerberos_authentication) {
 		debug("Kerberos Authentication disabled, only available for IPv4.");
 		options.kerberos_authentication = 0;
 	}
-#endif /* KRB4 */
+#endif /* KRB4 && !KRB5 */
 #ifdef AFS
 	/* If machine has AFS, set process authentication group. */
 	if (k_hasafs()) {
@@ -1173,13 +1206,6 @@ main(int ac, char **av)
 		do_ssh1_kex();
 		do_authentication();
 	}
-
-#ifdef KRB4
-	/* Cleanup user's ticket cache file. */
-	if (options.kerberos_ticket_cleanup)
-		(void) dest_tkt();
-#endif /* KRB4 */
-
 	/* The connection has been terminated. */
 	verbose("Closing connection to %.100s", remote_ip);
 
@@ -1194,7 +1220,7 @@ main(int ac, char **av)
 /*
  * SSH1 key exchange
  */
-void
+static void
 do_ssh1_kex(void)
 {
 	int i, len;
@@ -1255,17 +1281,19 @@ do_ssh1_kex(void)
 		auth_mask |= 1 << SSH_AUTH_RHOSTS_RSA;
 	if (options.rsa_authentication)
 		auth_mask |= 1 << SSH_AUTH_RSA;
-#ifdef KRB4
+#if defined(KRB4) || defined(KRB5)
 	if (options.kerberos_authentication)
 		auth_mask |= 1 << SSH_AUTH_KERBEROS;
 #endif
-#ifdef AFS
+#if defined(AFS) || defined(KRB5)
 	if (options.kerberos_tgt_passing)
 		auth_mask |= 1 << SSH_PASS_KERBEROS_TGT;
+#endif
+#ifdef AFS
 	if (options.afs_token_passing)
 		auth_mask |= 1 << SSH_PASS_AFS_TOKEN;
 #endif
-	if (options.challenge_reponse_authentication == 1)
+	if (options.challenge_response_authentication == 1)
 		auth_mask |= 1 << SSH_AUTH_TIS;
 	if (options.password_authentication)
 		auth_mask |= 1 << SSH_AUTH_PASSWORD;
@@ -1415,7 +1443,7 @@ do_ssh1_kex(void)
 /*
  * SSH2 key exchange: diffie-hellman-group1-sha1
  */
-void
+static void
 do_ssh2_kex(void)
 {
 	Kex *kex;

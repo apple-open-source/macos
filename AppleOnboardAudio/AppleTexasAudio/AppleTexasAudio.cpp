@@ -42,7 +42,7 @@
 #include "AppleTexasEQPrefs.cpp"
 
 #define super AppleOnboardAudio
-#define durationMillisecond 1000	// number of microseconds in a millisecond
+//#define durationMillisecond 1000	// number of microseconds in a millisecond
 
 OSDefineMetaClassAndStructors(AppleTexasAudio, AppleOnboardAudio)
 
@@ -103,6 +103,7 @@ void AppleTexasAudio::free()
 			workLoop->removeEventSource (notifierHandlerTimer);
 	}
 
+	publishResource (gAppleAudioVideoJackStateKey, NULL);
 	CLEAN_RELEASE(headphoneIntEventSource);
 	CLEAN_RELEASE(dallasIntEventSource);
 
@@ -569,10 +570,10 @@ void AppleTexasAudio::sndHWPostDMAEngineInit (IOService *provider) {
 	}
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
 		if (TRUE == hasVideo) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, headphonesConnected ? kOSBooleanTrue : kOSBooleanFalse);
+			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
 		}
 		if (NULL != dallasIntProvider) {
 			// Set the correct EQ
@@ -597,8 +598,7 @@ Exit:
 	return;
 }
 
-UInt32	AppleTexasAudio::sndHWGetInSenseBits(
-	void)
+UInt32	AppleTexasAudio::sndHWGetInSenseBits(void)
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWGetInSenseBits\n");
 	DEBUG_IOLOG("- AppleTexasAudio::sndHWGetInSenseBits\n");
@@ -606,8 +606,7 @@ UInt32	AppleTexasAudio::sndHWGetInSenseBits(
 }
 
 // we can't read the registers back, so return the value in the shadow reg.
-UInt32	AppleTexasAudio::sndHWGetRegister(
-	UInt32 regNum)
+UInt32	AppleTexasAudio::sndHWGetRegister(UInt32 regNum)
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWGetRegister\n");
 	
@@ -617,9 +616,7 @@ UInt32	AppleTexasAudio::sndHWGetRegister(
 }
 
 // set the reg over i2c and make sure the value is cached in the shadow reg so we can "get it back"
-IOReturn  AppleTexasAudio::sndHWSetRegister(
-	UInt32 regNum, 
-	UInt32 val)
+IOReturn  AppleTexasAudio::sndHWSetRegister(UInt32 regNum, UInt32 val)
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWSetRegister\n");
 	IOReturn myReturn = kIOReturnSuccess;
@@ -631,16 +628,14 @@ IOReturn  AppleTexasAudio::sndHWSetRegister(
 /************************** Manipulation of input and outputs ***********************/
 /********(These functions are enough to implement the simple UI policy)**************/
 
-UInt32	AppleTexasAudio::sndHWGetActiveOutputExclusive(
-	void)
+UInt32	AppleTexasAudio::sndHWGetActiveOutputExclusive(void)
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWGetActiveOutputExclusive\n");
 	DEBUG_IOLOG("- AppleTexasAudio::sndHWGetActiveOutputExclusive\n");
 	return 0;
 }
 
-IOReturn   AppleTexasAudio::sndHWSetActiveOutputExclusive(
-	UInt32 outputPort )
+IOReturn   AppleTexasAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWSetActiveOutputExclusive\n");
 
@@ -650,16 +645,14 @@ IOReturn   AppleTexasAudio::sndHWSetActiveOutputExclusive(
 	return(myReturn);
 }
 
-UInt32	AppleTexasAudio::sndHWGetActiveInputExclusive(
-	void)
+UInt32	AppleTexasAudio::sndHWGetActiveInputExclusive(void)
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWGetActiveInputExclusive\n");
 	DEBUG_IOLOG("- AppleTexasAudio::sndHWGetActiveInputExclusive\n");
 	return 0;
 }
 
-IOReturn   AppleTexasAudio::sndHWSetActiveInputExclusive(
-	UInt32 input )
+IOReturn   AppleTexasAudio::sndHWSetActiveInputExclusive(UInt32 input )
 {
 	DEBUG_IOLOG("+ AppleTexasAudio::sndHWSetActiveInputExclusive\n");
 
@@ -887,17 +880,100 @@ IOReturn AppleTexasAudio::sndHWSetPowerState (IOAudioDevicePowerState theState) 
 	result = kIOReturnSuccess;
 	switch (theState) {
 		case kIOAudioDeviceActive:
-			result = performDeviceWake ();
+			if (kIOAudioDeviceIdle == previousPowerState) {
+				result = performDeviceIdleWake ();
+			} else {
+				result = performDeviceWake ();
+			}
 			completePowerStateChange ();
 			break;
 		case kIOAudioDeviceIdle:
+			result = performDeviceIdleSleep ();
+			break;
 		case kIOAudioDeviceSleep:
 			result = performDeviceSleep ();
 			break;
 	}
+	previousPowerState = theState;
 
 	debugIOLog ("- AppleTexasAudio::sndHWSetPowerState\n");
 	return result;
+}
+
+IOReturn AppleTexasAudio::performDeviceIdleSleep () {
+    IOService *							keyLargo;
+
+	debugIOLog ("+ AppleTexasAudio::performDeviceIdleSleep\n");
+
+	keyLargo = NULL;
+
+	// Mute the amps to avoid pops and clicks...
+	SetActiveOutput (kSndHWOutputNone, kBiquadUntouched);
+
+	// ...then hold the RESET line...
+	GpioWrite (hwResetGpio, ASSERT_GPIO (hwResetActiveState));
+
+	// ...wait for the part to settle...
+	IODelay (100);
+
+    keyLargo = IOService::waitForService (IOService::serviceMatching ("KeyLargo"));
+    
+    if (NULL != keyLargo) {
+		// ...and turn off the i2s clocks...
+		keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)false, (void *)0, 0, 0);
+	}
+
+	debugIOLog ("- AppleTexasAudio::performDeviceIdleSleep\n");
+	return kIOReturnSuccess;
+}
+	
+IOReturn AppleTexasAudio::performDeviceIdleWake () {
+    IOService *							keyLargo;
+	IOReturn							err;
+
+	debugIOLog ("+ AppleTexasAudio::performDeviceIdleWake\n");
+
+	keyLargo = NULL;
+    keyLargo = IOService::waitForService (IOService::serviceMatching ("KeyLargo"));
+    
+    if (NULL != keyLargo) {
+		// Turn on the i2s clocks...
+		keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)true, (void *)0, 0, 0);
+	}
+
+	// ...wait for the clocks to settle...
+	IODelay (100);	
+
+	// ...and then release the RESET line...
+	GpioWrite (hwResetGpio, NEGATE_GPIO (hwResetActiveState));
+
+	// ...wait for the part to wake up...
+	IOSleep (10);
+
+	// ...then bring everything back up the way it should be.
+	err = TAS3001C_Initialize (kFORCE_RESET_SETUP_TIME);			//	reset the TAS3001C and flush the shadow contents to the HW
+
+	if (FALSE == IsHeadphoneConnected ()) {
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		if (TRUE == hasVideo && FALSE != headphonesConnected) {
+			// Tell the video driver about the jack state change in case a video connector was plugged in
+			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
+		}
+		if (NULL != dallasIntProvider) {
+			// Set the correct EQ
+			dallasInterruptHandler (this, 0, 0);
+		} else {
+			DeviceInterruptService ();
+		}
+	} else {
+		if (NULL != headphoneIntProvider) {
+			// Set amp mutes accordingly
+			RealHeadphoneInterruptHandler (0, 0);
+		}
+	}
+
+	debugIOLog ("- AppleTexasAudio::performDeviceIdleWake\n");
+	return err;
 }
 
 IOReturn AppleTexasAudio::performDeviceSleep () {
@@ -908,7 +984,7 @@ IOReturn AppleTexasAudio::performDeviceSleep () {
 	keyLargo = NULL;
 
 	// Mute the amps to avoid pops and clicks...
-	SetActiveOutput (kSndHWOutputNone, kTouchBiquad);
+	SetActiveOutput (kSndHWOutputNone, kBiquadUntouched);
 
 	// ...then hold the RESET line...
 	GpioWrite (hwResetGpio, ASSERT_GPIO (hwResetActiveState));
@@ -930,25 +1006,37 @@ IOReturn AppleTexasAudio::performDeviceWake () {
 
 	debugIOLog ("+ AppleTexasAudio::performDeviceWake\n");
 
+	// Mute the amps to avoid pops and clicks...
+	SetActiveOutput (kSndHWOutputNone, kBiquadUntouched);
+
+	// ...then hold the RESET line...
+	GpioWrite (hwResetGpio, ASSERT_GPIO (hwResetActiveState));
+
 	keyLargo = NULL;
     keyLargo = IOService::waitForService (IOService::serviceMatching ("KeyLargo"));
     
     if (NULL != keyLargo) {
-		// Turn on the i2s clocks...
+		// ...turn on the i2s clocks...
 		keyLargo->callPlatformFunction (OSSymbol::withCString ("keyLargo_powerI2S"), false, (void *)true, (void *)0, 0, 0);
 	}
 
-	// ...and then release the RESET line...
+	// ...wait for the clocks to settle...
+	IODelay (100);
+
+	// ...then release the RESET line...
 	GpioWrite (hwResetGpio, NEGATE_GPIO (hwResetActiveState));
+
+	// ...wait for the part to wake up...
+	IOSleep (150);
 
 	// ...then bring everything back up the way it should be.
 	err = TAS3001C_Initialize (kFORCE_RESET_SETUP_TIME);			//	reset the TAS3001C and flush the shadow contents to the HW
 
 	if (FALSE == IsHeadphoneConnected ()) {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
-		if (TRUE == hasVideo) {
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
+		if (TRUE == hasVideo && FALSE != headphonesConnected) {
 			// Tell the video driver about the jack state change in case a video connector was plugged in
-			publishResource (gAppleAudioVideoJackStateKey, headphonesConnected ? kOSBooleanTrue : kOSBooleanFalse);
+			publishResource (gAppleAudioVideoJackStateKey, kOSBooleanFalse);
 		}
 		if (NULL != dallasIntProvider) {
 			// Set the correct EQ
@@ -1195,9 +1283,9 @@ void AppleTexasAudio::RealHeadphoneInterruptHandler (IOInterruptEventSource *sou
 	headphonesConnected = IsHeadphoneConnected ();
 
 	if (TRUE == headphonesConnected) {
-		SetActiveOutput (kSndHWOutput1, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput1, kBiquadUntouched);
 	} else {
-		SetActiveOutput (kSndHWOutput2, kTouchBiquad);
+		SetActiveOutput (kSndHWOutput2, kBiquadUntouched);
 	}
 
 	if (TRUE == hasVideo) {
@@ -1549,19 +1637,19 @@ IOReturn 	AppleTexasAudio::TAS3001C_Reset(UInt32 resetFlag){
 	if( hwResetActiveState == GpioRead( hwResetGpio ) || !GpioGetDDR( hwResetGpio ) || resetFlag )	//	if reset never was performed
 	{
 		GpioWrite( hwResetGpio, 0 == hwResetActiveState ? 1 : 0 );	//	negate RESET
-		// IODelay is very mean, don't do it!  I think we really only have to reset it for a millisecond or two
-		IODelay (100 * durationMillisecond);
+		// I think we really only have to reset it for a millisecond or two
+		IOSleep (100);
 	}
 	else
 	{
-		IODelay (1 * durationMillisecond);
+		IOSleep (1);
 	}
 	
 	GpioWrite( hwResetGpio, hwResetActiveState );					//	Assert RESET
-	IODelay (1 * durationMillisecond);
+	IOSleep (1);
 
 	GpioWrite( hwResetGpio, 0 == hwResetActiveState ? 1 : 0 );		//	negate RESET
-	IODelay (1 * durationMillisecond);
+	IOSleep (1);
 
     return err;
 }
@@ -1743,12 +1831,12 @@ void AppleTexasAudio::DeviceInterruptService (void) {
 	speakerID = 0;
 	result = TRUE;						// TRUE == failure from dallasDriver->getSpeakerID
 	if (NULL != dallasDriver && kExternalSpeakersActive == deviceID) {
-		IOLog ("About to get the speaker ID\n");
+		debugIOLog ("About to get the speaker ID\n");
 		result = dallasDriver->getSpeakerID (bROM, bEEPROM, bAppReg);
 		speakerID = bEEPROM[1];
 	} else {
-		if (NULL == dallasDriver) IOLog ("dallasDriver == NULL!\n");
-		if (kExternalSpeakersActive != deviceID) IOLog ("kExternalSpeakersActive != deviceID!\n");
+		if (NULL == dallasDriver) debugIOLog ("dallasDriver == NULL!\n");
+		if (kExternalSpeakersActive != deviceID) debugIOLog ("kExternalSpeakersActive != deviceID!\n");
 	}
 
 	debug3IOLog ("DallasDriver result = %d speakerID = %ld\n", result, speakerID);
@@ -1823,7 +1911,7 @@ void AppleTexasAudio::ExcludeHPMuteRelease (UInt32 layout) {
 UInt32 AppleTexasAudio::GetDeviceMatch (void) {
 	UInt32			theDeviceMatch;
 
-	if (TRUE == headphonesConnected)
+	if (TRUE == IsHeadphoneConnected ())
 		theDeviceMatch = kHeadphonesActive;				// headphones are connected
 	else if (TRUE == dallasSpeakersConnected)
 		theDeviceMatch = kExternalSpeakersActive;		// headphones aren't connected and external Dallas speakers are connected
@@ -2022,18 +2110,16 @@ IOReturn AppleTexasAudio::SetActiveOutput (UInt32 output, Boolean touchBiquad) {
 		case kSndHWOutput1:
 			SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	//	unmute
 			SetAmplifierMuteState (kSPEAKER_AMP, ASSERT_GPIO (ampActiveState));		//	mute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
+			IOSleep (kAmpRecoveryMuteDuration);										// Wait for the amp to become active
 			break;
 		case kSndHWOutput2:																//	fall through to kSndHWOutput4
 		case kSndHWOutput3:																//	fall through to kSndHWOutput4
 		case kSndHWOutput4:
 			//	The TA1101B amplifier can 'crowbar' when inserting the speaker jack.
 			//	Muting the amplifier will release it from the crowbar state.
-			SetAmplifierMuteState (kSPEAKER_AMP, ASSERT_GPIO (ampActiveState));		// mute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
 			SetAmplifierMuteState (kHEADPHONE_AMP, ASSERT_GPIO (hdpnActiveState));	//	mute
 			SetAmplifierMuteState (kSPEAKER_AMP, NEGATE_GPIO (ampActiveState));		//	unmute
-			IODelay (kAmpRecoveryMuteDuration * durationMillisecond);
+			IOSleep (kAmpRecoveryMuteDuration);										// Wait for the amp to become active
 			if (!dontReleaseHPMute)													//	[2660341] unmute if std hw
 				SetAmplifierMuteState (kHEADPHONE_AMP, NEGATE_GPIO (hdpnActiveState));	// unmute
 			break;

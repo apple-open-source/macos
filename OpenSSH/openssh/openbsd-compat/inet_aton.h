@@ -1,4 +1,4 @@
-/* $Id: inet_aton.h,v 1.1.1.1 2001/02/25 20:54:30 zarzycki Exp $ */
+/* $Id: inet_aton.h,v 1.1.1.2 2001/11/03 18:14:17 bbraun Exp $ */
 
 #ifndef _BSD_INET_ATON_H
 #define _BSD_INET_ATON_H

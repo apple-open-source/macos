@@ -174,16 +174,35 @@ public:
 	virtual void handleClose ( IOService * client, IOOptionBits options );
 	virtual bool handleIsOpen ( const IOService * client ) const;
 	
+	/* Added with 10.1.3 */
+	virtual IOReturn	readTOC (	IOMemoryDescriptor *	buffer,
+									CDTOCFormat				format,
+									UInt8					msf,
+									UInt8					trackSessionNumber,
+									UInt16 *				actualByteCount ); 
+	
+	/* Added with 10.1.3 */
+	virtual IOReturn	readDiscInfo (	IOMemoryDescriptor *	buffer,
+										UInt16 *				actualByteCount );
+	
+	/* Added with 10.1.3 */
+	virtual IOReturn	readTrackInfo (	IOMemoryDescriptor *	buffer,
+										UInt32					address,
+										CDTrackInfoAddressType	addressType,
+										UInt16 *				actualByteCount );
+
 private:
+	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 1 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 2 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 3 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 4 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 5 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 6 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 7 );
-    OSMetaClassDeclareReservedUnused( IOCompactDiscServices, 8 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 1 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 2 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 3 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 4 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 5 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 6 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 7 );
+    OSMetaClassDeclareReservedUnused ( IOCompactDiscServices, 8 );
+	
 };
 
 #endif	/* defined(KERNEL) && defined(__cplusplus) */

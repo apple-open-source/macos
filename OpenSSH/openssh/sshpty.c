@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshpty.c,v 1.1 2001/03/04 01:46:30 djm Exp $");
+RCSID("$OpenBSD: sshpty.c,v 1.3 2001/07/22 21:32:27 markus Exp $");
 
 #ifdef HAVE_UTIL_H
 # include <util.h>
@@ -211,6 +211,36 @@ pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen)
 	}
 	return 1;
 #else /* HAVE_DEV_PTS_AND_PTC */
+#ifdef _CRAY
+	char buf[64];
+  	int i;
+  	int highpty;
+
+#ifdef _SC_CRAY_NPTY
+	highpty = sysconf(_SC_CRAY_NPTY);
+	if (highpty == -1)
+		highpty = 128;
+#else
+	highpty = 128;
+#endif
+
+	for (i = 0; i < highpty; i++) {
+		snprintf(buf, sizeof(buf), "/dev/pty/%03d", i);
+		*ptyfd = open(buf, O_RDWR|O_NOCTTY);
+		if (*ptyfd < 0)
+			continue;
+		snprintf(namebuf, namebuflen, "/dev/ttyp%03d", i);
+		/* Open the slave side. */
+		*ttyfd = open(namebuf, O_RDWR|O_NOCTTY);
+		if (*ttyfd < 0) {
+			error("%.100s: %.100s", namebuf, strerror(errno));
+			close(*ptyfd);
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
+#else
 	/* BSD-style pty code. */
 	char buf[64];
 	int i;
@@ -245,6 +275,7 @@ pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen)
 		return 1;
 	}
 	return 0;
+#endif /* CRAY */
 #endif /* HAVE_DEV_PTS_AND_PTC */
 #endif /* HAVE_DEV_PTMX */
 #endif /* HAVE__GETPTY */
@@ -271,6 +302,30 @@ pty_make_controlling_tty(int *ttyfd, const char *ttyname)
 #ifdef USE_VHANGUP
 	void *old;
 #endif /* USE_VHANGUP */
+
+#ifdef _CRAY
+	if (setsid() < 0)
+		error("setsid: %.100s", strerror(errno));
+
+	fd = open(ttyname, O_RDWR|O_NOCTTY);
+	if (fd != -1) {
+		mysignal(SIGHUP, SIG_IGN);
+		ioctl(fd, TCVHUP, (char *)NULL);
+		mysignal(SIGHUP, SIG_DFL);
+		setpgid(0, 0);
+		close(fd);
+	} else {
+		error("Failed to disconnect from controlling tty.");
+	}
+
+	debug("Setting controlling tty using TCSETCTTY.");
+	ioctl(*ttyfd, TCSETCTTY, NULL);
+	fd = open("/dev/tty", O_RDWR);
+	if (fd < 0)
+		error("%.100s: %.100s", ttyname, strerror(errno));
+	close(*ttyfd);
+       	*ttyfd = fd;
+#else /* _CRAY */
 
 	/* First disconnect from the old controlling tty. */
 #ifdef TIOCNOTTY
@@ -303,9 +358,9 @@ pty_make_controlling_tty(int *ttyfd, const char *ttyname)
 		error("SETPGRP %s",strerror(errno));
 #endif /* HAVE_NEWS4 */
 #ifdef USE_VHANGUP
-	old = signal(SIGHUP, SIG_IGN);
+	old = mysignal(SIGHUP, SIG_IGN);
 	vhangup();
-	signal(SIGHUP, old);
+	mysignal(SIGHUP, old);
 #endif /* USE_VHANGUP */
 	fd = open(ttyname, O_RDWR);
 	if (fd < 0) {
@@ -326,6 +381,7 @@ pty_make_controlling_tty(int *ttyfd, const char *ttyname)
 	else {
 		close(fd);
 	}
+#endif /* _CRAY */
 }
 
 /* Changes the window size associated with the pty. */
@@ -362,7 +418,8 @@ pty_setowner(struct passwd *pw, const char *ttyname)
 
 	/*
 	 * Change owner and mode of the tty as required.
-	 * Warn but continue if filesystem is read-only and the uids match.
+	 * Warn but continue if filesystem is read-only and the uids match/
+	 * tty is owned by root.
 	 */
 	if (stat(ttyname, &st))
 		fatal("stat(%.100s) failed: %.100s", ttyname,
@@ -370,7 +427,8 @@ pty_setowner(struct passwd *pw, const char *ttyname)
 
 	if (st.st_uid != pw->pw_uid || st.st_gid != gid) {
 		if (chown(ttyname, pw->pw_uid, gid) < 0) {
-			if (errno == EROFS && st.st_uid == pw->pw_uid)
+			if (errno == EROFS && 
+			   (st.st_uid == pw->pw_uid || st.st_uid == 0))
 				error("chown(%.100s, %d, %d) failed: %.100s",
 				      ttyname, pw->pw_uid, gid,
 				      strerror(errno));

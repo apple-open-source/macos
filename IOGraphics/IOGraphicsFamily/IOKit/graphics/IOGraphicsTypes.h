@@ -37,7 +37,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV	2
+#define IOGRAPHICSTYPES_REV	4
 
 typedef SInt32	IOIndex;
 typedef UInt32	IOSelect;
@@ -110,25 +110,26 @@ typedef struct IODisplayModeInformation IODisplayModeInformation;
 
 // flags
 enum {
-    kDisplayModeSafetyFlags	= 0x00000007,
+    kDisplayModeSafetyFlags		= 0x00000007,
 
-    kDisplayModeAlwaysShowFlag	= 0x00000008,
-    kDisplayModeNeverShowFlag	= 0x00000080,
-    kDisplayModeNotResizeFlag	= 0x00000010,
-    kDisplayModeRequiresPanFlag	= 0x00000020,
+    kDisplayModeAlwaysShowFlag		= 0x00000008,
+    kDisplayModeNeverShowFlag		= 0x00000080,
+    kDisplayModeNotResizeFlag		= 0x00000010,
+    kDisplayModeRequiresPanFlag		= 0x00000020,
 
-    kDisplayModeInterlacedFlag	= 0x00000040,
+    kDisplayModeInterlacedFlag		= 0x00000040,
 
-    kDisplayModeSimulscanFlag	= 0x00000100,
-    kDisplayModeBuiltInFlag	= 0x00000400,
-    kDisplayModeNotPresetFlag	= 0x00000200,
-    kDisplayModeStretchedFlag	= 0x00000800,
-    kDisplayModeTelevisionFlag	= 0x00100000
+    kDisplayModeSimulscanFlag		= 0x00000100,
+    kDisplayModeBuiltInFlag		= 0x00000400,
+    kDisplayModeNotPresetFlag		= 0x00000200,
+    kDisplayModeStretchedFlag		= 0x00000800,
+    kDisplayModeNotGraphicsQualityFlag	= 0x00001000,
+    kDisplayModeTelevisionFlag		= 0x00100000
 };
 enum {
-    kDisplayModeValidFlag	= 0x00000001,
-    kDisplayModeSafeFlag	= 0x00000002,
-    kDisplayModeDefaultFlag	= 0x00000004,
+    kDisplayModeValidFlag		= 0x00000001,
+    kDisplayModeSafeFlag		= 0x00000002,
+    kDisplayModeDefaultFlag		= 0x00000004,
 };
 
 // Framebuffer info
@@ -184,6 +185,23 @@ enum {
 enum {
     kIOPowerAttribute			= 'powr',
     kIOHardwareCursorAttribute		= 'crsr',
+
+    kIOMirrorAttribute			= 'mirr',
+    kIOMirrorDefaultAttribute		= 'mrdf',
+
+    kIOCapturedAttribute		= 'capd',
+};
+
+// values for kIOMirrorAttribute
+enum {
+    kIOMirrorIsPrimary			= 0x80000000,
+    kIOMirrorHWClipped			= 0x40000000,
+};
+
+// values for kIOMirrorDefaultAttribute
+enum {
+    kIOMirrorDefault			= 0x00000001,
+    kIOMirrorForced			= 0x00000002,
 };
 
 //// Display mode timing information
@@ -206,7 +224,11 @@ typedef struct IODetailedTimingInformation IODetailedTimingInformation;
 
 struct IODetailedTimingInformationV2 {
 
-    UInt32	__reservedA[8];			// Init to 0
+    UInt32	__reservedA[5];			// Init to 0
+
+    UInt32	scalerFlags;
+    UInt32	horizontalScaled;
+    UInt32	verticalScaled;
 
     UInt32	signalConfig;
     UInt32	signalLevels;
@@ -252,8 +274,15 @@ typedef struct IOTimingInformation IOTimingInformation;
 
 enum {
     // b0-7 from EDID flags
-    kIODetailedTimingValid	= 0x80000000
+    kIODetailedTimingValid	= 0x80000000,
+    kIOScalingInfoValid		= 0x40000000
 };
+
+struct IOFBDisplayModeDescription {
+    IODisplayModeInformation	info;
+    IOTimingInformation 	timingInfo;
+};
+typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
 
 //// Connections
 
@@ -382,12 +411,23 @@ enum {
 
 #define kIOFBDetailedTimingsKey		"IOFBDetailedTimings"
 #define kIOFBTimingRangeKey		"IOFBTimingRange"
+#define kIOFBScalerInfoKey		"IOFBScalerInfo"
 
 #define kIOFBHostAccessFlagsKey		"IOFBHostAccessFlags"
 
 #define kIOFBMemorySizeKey		"IOFBMemorySize"
 
 #define kIOFBProbeOptionsKey		"IOFBProbeOptions"
+
+// diag keys
+
+#define kIOFBConfigKey		"IOFBConfig"
+#define kIOFBModesKey		"IOFBModes"
+#define kIOFBModeIDKey		"ID"
+#define kIOFBModeDMKey		"DM"
+#define kIOFBModeTMKey		"TM"
+#define kIOFBModeAIDKey		"AID"
+#define kIOFBModeDFKey		"DF"
 
 // display property keys
 
@@ -448,6 +488,37 @@ enum {
 // CFNumber
 #define kDisplayHorizontalImageSize	"DisplayHorizontalImageSize"
 #define kDisplayVerticalImageSize	"DisplayVerticalImageSize"
+
+// Pixel description
+
+// CFBoolean
+#define kDisplayFixedPixelFormat	"DisplayFixedPixelFormat"
+
+enum {
+    kDisplaySubPixelLayoutUndefined	= 0x00000000,
+    kDisplaySubPixelLayoutRGB		= 0x00000001,
+    kDisplaySubPixelLayoutBGR		= 0x00000002,
+    kDisplaySubPixelLayoutQuadGBL	= 0x00000003,
+    kDisplaySubPixelLayoutQuadGBR	= 0x00000004,
+
+    kDisplaySubPixelConfigurationUndefined    = 0x00000000,
+    kDisplaySubPixelConfigurationDelta	      = 0x00000001,
+    kDisplaySubPixelConfigurationStripe	      = 0x00000002,
+    kDisplaySubPixelConfigurationStripeOffset = 0x00000003,
+    kDisplaySubPixelConfigurationQuad	      = 0x00000004,
+
+    kDisplaySubPixelShapeUndefined	= 0x00000000,
+    kDisplaySubPixelShapeRound		= 0x00000001,
+    kDisplaySubPixelShapeSquare		= 0x00000002,
+    kDisplaySubPixelShapeRectangular	= 0x00000003,
+    kDisplaySubPixelShapeOval		= 0x00000004,
+    kDisplaySubPixelShapeElliptical	= 0x00000005,
+};
+
+// CFNumbers
+#define kDisplaySubPixelLayout		"DisplaySubPixelLayout"
+#define kDisplaySubPixelConfiguration	"DisplaySubPixelConfiguration"
+#define kDisplaySubPixelShape		"DisplaySubPixelShape"
 
 // Display parameters
 

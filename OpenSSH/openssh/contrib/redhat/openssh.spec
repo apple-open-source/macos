@@ -1,8 +1,8 @@
 # Version of OpenSSH
-%define oversion 2.9p2
+%define oversion 3.0.2p1
 
 # Version of ssh-askpass
-%define aversion 1.2.0
+%define aversion 1.2.4.1
 
 # Do we want to disable building of x11-askpass? (1=yes 0=no)
 %define no_x11_askpass 0
@@ -13,8 +13,14 @@
 # Do we want to link against a static libcrypto? (1=yes 0=no)
 %define static_libcrypto 0
 
+# Do we want smartcard support (1=yes 0=no)
+%define scard 0
+
 # Use Redhat 7.0 pam control file
 %define redhat7 0
+
+# Disable IPv6 (avoids DNS hangs on some glibc versions)
+%define noip6 0
 
 # Reserve options to override askpass settings with:
 # rpm -ba|--rebuild --define 'skip_xxx 1'
@@ -29,25 +35,36 @@
 # rpm -ba|--rebuild --define "static_openssl 1"
 %{?static_openssl:%define static_libcrypto 1}
 
+# Options for Smartcard support: (needs libsectok and openssl-engine)
+# rpm -ba|--rebuild --define "smartcard 1"
+%{?smartcard:%define scard 1}
+
+# Option to disable ipv6
+# rpm -ba|--rebuild --define "noipv6 1"
+%{?noipv6:%define noip6 1}
+
 %define exact_openssl_version   %(rpm -q openssl | cut -d - -f 2)
 
-Summary: OpenSSH free Secure Shell (SSH) implementation
+Summary: The OpenSSH implementation of SSH protocol versions 1 and 2
 Name: openssh
 Version: %{oversion}
 Release: 1
 Packager: Damien Miller <djm@mindrot.org>
-URL: http://www.openssh.com/
+URL: http://www.openssh.com/portable.html
 Source0: ftp://ftp.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-%{oversion}.tar.gz
 %if ! %{no_x11_askpass}
-Source1: http://www.jmknoble.cx/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.gz 
+Source1: http://www.pobox.com/~jmknoble/software/x11-ssh-askpass/x11-ssh-askpass-%{aversion}.tar.gz
 %endif
-Copyright: BSD
+License: BSD
 Group: Applications/Internet
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 Obsoletes: ssh
 BuildPreReq: perl, openssl-devel, tcp_wrappers
 BuildPreReq: /bin/login, /usr/include/security/pam_appl.h
 BuildPreReq: rpm >= 3.0.5
+%if ! %{no_x11_askpass}
+BuildPreReq: XFree86-devel
+%endif
 %if ! %{no_gnome_askpass}
 BuildPreReq: gnome-libs-devel
 %endif
@@ -59,13 +76,13 @@ Requires: openssl >= 0.9.5a
 Requires: rpm >= 3.0.5
 
 %package clients
-Summary: OpenSSH Secure Shell protocol clients
+Summary: OpenSSH clients.
 Requires: openssh = %{version}-%{release}
 Group: Applications/Internet
 Obsoletes: ssh-clients
 
 %package server
-Summary: OpenSSH Secure Shell protocol server (sshd)
+Summary: The OpenSSH server daemon.
 Group: System Environment/Daemons
 Obsoletes: ssh-server
 PreReq: openssh = %{version}-%{release}, chkconfig >= 0.9
@@ -74,87 +91,53 @@ Requires: /etc/pam.d/system-auth
 %endif
 
 %package askpass
-Summary: OpenSSH X11 passphrase dialog
+Summary: A passphrase dialog for OpenSSH and X.
 Group: Applications/Internet
 Requires: openssh = %{version}-%{release}
 Obsoletes: ssh-extras
 
 %package askpass-gnome
-Summary: OpenSSH GNOME passphrase dialog
+Summary: A passphrase dialog for OpenSSH, X, and GNOME.
 Group: Applications/Internet
 Requires: openssh = %{version}-%{release}
 Obsoletes: ssh-extras
 
 %description
-Ssh (Secure Shell) a program for logging into a remote machine and for
-executing commands in a remote machine.  It is intended to replace
-rlogin and rsh, and provide secure encrypted communications between
-two untrusted hosts over an insecure network.  X11 connections and
-arbitrary TCP/IP ports can also be forwarded over the secure channel.
-
-OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
-up to date in terms of security and features, as well as removing all 
-patented algorithms to separate libraries (OpenSSL).
+OpenSSH is OpenBSD's SSH (Secure SHell) protocol implementation. SSH
+replaces rlogin and rsh, to provide secure encrypted communications
+between two untrusted hosts over an insecure network. X11 connections
+and arbitrary TCP/IP ports can also be forwarded over the secure
+channel. Public key authentication may be used for "passwordless"
+access to servers.
 
 This package includes the core files necessary for both the OpenSSH
-client and server.  To make this package useful, you should also
+client and server. To make this package useful, you should also
 install openssh-clients, openssh-server, or both.
 
 %description clients
-Ssh (Secure Shell) a program for logging into a remote machine and for
-executing commands in a remote machine.  It is intended to replace
-rlogin and rsh, and provide secure encrypted communications between
-two untrusted hosts over an insecure network.  X11 connections and
-arbitrary TCP/IP ports can also be forwarded over the secure channel.
+OpenSSH is OpenBSD's SSH (Secure SHell) protocol implementation.
 
-OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
-up to date in terms of security and features, as well as removing all 
-patented algorithms to separate libraries (OpenSSL).
-
-This package includes the clients necessary to make encrypted connections
-to SSH servers.
+This package includes the clients necessary to make encrypted
+connections to SSH protocol servers.  You'll also need to install the
+openssh package on OpenSSH clients.
 
 %description server
-Ssh (Secure Shell) a program for logging into a remote machine and for
-executing commands in a remote machine.  It is intended to replace
-rlogin and rsh, and provide secure encrypted communications between
-two untrusted hosts over an insecure network.  X11 connections and
-arbitrary TCP/IP ports can also be forwarded over the secure channel.
+OpenSSH is OpenBSD's SSH (Secure SHell) protocol implementation.
 
-OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
-up to date in terms of security and features, as well as removing all 
-patented algorithms to separate libraries (OpenSSL).
-
-This package contains the secure shell daemon. The sshd is the server 
-part of the secure shell protocol and allows ssh clients to connect to 
-your host.
+This package contains the secure shell daemon (sshd). The sshd daemon
+allows SSH clients to securely connect to your SSH server. You also
+need to have the openssh package installed.
 
 %description askpass
-Ssh (Secure Shell) a program for logging into a remote machine and for
-executing commands in a remote machine.  It is intended to replace
-rlogin and rsh, and provide secure encrypted communications between
-two untrusted hosts over an insecure network.  X11 connections and
-arbitrary TCP/IP ports can also be forwarded over the secure channel.
+OpenSSH is OpenBSD's SSH (Secure SHell) protocol implementation.
 
-OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
-up to date in terms of security and features, as well as removing all 
-patented algorithms to separate libraries (OpenSSL).
-
-This package contains Jim Knoble's <jmknoble@jmknoble.cx> X11 passphrase 
-dialog.
+This package contains an X11 passphrase dialog for OpenSSH.
 
 %description askpass-gnome
-Ssh (Secure Shell) a program for logging into a remote machine and for
-executing commands in a remote machine.  It is intended to replace
-rlogin and rsh, and provide secure encrypted communications between
-two untrusted hosts over an insecure network.  X11 connections and
-arbitrary TCP/IP ports can also be forwarded over the secure channel.
+OpenSSH is OpenBSD's SSH (Secure SHell) protocol implementation.
 
-OpenSSH is OpenBSD's rework of the last free version of SSH, bringing it
-up to date in terms of security and features, as well as removing all 
-patented algorithms to separate libraries (OpenSSL).
-
-This package contains the GNOME passphrase dialog.
+This package contains an X11 passphrase dialog for OpenSSH and the
+GNOME GUI desktop environment.
 
 %prep
 
@@ -168,13 +151,24 @@ This package contains the GNOME passphrase dialog.
 
 %define _sysconfdir /etc/ssh
 
+EXTRA_OPTS=""
+
+%if %{scard}
+	EXTRA_OPTS="$EXTRA_OPTS --with-smartcard"
+%endif
+
+%if %{noip6}
+	EXTRA_OPTS="$EXTRA_OPTS --with-ipv4-default "
+%endif
+
 %configure \
 	--libexecdir=%{_libexecdir}/openssh \
+	--datadir=%{_datadir}/openssh \
 	--with-pam \
 	--with-tcp-wrappers \
-	--with-ipv4-default \
 	--with-rsh=/usr/bin/rsh \
-	--with-default-path=/bin:/usr/bin:/usr/local/bin:/usr/X11R6/bin
+	--with-default-path=/bin:/usr/bin:/usr/local/bin:/usr/X11R6/bin \
+	$EXTRA_OPTS
 
 %if %{static_libcrypto}
 perl -pi -e "s|-lcrypto|/usr/lib/libcrypto.a|g" Makefile
@@ -184,6 +178,8 @@ make
 
 %if ! %{no_x11_askpass}
 pushd x11-ssh-askpass-%{aversion}
+%configure \
+        --libexecdir=%{_libexecdir}/openssh
 xmkmf -a
 make
 popd
@@ -201,6 +197,7 @@ popd
 rm -rf $RPM_BUILD_ROOT
 %{makeinstall} \
 	libexecdir=$RPM_BUILD_ROOT%{_libexecdir}/openssh \
+	datadir=$RPM_BUILD_ROOT%{_datadir}/openssh \
 	DESTDIR=/ # Hack to disable key generation
 
 
@@ -242,17 +239,18 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc ChangeLog OVERVIEW README* INSTALL 
-%doc CREDITS LICENCE
+%doc CREDITS ChangeLog INSTALL LICENCE OVERVIEW README* RFC* TODO WARNING*
 %attr(0755,root,root) %{_bindir}/ssh-keygen
 %attr(0755,root,root) %{_bindir}/scp
-%attr(0755,root,root) %{_bindir}/ssh-keyscan
 %attr(0644,root,root) %{_mandir}/man1/ssh-keygen.1*
-%attr(0644,root,root) %{_mandir}/man1/ssh-keyscan.1*
 %attr(0644,root,root) %{_mandir}/man1/scp.1*
 %attr(0755,root,root) %dir %{_sysconfdir}
-%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/primes
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/moduli
 %attr(0755,root,root) %dir %{_libexecdir}/openssh
+%if %{scard}
+%attr(0755,root,root) %dir %{_datadir}/openssh
+%attr(0644,root,root) %{_datadir}/openssh/Ssh.bin
+%endif
 
 %files clients
 %defattr(-,root,root)
@@ -277,7 +275,7 @@ fi
 %attr(0644,root,root) %{_mandir}/man8/sshd.8*
 %attr(0644,root,root) %{_mandir}/man8/sftp-server.8*
 #%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/sshd_config
-%attr(0600,root,root) %config %{_sysconfdir}/sshd_config
+%attr(0600,root,root) %config(noreplace) %{_sysconfdir}/sshd_config
 %attr(0600,root,root) %config(noreplace) /etc/pam.d/sshd
 %attr(0755,root,root) %config /etc/rc.d/init.d/sshd
 

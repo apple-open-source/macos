@@ -54,9 +54,44 @@ IOCDBlockStorageDevice::setSpeed(UInt16 kilobytesPerSecond)
 
 OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 1);
 
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  2);
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  3);
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  4);
+IOReturn
+IOCDBlockStorageDevice::readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
+                                UInt8 msf,UInt8 trackSessionNumber,
+                                UInt16 *actualByteCount)
+{
+    if (actualByteCount) {
+        *actualByteCount = 0;
+    }
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 2);
+
+IOReturn
+IOCDBlockStorageDevice::readDiscInfo(IOMemoryDescriptor *buffer,
+                                     UInt16 *actualByteCount)
+{
+    if (actualByteCount) {
+        *actualByteCount = 0;
+    }
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 3);
+
+IOReturn
+IOCDBlockStorageDevice::readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
+                                      CDTrackInfoAddressType addressType,
+                                      UInt16 *actualByteCount)
+{
+    if (actualByteCount) {
+        *actualByteCount = 0;
+    }
+    return(kIOReturnUnsupported);
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDevice, 4);
+
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  5);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  6);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDevice,  7);

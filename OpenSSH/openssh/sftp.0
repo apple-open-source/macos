@@ -1,48 +1,69 @@
-
-SFTP(1)                     System Reference Manual                    SFTP(1)
+SFTP(1)                 System General Commands Manual                 SFTP(1)
 
 NAME
      sftp - Secure file transfer program
 
 SYNOPSIS
-     sftp [-vC] [-b batchfile] [-o ssh_option] [host]
+     sftp [-1Cv] [-b batchfile] [-F ssh_config] [-o ssh_option]
+          [-s subsystem | sftp_server] [-S program] host
      sftp [[user@]host[:file [file]]]
      sftp [[user@]host[:dir[/]]]
 
 DESCRIPTION
-     sftp is an interactive file transfer program, similar to ftp(1),  which
+     sftp is an interactive file transfer program, similar to ftp(1), which
      performs all operations over an encrypted ssh(1) transport.  It may also
      use many features of ssh, such as public key authentication and compresM--
-     sion.  sftp connects and logs into the specified hostname, then enters an
+     sion.  sftp connects and logs into the specified host, then enters an
      interactive command mode.
 
-     The second usage format will fetch files automaticly if a non-interactive
-     authentication is used, else it do so after an interactive authentication
-     is used.
+     The second usage format will retrieve files automatically if a non-interM--
+     active authentication method is used; otherwise it will do so after sucM--
+     cessful interactive authentication.
 
      The last usage format allows the sftp client to start in a remote direcM--
      tory.
 
      The options are as follows:
 
-     -b batchfile
-             Batch mode reads a series of commands from an input batchfile inM--
-             stead of stdin. Since it lacks user interaction it should be used
-             in conjunction with non-interactive authentication.  sftp will
-             abort if any of the following commands fail: get, put, rename,
-             ln, rm and lmkdir.
+     -1      Specify the use of protocol version 1.
 
-     -C      Enables compression (via ssh's -C flag)
+     -b batchfile
+             Batch mode reads a series of commands from an input batchfile
+             instead of stdin.  Since it lacks user interaction it should be
+             used in conjunction with non-interactive authentication.  sftp
+             will abort if any of the following commands fail: get, put,
+             rename, ln, rm, mkdir, chdir, lchdir and lmkdir.
+
+     -C      Enables compression (via ssh's -C flag).
+
+     -F ssh_config
+             Specifies an alternative per-user configuration file for ssh.
+             This option is directly passed to ssh(1).
 
      -o ssh_option
-             Specify an option to be directly passed to ssh(1).
+             Can be used to pass options to ssh in the format used in the
+             ssh(1) configuration file. This is useful for specifying options
+             for which there is no separate sftp command-line flag.  For examM--
+             ple, to specify an alternate port use: sftp -oPort=24.
+
+     -s subsystem | sftp_server
+             Specifies the SSH2 subsystem or the path for an sftp server on
+             the remote host.  A path is useful for using sftp over protocol
+             version 1, or when the remote sshd does not have an sftp subsysM--
+             tem configured.
+
+     -S program
+             Name of the program to use for the encrypted connection.  The
+             program must understand ssh(1) options.
 
      -v      Raise logging level. This option is also passed to ssh.
 
 INTERACTIVE COMMANDS
      Once in interactive mode, sftp understands a set of commands similar to
-     those of ftp(1).  Commands are case insensitive and pathnames may be enM--
-     closed in quotes if they contain spaces.
+     those of ftp(1).  Commands are case insensitive and pathnames may be
+     enclosed in quotes if they contain spaces.
+
+     bye     Quit sftp.
 
      cd path
              Change remote directory to path.
@@ -51,13 +72,13 @@ INTERACTIVE COMMANDS
              Change local directory to path.
 
      chgrp grp path
-             Change group of file path to grp. grp must be a numeric GID.
+             Change group of file path to grp.  grp must be a numeric GID.
 
      chmod mode path
              Change permissions of file path to mode.
 
      chown own path
-             Change owner of file path to own. own must be a numeric UID.
+             Change owner of file path to own.  own must be a numeric UID.
 
      exit    Quit sftp.
 
@@ -92,9 +113,9 @@ INTERACTIVE COMMANDS
              Create remote directory specified by path.
 
      put [flags] local-path [local-path]
-             Upload local-path and store it on the remote machine. If the reM--
-             mote path name is not specified, it is given the same name it has
-             on the local machine. If the -P flag is specified, then the
+             Upload local-path and store it on the remote machine. If the
+             remote path name is not specified, it is given the same name it
+             has on the local machine. If the -P flag is specified, then the
              file's full permission and access time are copied too.
 
      pwd     Display remote working directory.
@@ -124,9 +145,9 @@ AUTHORS
      Damien Miller <djm@mindrot.org>
 
 SEE ALSO
-     scp(1),  ssh(1),  ssh-add(1),  ssh-keygen(1),  sftp-server(8),  sshd(8)
+     scp(1), ssh(1), ssh-add(1), ssh-keygen(1), sftp-server(8), sshd(8)
 
-     T. Ylonen, and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
+     T. Ylonen and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
      filexfer-00.txt, January 2001, work in progress material.
 
-BSD Experimental               February 4, 2001                              2
+BSD                            February 4, 2001                            BSD

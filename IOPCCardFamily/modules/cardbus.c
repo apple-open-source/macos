@@ -239,7 +239,11 @@ static int cb_setup_cis_mem(socket_info_t *s, int space)
 
     if (space == s->cb_cis_space)
 	return CS_SUCCESS;
+#ifdef __MACOSX__
+    else if (s->cb_cis_virt)
+#else
     else if (s->cb_cis_space != 0)
+#endif
 	cb_release_cis_mem(s);
     DEBUG(1, "cs: cb_setup_cis_mem(space %d)\n", space);
     /* If socket is configured, then use existing memory mapping */
@@ -705,7 +709,11 @@ void cb_enable(socket_info_t *s)
     DEBUG(0, "cs: cb_enable(bus %d)\n", s->cap.cardbus);
     
     /* Configure bridge */
+#ifdef __MACOSX__
+    if (s->cb_cis_virt)
+#else
     if (s->cb_cis_map.start)
+#endif
 	cb_release_cis_mem(s);
     for (i = 0; i < 3; i++) {
 	cb_bridge_map m;
@@ -779,7 +787,11 @@ void cb_disable(socket_info_t *s)
     DEBUG(0, "cs: cb_disable(bus %d)\n", s->cap.cardbus);
     
     /* Turn off bridge windows */
+#ifdef __MACOSX__
+    if (s->cb_cis_virt)
+#else
     if (s->cb_cis_map.start)
+#endif
 	cb_release_cis_mem(s);
     for (i = 0; i < 3; i++) {
 	switch (i) {

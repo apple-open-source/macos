@@ -1,18 +1,19 @@
-
-SSH-ADD(1)                  System Reference Manual                 SSH-ADD(1)
+SSH-ADD(1)              System General Commands Manual              SSH-ADD(1)
 
 NAME
-     ssh-add - adds RSA or DSA identities for the authentication agent
+     ssh-add - adds RSA or DSA identities to the authentication agent
 
 SYNOPSIS
      ssh-add [-lLdD] [file ...]
+     ssh-add -s reader
+     ssh-add -e reader
 
 DESCRIPTION
-     ssh-add adds RSA or DSA identities to the authentication agent, ssh-
-     agent(1).  When run without arguments, it adds the file
-     $HOME/.ssh/identity. Alternative file names can be given on the command
+     ssh-add adds RSA or DSA identities to the authentication agent,
+     ssh-agent(1).  When run without arguments, it adds the file
+     $HOME/.ssh/identity.  Alternative file names can be given on the command
      line.  If any file requires a passphrase, ssh-add asks for the passphrase
-     from the user.  The Passphrase it is read from the user's tty.  ssh-add
+     from the user.  The passphrase is read from the user's tty.  ssh-add
      retries the last passphrase if multiple identity files are given.
 
      The authentication agent must be running and must be an ancestor of the
@@ -31,11 +32,17 @@ DESCRIPTION
 
      -D      Deletes all identities from the agent.
 
+     -s reader
+             Add key in smartcard reader.
+
+     -e reader
+             Remove key in smartcard reader.
+
 FILES
      $HOME/.ssh/identity
              Contains the protocol version 1 RSA authentication identity of
-             the user.  This file should not be readable by anyone but the usM--
-             er.  Note that ssh-add ignores this file if it is accessible by
+             the user.  This file should not be readable by anyone but the
+             user.  Note that ssh-add ignores this file if it is accessible by
              others.  It is possible to specify a passphrase when generating
              the key; that passphrase will be used to encrypt the private part
              of this file.  This is the default file added by ssh-add when no
@@ -68,6 +75,6 @@ AUTHORS
      versions 1.5 and 2.0.
 
 SEE ALSO
-     ssh(1),  ssh-agent(1),  ssh-keygen(1),  sshd(8)
+     ssh(1), ssh-agent(1), ssh-keygen(1), sshd(8)
 
-BSD Experimental              September 25, 1999                             2
+BSD                           September 25, 1999                           BSD

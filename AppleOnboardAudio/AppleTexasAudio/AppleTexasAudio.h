@@ -130,6 +130,7 @@ protected:
 	Boolean					doneWaiting;
 	UInt64					savedNanos; 
 	Boolean					speakerConnectFailed;
+	IOAudioDevicePowerState previousPowerState;
 
 	// information specific to the chip
 	Boolean					gModemSoundActive;
@@ -207,6 +208,8 @@ public:
 	static bool	DallasDriverPublished (AppleTexasAudio * appleTexasAudio, void * refCon, IOService * newService);
 	static void DisplaySpeakersNotFullyConnected (OSObject *owner, IOTimerEventSource *sender);
 
+	virtual IOReturn performDeviceIdleWake ();
+	virtual IOReturn performDeviceIdleSleep ();
 	virtual IOReturn performDeviceWake ();
 	virtual IOReturn performDeviceSleep ();
 

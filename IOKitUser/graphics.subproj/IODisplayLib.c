@@ -435,6 +435,15 @@ EDIDDescToDisplayTimingRangeRec( EDID * edid, EDIDGeneralDesc * desc,
     range->csMaxLineRate   = desc->data[3] * 1000;
     range->csMaxPixelClock = desc->data[4] * 10000000ULL;
 
+//-- these from DM:
+    range->csMinHorizontalActiveClocks = 640;
+    range->csMinVerticalActiveClocks   = 480;
+    if( range->csMaxLineRate)
+        range->csMaxHorizontalActiveClocks = range->csMaxPixelClock / range->csMaxLineRate;
+    if( range->csMaxFrameRate)
+        range->csMaxVerticalActiveClocks   = range->csMaxPixelClock
+                                            / (range->csMinHorizontalActiveClocks * range->csMaxFrameRate);
+//--
     return( true );
 }
 

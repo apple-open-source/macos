@@ -46,10 +46,18 @@
 #undef _MAKE_EXT
 
 /*
- * Sets the receive latency (in milliseconds) with the default
+ * Sets the receive latency (in microseconds) with the default
  * value of 0 meaning a 256 / 3 character delay latency.
  */
 #define IOSSDATALAT    _IOW('T', 0, unsigned long)
+
+/*
+ * Controls the pre-emptible status of IOSS based serial dial in devices
+ * (i.e. /dev/tty.* devices).  If true an open tty.* device is pre-emptible by
+ * a dial out call.  Once a dial in call is established then setting pre-empt
+ * to false will halt any further call outs on the cu device.
+ */
+#define IOSSPREEMPT    _IOW('T', 1, int)
 
 #endif  /*_POSIX_SOURCE */
 

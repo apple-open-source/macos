@@ -91,6 +91,7 @@ void AppleDACAAudio::free()
     // free myAudioI2SControl
     CLEAN_RELEASE(myAudioI2SControl) ;
 
+	publishResource (fAppleAudioVideoJackStateKey, NULL);
     super::free();
     
     DEBUG_IOLOG("- AppleDACAAudio::free\n");
@@ -385,8 +386,8 @@ void AppleDACAAudio::sndHWPostDMAEngineInit (IOService *provider) {
 
 	nanoseconds_to_absolutetime(NSEC_PER_SEC, &timerInterval);
 	addTimerEvent(this, &AppleDACAAudio::timerCallback, timerInterval);
-	registerService();
-	//publishResource("setModemSound", this);
+//	registerService();
+//	publishResource("setModemSound", this);
 }
 
 UInt32 	AppleDACAAudio::sndHWGetInSenseBits(

@@ -1283,7 +1283,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilitiesSize ( UInt32 * size )
 	if ( MODE_SENSE_10 ( 	request,
 							bufferDesc,
 							0x00,
-							0x00,
+							0x01,	/* Disable block descriptors */
 							0x00,
 							0x2A,
 							kModeSenseParameterHeaderSize,
@@ -1369,7 +1369,7 @@ IOSCSIMultimediaCommandsDevice::GetMechanicalCapabilities ( void )
 	if ( MODE_SENSE_10 ( 	request,
 							bufferDesc,
 							0x00,
-							0x00,
+							0x01,	/* Disable block descriptors */
 							0x00,
 							0x2A,
 							actualSize,
@@ -1520,7 +1520,7 @@ IOSCSIMultimediaCommandsDevice::GetMediaAccessSpeed ( UInt16 * kilobytesPerSecon
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
 								0x00,
-								0x00,
+								0x01,	/* Disable block descriptors */
 								0x00,
 								0x2A,
 								mechanicalCapabilitiesSize,
@@ -3380,62 +3380,86 @@ IOSCSIMultimediaCommandsDevice::ReadMCN ( CDMCN mcn )
 IOReturn
 IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 {
+	return ReadTOC ( buffer, 0x02, 0x01, 0x00, NULL );
+}
+
+
+IOReturn
+IOSCSIMultimediaCommandsDevice::ReadTOC (	IOMemoryDescriptor *	buffer,
+											CDTOCFormat				format,
+											UInt8					msf,
+											UInt32					trackSessionNumber,
+											UInt16 *				actualByteCount )
+{
 	
 	IOBufferMemoryDescriptor *	doubleBuffer	= NULL;
 	SCSITaskIdentifier			request			= NULL;
 	SCSIServiceResponse			serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOReturn					status			= kIOReturnSuccess;
+	IOReturn					status			= kIOReturnError;
 	IOMemoryDescriptor *		bufferToUse		= NULL;
 	
-	// If they ask for 4 bytes, use 0xFFFE to make sure we get the whole TOC
-	if ( buffer->getLength ( ) == sizeof ( CDTOC ) )
+	if ( ( format == 0x02 ) && ( msf == 1 ) )
 	{
-
-		UInt8 *	zeroPtr = 0;
 		
-		STATUS_LOG ( ( "2ble buffer using 0xFFFE as size\n" ) );
-		
-		doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( 0xFFFE, kIODirectionIn );
-		if ( doubleBuffer == NULL )
+		// If they ask for 4 bytes, use 0xFFFE to make sure we get the whole TOC
+		if ( buffer->getLength ( ) == sizeof ( CDTOC ) )
 		{
+	
+			UInt8 *	zeroPtr = 0;
 			
-			ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
-			status = kIOReturnNoMemory;
-			goto ErrorExit;
+			STATUS_LOG ( ( "2ble buffer using 0xFFFE as size\n" ) );
+			
+			doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( 0xFFFE, kIODirectionIn );
+			if ( doubleBuffer == NULL )
+			{
+				
+				ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
+				status = kIOReturnNoMemory;
+				goto ErrorExit;
+				
+			}
+			
+			bufferToUse = doubleBuffer;
+			zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
+			bzero ( zeroPtr, doubleBuffer->getLength ( ) );
 			
 		}
 		
-		bufferToUse = doubleBuffer;
-		zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
-		bzero ( zeroPtr, doubleBuffer->getLength ( ) );
-		
-	}
-	
-	// If they ask for an odd number of bytes, pad it to make it even
-	else if ( ( buffer->getLength ( ) & 1 ) == 1 )
-	{
-		
-		UInt8 *	zeroPtr = 0;
-		
-		STATUS_LOG ( ( "2ble buffer using %ld as size\n", buffer->getLength ( ) + 1 ) );
-		
-		doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( buffer->getLength ( ) + 1, kIODirectionIn );
-		if ( doubleBuffer == NULL )
+		// If they ask for an odd number of bytes, pad it to make it even
+		else if ( ( buffer->getLength ( ) & 1 ) == 1 )
 		{
 			
-			ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
-			status = kIOReturnNoMemory;
-			goto ErrorExit;
+			UInt8 *	zeroPtr = 0;
+			
+			STATUS_LOG ( ( "2ble buffer using %ld as size\n", buffer->getLength ( ) + 1 ) );
+			
+			doubleBuffer = IOBufferMemoryDescriptor::withCapacity ( buffer->getLength ( ) + 1, kIODirectionIn );
+			if ( doubleBuffer == NULL )
+			{
+				
+				ERROR_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC failed to allocate TOC buffer\n" ) );
+				status = kIOReturnNoMemory;
+				goto ErrorExit;
+				
+			}
+			
+			bufferToUse = doubleBuffer;
+			zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
+			bzero ( zeroPtr, doubleBuffer->getLength ( ) );
 			
 		}
 		
-		bufferToUse = doubleBuffer;
-		zeroPtr = ( UInt8 * ) doubleBuffer->getBytesNoCopy ( );
-		bzero ( zeroPtr, doubleBuffer->getLength ( ) );
+		// Else, it's all good...
+		else
+		{
+			
+			STATUS_LOG ( ( "No 2ble buffer\n" ) );
+			bufferToUse = buffer;
+			
+		}
 		
 	}
 	
-	// Else, it's all good...
 	else
 	{
 		
@@ -3448,8 +3472,8 @@ IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 	
 	if ( READ_TOC_PMA_ATIP (	request,
 								bufferToUse,
-								1,			// MSF bit set
-								0x02,
+								msf,			// MSF bit set
+								format,
 								0,
 								bufferToUse->getLength ( ),
 								0 ) == true )
@@ -3465,164 +3489,185 @@ IOSCSIMultimediaCommandsDevice::ReadTOC ( IOMemoryDescriptor * buffer )
 		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::CheckForCDMediaType malformed command 5" ) );
 	}
 	
-	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
-		 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
+	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 	{
 		
-		UInt8 *			ptr;
-		UInt16			sizeOfTOC;
-		IOByteCount		bufLength;	// not used
-		
-		ptr = ( UInt8 * ) bufferToUse->getVirtualSegment ( 0, &bufLength );
-		
-		// Get the size of the TOC data returned
-		sizeOfTOC = OSReadBigInt16 ( ptr, 0 ) + sizeof ( UInt16 );
-		
-		// We have successfully gotten a TOC, check if the driver was able to 
-		// determine a block count from READ CAPACITY.  If the media has a reported
-		// block count of zero, then this is most likely one of the devices that does
-		// not correctly update the capacity information after writing a disc.  Since the
-		// BCD conversion check cannot be successfully done without valid capacity
-		// data, do neither the check nor the conversion. 
-		if ( fMediaBlockCount != 0 )
+		if ( actualByteCount )
 		{
-			
-			UInt8			lastSessionNum;
-			UInt32 			index;
-			UInt8 *			beginPtr;
-			bool			needsBCDtoHexConv = false;
-			UInt32			numLBAfromMSF;
-			
-			beginPtr = ptr;
-			
-		#if ( SCSI_MMC_DEVICE_DEBUGGING_LEVEL >= 2 )
-			if ( sizeOfTOC != GetRealizedDataTransferCount ( request ) )
-				ERROR_LOG ( ( "sizeOfTOC != Realized Data Transfer Count\n size = %d, xfer count = %ld\n",
-								sizeOfTOC, ( UInt32 ) GetRealizedDataTransferCount ( request ) ) );
-		#endif
-			
-			if ( sizeOfTOC <= sizeof ( CDTOC ) )
-			{
-				
-				ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
-				
-				status = kIOReturnError;
-				goto ErrorExit;
-				
-			}
-			
-			// Get the number of the last session on the disc.
-			// Since this number will be match to the appropriate
-			// data in the returned TOC, the format of this (Hex or BCD)
-			// has no impact on its use.		
-			lastSessionNum = ptr[3];
-			
-			// Find the A2 point for the last session
-			for ( index = 4; index < ( sizeOfTOC - 4 ); index += 11 )
-			{
-				
-				// Check if this Track Descriptor is for the last session
-				if ( ptr[index] != lastSessionNum )
-				{
-					// Not for the last session, go on to the next descriptor.
-					continue;
-				}
-				
-				// If we got here, then this Track Descriptor is for the last session,
-				// now check to see if it is the A2 point.
-				if ( ptr[index + 3] != 0xA2 )
-				{
-					continue;
-				}
-				
-				// If we got here, then this Track Descriptor is for the last session,
-				// and is the A2 point.
-				// Now check if the beginning of the lead out is greater than
-				// the disc capacity (plus the 2 second leadin or 150 blocks) plus 75 sector
-				// tolerance.
-				numLBAfromMSF = ( ( ( ptr[index + 8] * 60 ) + ( ptr[index + 9] ) ) * 75 ) + ( ptr[index + 10] );
-				
-				if ( numLBAfromMSF > ( ( fMediaBlockCount + 150 ) + 75 ) )
-				{
-					
-					needsBCDtoHexConv = true;
-					break;
-					
-				}
-				
-			}
-			
-			if ( needsBCDtoHexConv == true )
-			{
-				
-				ERROR_LOG ( ( "Drive needs BCD->HEX conversion\n" ) );
-				
-				// Convert First/Last session info
-				ptr[2] 	= ConvertBCDToHex ( ptr[2] );
-				ptr[3] 	= ConvertBCDToHex ( ptr[3] );
-				ptr 	= &ptr[4];
-				
-				// Loop over track descriptors finding the BCD values and change them to hex.
-				for ( index = 0; index < ( sizeOfTOC - 4 ); index += 11 )
-				{
-					
-					if ( ( ptr[index + 3] == 0xA0 ) || ( ptr[index + 3] == 0xA1 ) )
-					{
-						
-						// Fix the A0 and A1 PMIN values.
-						ptr[index + 8] = ConvertBCDToHex ( ptr[index + 8] );
-						
-					}
-					
-					else
-					{
-						
-						// Fix the Point value field
-						ptr[index + 3] = ConvertBCDToHex ( ptr[index + 3] );
-						
-						// Fix the Minutes value field
-						ptr[index + 8] = ConvertBCDToHex ( ptr[index + 8] );
-						
-						// Fix the Seconds value field
-						ptr[index + 9] = ConvertBCDToHex ( ptr[index + 9] );
-						
-						// Fix the Frames value field
-						ptr[index + 10] = ConvertBCDToHex ( ptr[index + 10] );
-						
-					}
-					
-				}
-				
-			}
-			
-			if ( bufferToUse != buffer )
-			{
-				
-				STATUS_LOG ( ( "Writing Bytes\n" ) );
-				buffer->writeBytes ( 0, beginPtr, min ( buffer->getLength ( ), sizeOfTOC ) );
-				
-			}
-			
+			*actualByteCount = GetRealizedDataTransferCount ( request );
 		}
 		
-		else
+		if ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD )
 		{
 			
-			if ( sizeOfTOC <= sizeof ( CDTOC ) )
-			{
-				
-				ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
-				status = kIOReturnError;
-				goto ErrorExit;
-				
-			}
+			status = kIOReturnSuccess;
 			
+			if ( ( format == 0x02 ) && ( msf == 1 ) )
+			{
+		
+				UInt8 *			ptr;
+				UInt16			sizeOfTOC;
+				IOByteCount		bufLength;	// not used
+				
+				ptr = ( UInt8 * ) bufferToUse->getVirtualSegment ( 0, &bufLength );
+				
+				// Get the size of the TOC data returned
+				sizeOfTOC = OSReadBigInt16 ( ptr, 0 ) + sizeof ( UInt16 );
+				
+				// We have successfully gotten a TOC, check if the driver was able to 
+				// determine a block count from READ CAPACITY.  If the media has a reported
+				// block count of zero, then this is most likely one of the devices that does
+				// not correctly update the capacity information after writing a disc.  Since the
+				// BCD conversion check cannot be successfully done without valid capacity
+				// data, do neither the check nor the conversion. 
+				if ( fMediaBlockCount != 0 )
+				{
+					
+					UInt8			lastSessionNum;
+					UInt32 			index;
+					UInt8 *			beginPtr;
+					bool			needsBCDtoHexConv = false;
+					UInt32			numLBAfromMSF;
+					
+					beginPtr = ptr;
+					
+				#if ( SCSI_MMC_DEVICE_DEBUGGING_LEVEL >= 2 )
+					if ( sizeOfTOC != GetRealizedDataTransferCount ( request ) )
+						ERROR_LOG ( ( "sizeOfTOC != Realized Data Transfer Count\n size = %d, xfer count = %ld\n",
+										sizeOfTOC, ( UInt32 ) GetRealizedDataTransferCount ( request ) ) );
+				#endif
+					
+					if ( sizeOfTOC <= sizeof ( CDTOC ) )
+					{
+						
+						ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
+						
+						status = kIOReturnError;
+						goto ErrorExit;
+						
+					}
+					
+					// Get the number of the last session on the disc.
+					// Since this number will be match to the appropriate
+					// data in the returned TOC, the format of this (Hex or BCD)
+					// has no impact on its use.		
+					lastSessionNum = ptr[3];
+					
+					// Find the A2 point for the last session
+					for ( index = 4; index < ( sizeOfTOC - 4 ); index += 11 )
+					{
+						
+						// Check if this Track Descriptor is for the last session
+						if ( ptr[index] != lastSessionNum )
+						{
+							// Not for the last session, go on to the next descriptor.
+							continue;
+						}
+						
+						// If we got here, then this Track Descriptor is for the last session,
+						// now check to see if it is the A2 point.
+						if ( ptr[index + 3] != 0xA2 )
+						{
+							continue;
+						}
+						
+						// If we got here, then this Track Descriptor is for the last session,
+						// and is the A2 point.
+						// Now check if the beginning of the lead out is greater than
+						// the disc capacity (plus the 2 second leadin or 150 blocks) plus 75 sector
+						// tolerance.
+						numLBAfromMSF = ( ( ( ptr[index + 8] * 60 ) + ( ptr[index + 9] ) ) * 75 ) + ( ptr[index + 10] );
+						
+						if ( numLBAfromMSF > ( ( fMediaBlockCount + 150 ) + 75 ) )
+						{
+							
+							needsBCDtoHexConv = true;
+							break;
+							
+						}
+						
+					}
+					
+					if ( needsBCDtoHexConv == true )
+					{
+						
+						ERROR_LOG ( ( "Drive needs BCD->HEX conversion\n" ) );
+						
+						// Convert First/Last session info
+						ptr[2] 	= ConvertBCDToHex ( ptr[2] );
+						ptr[3] 	= ConvertBCDToHex ( ptr[3] );
+						ptr 	= &ptr[4];
+						
+						// Loop over track descriptors finding the BCD values and change them to hex.
+						for ( index = 0; index < ( sizeOfTOC - 4 ); index += 11 )
+						{
+							
+							if ( ( ptr[index + 3] == 0xA0 ) || ( ptr[index + 3] == 0xA1 ) )
+							{
+								
+								// Fix the A0 and A1 PMIN values.
+								ptr[index + 8] = ConvertBCDToHex ( ptr[index + 8] );
+								
+							}
+							
+							else
+							{
+								
+								// Fix the Point value field
+								ptr[index + 3] = ConvertBCDToHex ( ptr[index + 3] );
+								
+								// Fix the Minutes value field
+								ptr[index + 8] = ConvertBCDToHex ( ptr[index + 8] );
+								
+								// Fix the Seconds value field
+								ptr[index + 9] = ConvertBCDToHex ( ptr[index + 9] );
+								
+								// Fix the Frames value field
+								ptr[index + 10] = ConvertBCDToHex ( ptr[index + 10] );
+								
+							}
+							
+						}
+						
+					}
+					
+					if ( bufferToUse != buffer )
+					{
+						
+						STATUS_LOG ( ( "Writing Bytes\n" ) );
+						buffer->writeBytes ( 0, beginPtr, min ( buffer->getLength ( ), sizeOfTOC ) );
+						
+					}
+					
+				}
+		
+				else
+				{
+					
+					if ( sizeOfTOC <= sizeof ( CDTOC ) )
+					{
+						
+						ERROR_LOG ( ( "sizeOfTOC <= sizeof ( CDTOC )\n" ) );
+						status = kIOReturnError;
+						goto ErrorExit;
+						
+					}
+					
+				}
+			
+			}
+		
 		}
 		
 	}
 	
 	else
 	{
+		
+		if ( actualByteCount != NULL )
+		{
+			*actualByteCount = 0;
+		}
 		
 		// We got an error on the READ_TOC_PMA_ATIP. We shouldn't get one unless the media
 		// is blank, so return an error.
@@ -3652,6 +3697,128 @@ ErrorExit:
 	}
 	
 	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTOC status = %d\n", status ) );
+	
+	return status;
+	
+}
+
+
+IOReturn
+IOSCSIMultimediaCommandsDevice::ReadDiscInfo (	IOMemoryDescriptor *	buffer,
+												UInt16 *				actualByteCount )
+{
+	
+	IOReturn				status 			= kIOReturnError;
+	SCSITaskIdentifier		request			= NULL;
+	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadDiscInfo called\n" ) );
+	
+	request = GetSCSITask ( );
+	
+	if ( READ_DISC_INFORMATION (	request,
+									buffer,
+									buffer->getLength ( ),
+									0 ) == true )
+	{
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, 0 );
+		
+	}
+	
+	else
+	{
+		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::ReadDiscInfo malformed command" ) );
+	}
+	
+	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+	{
+		
+		if ( actualByteCount )
+		{
+			*actualByteCount = GetRealizedDataTransferCount ( request );
+		}
+		
+		if ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD )
+		{
+			status = kIOReturnSuccess;
+		}		
+		
+	}
+	
+	else if ( actualByteCount )
+	{
+		*actualByteCount = 0;
+	}
+	
+	ReleaseSCSITask ( request );
+		
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadDiscInfo status = %d\n", status ) );
+	
+	return status;
+	
+}
+
+
+IOReturn
+IOSCSIMultimediaCommandsDevice::ReadTrackInfo(	IOMemoryDescriptor *	buffer,
+												UInt32					address,
+												CDTrackInfoAddressType	addressType,
+												UInt16 *				actualByteCount )
+{
+
+	IOReturn				status 			= kIOReturnError;
+	SCSITaskIdentifier		request			= NULL;
+	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTrackInfo called\n" ) );
+	
+	request = GetSCSITask ( );
+	
+	if ( READ_TRACK_INFORMATION (	request,
+									buffer,
+									addressType,
+									address,
+									buffer->getLength ( ),
+									0 ) == true )
+	{
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, 0 );
+		
+	}
+	
+	else
+	{
+		PANIC_NOW ( ( "IOSCSIMultimediaCommandsDevice::ReadTrackInfo malformed command" ) );
+	}
+
+	if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+	{
+		
+		if ( actualByteCount )
+		{
+			*actualByteCount = GetRealizedDataTransferCount ( request );
+		}
+		
+		if ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD )
+		{
+			status = kIOReturnSuccess;
+		}		
+		
+	}
+	
+	else if ( actualByteCount )
+	{
+		
+		*actualByteCount = 0;
+		
+	}
+	
+	ReleaseSCSITask ( request );
+	
+	STATUS_LOG ( ( "IOSCSIMultimediaCommandsDevice::ReadTrackInfo status = %d\n", status ) );
 	
 	return status;
 	
@@ -3934,9 +4101,9 @@ IOSCSIMultimediaCommandsDevice::GetAudioVolume ( UInt8 * leftVolume,
 		
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
-								0,
-								0,
-								0,
+								0x00,
+								0x01,	/* Disable block descriptors */
+								0x00,
 								0x0E,
 								24,
 								0 ) == true )
@@ -4005,9 +4172,9 @@ IOSCSIMultimediaCommandsDevice::SetAudioVolume ( UInt8 leftVolume,
 		
 		if ( MODE_SENSE_10 ( 	request,
 								bufferDesc,
-								0,
-								0,
-								0,
+								0x00,
+								0x01,	/* Disable block descriptors */
+								0x00,
 								0x0E,
 								24,
 								0 ) == true )
@@ -6185,9 +6352,10 @@ IOSCSIMultimediaCommandsDevice::WRITE_AND_VERIFY_10 (
 
 
 // Space reserved for future expansion.
-OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  1 );
-OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  2 );
-OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  3 );
+OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  1 ); 	/* ReadTOC */
+OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  2 );	/* ReadDiscInfo */
+OSMetaClassDefineReservedUsed ( IOSCSIMultimediaCommandsDevice,  3 );	/* ReadTrackInfo */
+
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  4 );
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  5 );
 OSMetaClassDefineReservedUnused ( IOSCSIMultimediaCommandsDevice,  6 );

@@ -40,9 +40,10 @@
 // Only stream mode is supported.
 // No EBCDIC support.
 //
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+
 #include "ftp-protocol.h"
 #include "netparameters.h"
-
 
 namespace Security {
 namespace Network {
@@ -102,6 +103,10 @@ void FTPProtocol::FTPConnection::startCommand()
         return;
     case removeDirectory:
         printfe("RMD %s", mOperationPath.c_str());
+        state = directCommandSent;
+        return;
+    case removeFile:
+        printfe("DELE %s", mOperationPath.c_str());
         state = directCommandSent;
         return;
     case genericCommand:
@@ -361,7 +366,9 @@ void FTPProtocol::FTPConnection::transit(Event event, char *input, size_t length
                     mDataPath.connectionDone();
                     break;
                 case 452:
-                    fail(input, ENOSPC);
+                    mDataPath.close();
+                    state = idle;
+                    fail(input, dskFulErr);
                     break;
                 default:	// transfer failed
                     // (ignore any error in mDataPath - prefer diagnostics from remote)
@@ -509,6 +516,7 @@ void FTPProtocol::FTPTransfer::start()
 
 void FTPProtocol::FTPTransfer::abort()
 {
+    observe(Observer::aborting);
     setError("aborted");
     connectionAs<FTPConnection>().abort();
 }
@@ -529,7 +537,9 @@ Transfer::ResultClass FTPProtocol::FTPTransfer::resultClass() const
             InetReply reply(errorDescription().c_str());
             if (reply / 10 == 53)	// 53x - authentication failure
                 return authorizationFailure;
-      		// when in doubt, blame the remote
+            if (errorDescription() == "aborted")
+                return abortedFailure;
+            // when in doubt, blame the remote
             return remoteFailure;
         }
     case finished:

@@ -53,10 +53,11 @@ public:
     // FTP-specific operation codes
     enum {
         downloadDirectory = protocolSpecific,	// get filename list (NLST)
-        downloadListing,						// get host-specific listing (LIST)
-        makeDirectory,							// make a directory (MKD)
-        removeDirectory,						// remove a directory (RMD)
-        genericCommand							// issue generic FTP command
+        downloadListing,			// get host-specific listing (LIST)
+        makeDirectory,				// make a directory (MKD)
+        removeDirectory,			// remove a directory (RMD)
+        removeFile,				// remove a file (DELE)
+        genericCommand				// issue generic FTP command
     };
     
 private:

@@ -36,11 +36,16 @@
 
 #include <IOKit/IOService.h>
 
+#define	TTY_DIALIN_INDEX	0
+#define	TTY_CALLOUT_INDEX	1
+#define TTY_NUM_FLAGS		1
+#define TTY_NUM_TYPES		(1 << TTY_NUM_FLAGS)
+
 class IOSerialStreamSync;
 class IOSerialSessionSync;
 class IOSerialBSDClient : public IOService
 {
-    OSDeclareDefaultStructors(IOSerialBSDClient)
+    OSDeclareDefaultStructors(IOSerialBSDClient);
 
 public:
     //
@@ -52,89 +57,108 @@ public:
     virtual void stop(IOService *provider);
     virtual bool matchPropertyTable(OSDictionary *table);
 
+    virtual IOReturn setProperties(OSObject *properties);
+
     // BSD TTY linediscipline stuff
     static struct cdevsw devsw;
 
-protected:
-    struct ttyMap {
+private:
+    struct Session {
+        struct tty ftty;	// Unix tty structure
         /*
-        * Unix tty structure -- the glue between line disciplines and this
-        * code.  Put at begining of structure so that sp and tp point to
-        * same bit of memory.
-        */
-        struct tty ftty;
-        IOSerialBSDClient *fClient;
-    } map;
+         * This is the glue between the tty line discipline and the bsd
+         * client.  Must be at begining of this struct otherwise I wont
+         * be able to map between the tp pointer and my own class instance.
+         */
 
-    IOSerialStreamSync *fProvider;
-    dev_t fBaseDev;
-
-    /*
-     * Underlying device object state
-     */
-    IOSerialSessionSync *fSession; /* The session for the open connection */
-
-    /*
-     * Init and lock termios structures for both call in and call out
-     * devices
-     */
-    struct termios fInitTermOut, fInitTermIn;
+        struct termios fInitTerm;
+        void *fCDevNode;
+        IOSerialBSDClient *fThis;
+        int fErrno;		/* errno for session termination */
+    } fSessions[TTY_NUM_TYPES];
 
     struct timeval fDTRDownTime;
+    struct timeval fLastUsedTime;
 
-    int fInOpensPending;	/* Count of incoming opens waiting */
+    Session *fActiveSession;
+    IOThread frxThread;		// Recieve data and event's thread
+    IOThread ftxThread;		// Transmit data and state tracking thread
+
+    dev_t fBaseDev;
+
+    int fInOpensPending;	/* Count of opens waiting for carrier */
     int fDCDDelayTicks;
 
     /* state determined at time of open */
-    boolean_t   fPreempt:1;	/* fPreempted audit lock holder */
-    boolean_t   fIsReleasing:1;
-    boolean_t   frxBlocked:1;	/* the rx_thread suspended */
-    boolean_t   fHasAuditSleeper:1; /* A process is sleeping on audit */
-    boolean_t   fKillThreads:1;	/* Threads must terminate */
-    boolean_t   fIsTimersSet:1; /* Has frame timeout been set */
-    boolean_t   fIstxEnabled:1; /* en/disabled due to flow control */
-    boolean_t   fIsrxEnabled:1; /* TP_CREAD dependent */
-    boolean_t   fIsDCDTimer:1;	/* DCD debounce flag */
-    boolean_t   fIsDTRDelay:1;	/* Set during dtr down delay */
+    bool fPreemptAllowed; 		/* Active session is pre-emptible */
+    bool fConnectTransit;		/* A thread is open() or closing()  */
 
-    void *fCdevCalloutNode;	// (character device's devfs node)
-    void *fCdevDialinNode;      // (character device's devfs node)
-    IOThread frxThread;		// Recieve data and event's thread
-    IOThread ftxThread;		// Transmit data and state tracking thread
+    boolean_t   fIsClosing:1;		/* Session is actively closing */
+    boolean_t   frxBlocked:1;		/* the rx_thread suspended */
+    boolean_t   fHasAuditSleeper:1;	/* A process is sleeping on audit */
+    boolean_t   fKillThreads:1;		/* Threads must terminate */
+    boolean_t   fIstxEnabled:1;		/* en/disabled due to flow control */
+    boolean_t   fIsrxEnabled:1;		/* TP_CREAD dependent */
+    boolean_t   fDCDTimerDue:1;		/* DCD debounce flag */
+    boolean_t   frxThreadLaunched:1;	/* RX Thread has finished launching */
+    boolean_t   ftxThreadLaunched:1;	/* RX Thread has finished launching */
 
     /*
      * TTY glue layer private routines
      */
+
+    // Open/close semantic routines
     virtual int open(dev_t dev, int flags, int devtype, struct proc *p);
     virtual void close(dev_t dev, int flags, int devtype, struct proc *p);
+    virtual void startConnectTransit();
+    virtual void endConnectTransit();
+    virtual void initSession(Session *sp);
+    virtual bool waitOutDelay(void *event,
+                              const struct timeval *start,
+                              const struct timeval *duration);
+    virtual int waitForIdle();
+    virtual void preemptActive();
 
+    // General routines
     virtual bool createDevNodes();
     virtual bool setBaseTypeForDev();
-    virtual void initState();
-    virtual int  acquireSession(dev_t dev);
-    virtual int  waitForDCD(int flag);
-    virtual void initSession();
-    virtual void optimiseInput(struct termios *t);
-    virtual void convertFlowCtrl(struct termios *t);
 
-    /*
-     * Modem control routines
-     */
+    virtual IOReturn setOneProperty(const OSSymbol *key, OSObject *value);
+
+    virtual void optimiseInput(struct termios *t);
+    virtual void convertFlowCtrl(Session *sp, struct termios *t);
+
+    // Modem control routines
     virtual int  mctl(u_int bits, int how);
 
-    /*
-     * Receive and Transmit engine thread functions
-     */
-    virtual void getData();
-    virtual void procEvent();
-    virtual void txload(u_long *wait_mask);
+    // Receive and Transmit engine thread functions
+    virtual void getData(Session *sp);
+    virtual void procEvent(Session *sp);
+    virtual void txload(Session *sp, u_long *wait_mask);
     virtual void rxFunc();
     virtual void txFunc();
 
     virtual void launchThreads();
     virtual void killThreads();
 
-private:
+    // session based accessors to Serial Stream Sync 
+    virtual IOReturn sessionSetState(Session *sp, UInt32 state, UInt32 mask);
+    virtual UInt32 sessionGetState(Session *sp);
+    virtual IOReturn sessionWatchState(Session *sp, UInt32 *state, UInt32 mask);
+    virtual UInt32 sessionNextEvent(Session *sp);
+    virtual IOReturn
+        sessionExecuteEvent(Session *sp, UInt32 event, UInt32 data);
+    virtual IOReturn
+        sessionRequestEvent(Session *sp, UInt32 event, UInt32 *data);
+    virtual IOReturn
+        sessionEnqueueEvent(Session *sp, UInt32 event, UInt32 data, bool sleep);
+    virtual IOReturn sessionDequeueEvent
+        (Session *sp, UInt32 *event, UInt32 *data, bool sleep);
+    virtual IOReturn sessionEnqueueData
+        (Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep);
+    virtual IOReturn sessionDequeueData
+        (Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min);
+
     // Unix character device switch table routines.
     static int  iossopen(dev_t dev, int flags, int devtype, struct proc *p);
     static int  iossclose(dev_t dev, int flags, int devtype, struct proc *p);
@@ -150,3 +174,4 @@ private:
 };
 
 #endif /* ! _IOSERIALSERVER_H */
+

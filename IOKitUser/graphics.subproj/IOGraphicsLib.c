@@ -547,6 +547,9 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     if( connectRef->modesArray)
         CFRelease( connectRef->modesArray );
 
+    connectRef->suppressRefresh = connectRef->overrides
+                && (0 != CFDictionaryGetValue( connectRef->overrides, CFSTR(kIODisplayIsDigitalKey)));
+
     dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
                                              (CFDictionaryKeyCallBacks *) 0,
                                              &kCFTypeDictionaryValueCallBacks );
@@ -562,6 +565,9 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
         connectRef->kernelInfo = dict;
         CFRetain(array);
         connectRef->modesArray = array;
+
+        if( connectRef->suppressRefresh)
+            connectRef->suppressRefresh = (0 != CFDictionaryGetValue(dict, CFSTR("IOFB0Hz")));
 
         modeCount = CFArrayGetCount( connectRef->modesArray );
         for( i = 0; i < modeCount; i++ ) {
@@ -627,6 +633,9 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     // -- scaling
     if( scaleCandidate)
         IOFBInstallScaledModes( connectRef, &scaleDesc );
+
+    if( connectRef->suppressRefresh)
+        CFDictionarySetValue(connectRef->kernelInfo, CFSTR("IOFB0Hz"), kCFBooleanTrue);
 
     // -- prune
 #if 0
@@ -868,6 +877,8 @@ IOFBCreateOverrides( IOFBConnectRef connectRef )
             CFDictionarySetValue( ovr, CFSTR("trng"), obj );
         if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("sync")) ))
             CFDictionarySetValue( ovr, CFSTR("sync"), obj );
+        if( (obj = CFDictionaryGetValue( oldOvr, CFSTR("scale-resolutions")) ))
+            CFDictionarySetValue( ovr, CFSTR("scale-resolutions"), obj );
 
     } while( false );
 
@@ -1168,10 +1179,12 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
                        VDScalerInfoRec * scalerInfo,
                        IOFBDisplayModeDescription * desc,
                        float nativeWidth, float nativeHeight,
-                       float width, float height )
+                       float width, float height,
+                       bool always )
 {
     UInt32		  need = 0;
     float	          aspectDiff;
+    float		  ratio;
 
     if( width < 640.0)
         return( __LINE__ );
@@ -1185,33 +1198,38 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
 
     if( width < nativeWidth)
         need |= kScaleCanUpSamplePixelsMask;
-    else
+    else if( width != nativeWidth)
         need |= kScaleCanDownSamplePixelsMask;
     if( height < nativeHeight)
         need |= kScaleCanUpSamplePixelsMask;
-    else
+    else if( height != nativeHeight)
         need |= kScaleCanDownSamplePixelsMask;
 
     if( need != (need & scalerInfo->csScalerFeatures))
         return( __LINE__ );
 
-    if( ratioOver( width, nativeWidth) < 1.18)
-        return( __LINE__ );
-    if( ratioOver( height, nativeHeight) < 1.18)
-        return( __LINE__ );
-
     aspectDiff = ratioOver( nativeWidth / nativeHeight, width / height );
-    if( aspectDiff > 2.0)
-        return( __LINE__ );
 
-    desc->info.nominalWidth = width;
-    desc->info.nominalHeight = height;
-    desc->info.refreshRate = (0 << 16);
-    desc->info.maxDepthIndex = desc->info.maxDepthIndex;	// ?
+    if( !always) {
+
+        ratio = (width / nativeWidth);
+        if( (ratio < 1.18) && (ratio > 0.82))
+            return( __LINE__ );
+        ratio = (height / nativeHeight);
+        if( (ratio < 1.18) && (ratio > 0.82))
+            return( __LINE__ );
+        if( aspectDiff > 2.0)
+            return( __LINE__ );
+    }
+
+    desc->info.nominalWidth = 0xfffffffe & ((UInt32) ceil(width));
+    desc->info.nominalHeight = 0xfffffffe & ((UInt32) ceil(height));
+//    desc->info.refreshRate = (0 << 16);
+    desc->info.maxDepthIndex = desc->info.maxDepthIndex;
 
     desc->info.flags = kDisplayModeValidFlag | kDisplayModeSafeFlag;
 
-    if( IOFBCheckScaleDupMode( connectRef, desc))
+    if( !always && IOFBCheckScaleDupMode( connectRef, desc))
         return( __LINE__ );
 
     if( aspectDiff > 1.03125)
@@ -1220,7 +1238,7 @@ IOFBInstallScaledResolution( IOFBConnectRef connectRef,
     if( 0 == (kScaleStretchOnlyMask & scalerInfo->csScalerFeatures))
         IOFBInstallScaledMode( connectRef, desc, width, height, 0 );
 
-    if( (aspectDiff > 1.03125) && (aspectDiff < 1.5)) {
+    if( !always && (aspectDiff > 1.03125) && (aspectDiff < 1.5)) {
         desc->info.flags |= kDisplayModeStretchedFlag;
         IOFBInstallScaledMode( connectRef, desc, width, height, kScaleStretchToFitMask );
     }
@@ -1292,8 +1310,10 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
 {
     IOReturn			err = kIOReturnSuccess;
     CFDataRef 			data;
-    CFArrayRef			array;
-    CFIndex			count;
+    CFDictionaryRef		ovr;
+    CFArrayRef			array, array1, array2 = 0;
+    CFMutableArrayRef		copyArray = 0;
+    CFIndex			count, alwaysCount = 0;
     VDScalerInfoRec *		scalerInfo;
     SInt32			i;
     float			h, v, nh, nv;
@@ -1302,9 +1322,21 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     if( kOvrFlagDisableScaling & connectRef->ovrFlags)
         return( kIOReturnSuccess );
 
-    array = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
-    if( !array)
+    array1 = CFDictionaryGetValue( gIOGraphicsProperties, CFSTR("scale-resolutions") );
+    if( !array1)
         return( kIOReturnSuccess );
+
+    ovr = connectRef->overrides;
+    if( ovr)
+        array2 = CFDictionaryGetValue( ovr, CFSTR("scale-resolutions") );
+    if( array2)
+        copyArray = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, array2 );
+    if( copyArray) {
+        alwaysCount = CFArrayGetCount(copyArray);
+        CFArrayAppendArray( copyArray, array1, CFRangeMake( 0, CFArrayGetCount(array1) ));
+        array = copyArray;
+    } else
+        array = CFRetain(array1);
 
     data = IORegistryEntryCreateCFProperty( connectRef->framebuffer, CFSTR(kIOFBScalerInfoKey),
 						kCFAllocatorDefault, kNilOptions );
@@ -1317,9 +1349,11 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     nh = (float) scaleBase->timingInfo.detailedInfo.v2.horizontalActive;
     nv = (float) scaleBase->timingInfo.detailedInfo.v2.verticalActive;
 
-    // printf("Scaling mode (%f,%f)\n", nh, nv);
+#if LOG
+    printf("Scaling mode (%f,%f)\n", nh, nv);
+#endif
 
-    IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, nh, nv, nh / 2.0, nv / 2.0 );
+    IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, nh, nv, nh / 2.0, nv / 2.0, false );
 
     displayNot4By3 = (ratioOver(nh / nv, 4.0 / 3.0) > 1.03125);
 
@@ -1327,6 +1361,7 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
     for( i = 0; i < count; i++) {
         CFNumberRef num;
         SInt32	value;
+        IOReturn r;
 
         num = CFArrayGetValueAtIndex(array, i);
         CFNumberGetValue( num, kCFNumberSInt32Type, &value );
@@ -1336,18 +1371,35 @@ IOFBInstallScaledModes( IOFBConnectRef connectRef, IOFBDisplayModeDescription * 
 
         if( v) {
 
-            if( (h != (nh / 2.0)) || (v != (nv / 2.0)))
-                IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, nh, nv, h, v );
+            if( (h != (nh / 2.0)) || (v != (nv / 2.0))) {
+                r = IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, 
+                                                    nh, nv, h, v, (i < alwaysCount) );
+#if LOG
+                printf("%f x %f: %d\n", h, v, r);
+#endif
+            }
 
         } else {
-            if( displayNot4By3)
-                IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, nh, nv, h, h / 4.0 * 3.0 );
-            if( h != (nh / 2.0))
-                IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase, nh, nv, h, h / nh * nv );
+
+            if( displayNot4By3) {
+                r = IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase,
+                                                    nh, nv, h, h / 4.0 * 3.0, (i < alwaysCount) );
+#if LOG
+                printf("%f x %f: %d\n", h, h / 4.0 * 3.0, r);
+#endif
+            }
+            if( h != (nh / 2.0)) {
+                r = IOFBInstallScaledResolution( connectRef, scalerInfo, scaleBase,
+                                                    nh, nv, h, h / nh * nv, (i < alwaysCount) );
+#if LOG
+                printf("%f x %f: %d\n", h, h / nh * nv, r);
+#endif
+            }
         }
     }
 
     CFRelease( data );
+    CFRelease( array );
 
     return( err );
 }
@@ -1452,12 +1504,18 @@ IOFBCreateDisplayModeInformation(
                 allInfo->info.flags |= kDisplayModeTelevisionFlag;
         }
 
-        if( kDisplayModeBuiltInFlag & allInfo->info.flags)
-            continue;
+        if( connectRef->suppressRefresh
+          && allInfo->info.refreshRate
+          && ((allInfo->info.refreshRate < 0x3b8000) || (allInfo->info.refreshRate > 0x3c8000)))
+            connectRef->suppressRefresh = false;
 
         ovr = connectRef->overrides;
         if( !ovr)
             continue;
+
+        if( kDisplayModeBuiltInFlag & allInfo->info.flags)
+            continue;
+
         tovr = CFDictionaryGetValue( ovr, CFSTR("tovr") );
         if( tovr) {
             if( appleTimingID && (modetovr = CFDictionaryGetValue( tovr, (const void *) appleTimingID ))) {
@@ -1566,6 +1624,9 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
             out->flags |= kDisplayModeDefaultFlag;
         else
             out->flags &= ~kDisplayModeDefaultFlag;
+
+        if(true && connectRef->suppressRefresh)
+            out->refreshRate = 0;
     }
 
     return( kr );
@@ -2428,3 +2489,164 @@ IOFBReleaseMemory( void * blitterRef, void * memoryRef )
 { return kIOReturnUnsupported; }
 
 #endif /* !NO_CFPLUGIN */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#include <IOKit/i2c/IOI2CInterfacePrivate.h>
+
+struct IOI2CConnect
+{
+    io_connect_t connect;
+};
+
+
+IOReturn IOI2CCopyInterfaceForID( CFTypeRef identifier, io_service_t * interface )
+{
+    CFMutableDictionaryRef dict, matching;
+    mach_port_t	  	   masterPort;
+    kern_return_t	   kr;
+    io_iterator_t	   iter;
+
+    IOMasterPort( MACH_PORT_NULL, &masterPort );
+    
+    matching = IOServiceMatching(kIOI2CInterfaceClassName);
+    if(!matching)
+        return( kIOReturnNoMemory );
+
+    dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+		&kCFTypeDictionaryKeyCallBacks,
+		&kCFTypeDictionaryValueCallBacks);
+    if(!dict)
+        return( kIOReturnNoMemory );
+
+    CFDictionarySetValue(dict, CFSTR(kIOI2CInterfaceIDKey), identifier);
+    CFDictionarySetValue(matching, CFSTR(kIOPropertyMatchKey), dict);
+    CFRelease(dict);
+
+    kr = IOServiceGetMatchingServices( masterPort, matching, &iter);
+    if( kIOReturnSuccess == kr) {
+        *interface = IOIteratorNext( iter );
+        IOObjectRelease( iter );
+    }
+
+    return( kr );
+}
+
+IOReturn IOFBGetI2CInterfaceCount( io_service_t framebuffer, IOItemCount * count )
+{
+    CFArrayRef	 array;
+
+    array = IORegistryEntryCreateCFProperty( framebuffer, CFSTR(kIOFBI2CInterfaceIDsKey),
+                                             kCFAllocatorDefault, kNilOptions );
+    if( array) {
+        *count = CFArrayGetCount(array);
+        CFRelease( array );
+    } else
+        *count = 0;
+
+    return( kIOReturnSuccess );
+}
+
+IOReturn IOFBCopyI2CInterfaceForBus( io_service_t framebuffer, IOOptionBits bus, io_service_t * interface )
+{
+    IOReturn	 kr = kIOReturnNoDevice;
+    CFArrayRef	 array;
+    CFIndex	 index;
+    CFTypeRef	 ident;
+
+    array = IORegistryEntryCreateCFProperty( framebuffer, CFSTR(kIOFBI2CInterfaceIDsKey),
+                                             kCFAllocatorDefault, kNilOptions );
+    if( !array)
+        return( kIOReturnNoDevice );
+
+    index = bus & kIOI2CBusNumberMask;
+
+    do {
+        if( index >= CFArrayGetCount(array)) {
+            kr = kIOReturnNoDevice;
+            continue;
+        }
+
+        ident = CFArrayGetValueAtIndex(array, index);
+        kr = IOI2CCopyInterfaceForID( ident, interface );
+
+    } while( false );
+
+    CFRelease( array );
+
+    return( kr );
+}
+
+IOReturn IOI2CInterfaceOpen( io_service_t interface, IOOptionBits options,
+                             IOI2CConnectRef * connect )
+{
+    kern_return_t	  kr;
+    struct IOI2CConnect * connectRef;
+
+    if( !IOObjectConformsTo(interface, kIOI2CInterfaceClassName))
+        return( kIOReturnBadArgument );
+
+    connectRef = calloc(1, sizeof(struct IOI2CConnect));
+    if( !connectRef)
+        return( kIOReturnNoMemory );
+
+    kr = IOServiceOpen( interface, mach_task_self(), options, &connectRef->connect );
+
+    if( (kr != kIOReturnSuccess) && connectRef) {
+        free(connectRef);
+        connectRef = NULL;
+    }
+    *connect = connectRef;
+
+    return( kr );
+}
+
+IOReturn IOI2CInterfaceClose( IOI2CConnectRef connect, IOOptionBits options )
+{
+    kern_return_t kr;
+
+    kr = IOServiceClose( connect->connect );
+
+    free( connect );
+
+    return( kr );
+}
+
+IOReturn IOI2CSendRequest( IOI2CConnectRef connect, IOOptionBits options, 
+                           IOI2CRequest * request )
+{
+    kern_return_t kr;
+    IOI2CBuffer	  buffer;
+    IOByteCount	  outlen;
+
+    if( request->sendBytes > sizeof(buffer.inlineBuffer))
+        return( kIOReturnOverrun );
+    if( request->replyBytes > sizeof(buffer.inlineBuffer))
+        return( kIOReturnOverrun );
+
+    kr = IOConnectMethodScalarIScalarO( connect->connect, 0, 0, 0 );
+    if( kIOReturnSuccess != kr)
+        return( kr );
+
+    buffer.request = *request;
+    buffer.request.replyBuffer = NULL;
+    buffer.request.sendBuffer  = NULL;
+
+    if( request->sendBytes)
+        bcopy( (void *) request->sendBuffer, &buffer.inlineBuffer[0], request->sendBytes );
+
+    outlen = sizeof( buffer);
+    kr = IOConnectMethodStructureIStructureO( connect->connect, 2,
+        sizeof( buffer), &outlen, &buffer, &buffer );
+
+    if( buffer.request.replyBytes)
+        bcopy( &buffer.inlineBuffer[0], (void *)  request->replyBuffer, buffer.request.replyBytes );
+    *request = buffer.request;
+
+    IOConnectMethodScalarIScalarO( connect->connect, 1, 0, 0 );
+
+    return( kr );
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+

@@ -47,6 +47,36 @@
 
 /*----------------------------- AWACs register mapping structure -------------------------*/
 
+typedef UInt32                          SndIOSubFrame;
+
+#define		kCodecCtlOffset			0x0010
+
+enum AwacsCodecCtrl {
+	kCtlDataMask			=	0x00000FFF,	// CODEC control data bits*/
+	kCtlAddrMask			=	0x003FF000,	// CODEC control address bits*/
+
+	kCtlEMSel0				=	0x00000000,	// Select subframe 0
+	kCtlEMSel1				=	0x00400000,	// Select subframe 1
+	kCtlEMSel2				=	0x00800000,	// Select subframe 2
+	kCtlEMSel3				=	0x00C00000,	// Select subframe 4
+
+	kCtlBusy				=	0x01000000	// AWACS busy bit
+};
+
+enum {
+  kSndIOInputSubFrame0          = 0x0001, /* Four available input subframes on SndIO*/
+  kSndIOInputSubFrame1          = 0x0002,
+  kSndIOInputSubFrame2          = 0x0004,
+  kSndIOInputSubFrame3          = 0x0008,
+  kSndIOOutputSubFrame0         = 0x0100, /* Four available output subframes on SndIO*/
+  kSndIOOutputSubFrame1         = 0x0200,
+  kSndIOOutputSubFrame2         = 0x0400,
+  kSndIOOutputSubFrame3         = 0x0800,
+  kSndIOInputSubFrameMask       = 0x00FF,
+  kSndIOOutputSubFrameMask      = 0xFF00,
+  kSndIONumSubFrames            = 0x04
+};
+
 struct awacs_regmap_t
 {
         volatile u_int32_t		       	SoundControlRegister;
@@ -60,7 +90,20 @@ struct awacs_regmap_t
         volatile u_int32_t	       		ByteSwappingRegister;
 };
 
-
+/* Power state constants*/
+enum {
+  kSndHWRunState                = 0,    /* SndHW in the run state*/
+  kSndHWDozeState               = 1,    /* SndHW in the doze state*/
+  kSndHWIdleState               = 2,    /* SndHW in the idle state*/
+  kSndHWSleepState              = 3,    /* SndHW in the sleep state*/
+  kSndHWNotReadyState           = 4,    /* SndHW not ready (either in reset or wait state)*/
+  kSndHWResetState              = 5,    /* SndHW reset (not a valid state to stay in)*/
+  kSndHWPartDead                = 6,    /* SndHW is dead (can't get it out of reset)*/
+  kSndHWInsomniaState           = 7,
+  kSndHWWakeSubwoofer           = 8,
+  kSndHWEnterSpeedSwitch        = 9,
+  kSndHWExitSpeedSwitch         = 10
+};
 
 /*------------------------ AWACs CODEC Control register constants -----------------------*/
 

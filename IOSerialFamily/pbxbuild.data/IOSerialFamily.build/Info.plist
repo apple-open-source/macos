@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.7</string>
+	<string>5.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.7d11</string>
+	<string>5.3.0d14</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -34,6 +34,8 @@
 			<integer>1000</integer>
 			<key>IOProviderClass</key>
 			<string>IOSerialStream</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
 		</dict>
 		<key>IOSerialBSDClientSync</key>
 		<dict>
@@ -45,6 +47,8 @@
 			<integer>1000</integer>
 			<key>IOProviderClass</key>
 			<string>IOSerialStreamSync</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
@@ -54,9 +58,9 @@
 		<key>com.apple.kernel.bsd</key>
 		<string>1.1</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>1.1</string>
 	</dict>
 </dict>
 </plist>

@@ -3,6 +3,11 @@
 	00C6990B002BCF867F000001 = {
 		activeExec = 0;
 	};
+	010D0724FFF41C8E11CE168A = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 671}, {750, 502}}";
+		};
+	};
 	010D072FFFFA58D511CE168A = {
 		uiCtxt = {
 			sepNavWindowFrame = "{{245, 461}, {750, 502}}";
@@ -37,16 +42,18 @@
 		addToTargets = (
 			F6AB50530188E72D01CE1665,
 		);
+		breakpoints = (
+		);
 		perUserDictionary = {
 			PBXWorkspaceConfiguration = {
-				ContentSize = "{1238, 999}";
+				ContentSize = "{1284, 1063}";
 				LeftSlideOut = {
 					ActiveTab = 0;
-					Frame = "{{0, 23}, {1238, 976}}";
+					Frame = "{{0, 23}, {1284, 1040}}";
 					Split0 = {
-						Frame = "{{341, 0}, {897, 976}}";
+						Frame = "{{341, 0}, {943, 1040}}";
 						Split0 = {
-							Frame = "{{0, 25}, {897, 951}}";
+							Frame = "{{0, 25}, {943, 1015}}";
 						};
 						SplitCount = 1;
 						Tab0 = {
@@ -82,18 +89,18 @@
 							};
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {1015, 187}}";
-							BuildTranscriptFrame = "{{0, 196}, {1015, 0}}";
-							Frame = "{{0, 0}, {1013, 194}}";
+							BuildMessageFrame = "{{0, 0}, {1261, 186}}";
+							BuildTranscriptFrame = "{{0, 195}, {1261, 1}}";
+							Frame = "{{0, 0}, {1259, 194}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {897, 295}}";
+							Frame = "{{0, 0}, {943, 295}}";
 						};
 						TabCount = 4;
 					};
 					SplitCount = 1;
 					Tab0 = {
-						Frame = "{{0, 0}, {316, 976}}";
+						Frame = "{{0, 0}, {316, 1040}}";
 					};
 					Tab1 = {
 						ClassesFrame = "{{0, 0}, {202, 56}}";
@@ -105,12 +112,12 @@
 						Frame = "{{0, 0}, {200, 100}}";
 					};
 					Tab3 = {
-						Frame = "{{0, 0}, {200, 976}}";
+						Frame = "{{0, 0}, {200, 1040}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 680}}";
+							Frame = "{{0, 0}, {200, 724}}";
 						};
 						Split1 = {
-							Frame = "{{0, 689}, {200, 287}}";
+							Frame = "{{0, 733}, {200, 307}}";
 						};
 						SplitCount = 2;
 					};
@@ -119,7 +126,7 @@
 					};
 					TabCount = 5;
 				};
-				WindowLocation = "{302, 117}";
+				WindowLocation = "{315, 53}";
 			};
 		};
 		userBookmarkGroup = F629065201B2B55301CE1662;
@@ -157,6 +164,11 @@
 	F62ADEDE017DE08E01CE1665 = {
 		uiCtxt = {
 			sepNavWindowFrame = "{{38, 173}, {867, 979}}";
+		};
+	};
+	F62ADEDF017DE08E01CE1665 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{15, 198}, {901, 975}}";
 		};
 	};
 	F62ADEE0017DE08E01CE1665 = {

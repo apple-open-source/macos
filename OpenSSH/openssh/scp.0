@@ -1,17 +1,17 @@
-
-SCP(1)                      System Reference Manual                     SCP(1)
+SCP(1)                  System General Commands Manual                  SCP(1)
 
 NAME
      scp - secure copy (remote file copy program)
 
 SYNOPSIS
-     scp [-pqrvC46] [-S program] [-P port] [-c cipher] [-i identity_file] [-o
-         option] [[user@]host1:]file1 [...] [[user@]host2:]file2
+     scp [-pqrvBC46] [-F ssh_config] [-S program] [-P port] [-c cipher]
+         [-i identity_file] [-o ssh_option] [[user@]host1:]file1 [...]
+         [[user@]host2:]file2
 
 DESCRIPTION
      scp copies files between hosts on a network.  It uses ssh(1) for data
      transfer, and uses the same authentication and provides the same security
-     as ssh(1).  Unlike rcp(1),  scp will ask for passwords or passphrases if
+     as ssh(1).  Unlike rcp(1), scp will ask for passwords or passphrases if
      they are needed for authentication.
 
      Any file name may contain a host and user specification to indicate that
@@ -38,13 +38,17 @@ DESCRIPTION
              about their progress.  This is helpful in debugging connection,
              authentication, and configuration problems.
 
-     -B      Selects batch mode (prevents asking for passwords or passphrasM--
-             es).
+     -B      Selects batch mode (prevents asking for passwords or
+             passphrases).
 
      -q      Disables the progress meter.
 
      -C      Compression enable.  Passes the -C flag to ssh(1) to enable comM--
              pression.
+
+     -F ssh_config
+             Specifies an alternative per-user configuration file for ssh.
+             This option is directly passed to ssh(1).
 
      -P port
              Specifies the port to connect to on the remote host.  Note that
@@ -56,8 +60,12 @@ DESCRIPTION
              Name of program to use for the encrypted connection.  The program
              must understand ssh(1) options.
 
-     -o option
-             The given option is directly passed to ssh(1).
+     -o ssh_option
+             Can be used to pass options to ssh in the format used in the
+             ssh(1) configuration file. This is useful for specifying options
+             for which there is no separate scp command-line flag.  For examM--
+             ple, forcing the use of protocol version 1 is specified using scp
+             -oProtocol=1.
 
      -4      Forces scp to use IPv4 addresses only.
 
@@ -71,7 +79,6 @@ HISTORY
      the University of California.
 
 SEE ALSO
-     rcp(1),  sftp(1),  ssh(1),  ssh-add(1),  ssh-agent(1),  ssh-keygen(1),
-     sshd(8)
+     rcp(1), sftp(1), ssh(1), ssh-add(1), ssh-agent(1), ssh-keygen(1), sshd(8)
 
-BSD Experimental              September 25, 1999                             2
+BSD                           September 25, 1999                           BSD

@@ -754,12 +754,32 @@ public:
 						SCSICmdField4Byte 			TRANSFER_LENGTH, 
 						SCSICmdField1Byte 			CONTROL );
 	
+	/* Added with 10.1.3 */
+	OSMetaClassDeclareReservedUsed ( IOSCSIMultimediaCommandsDevice, 1 );
+	
+	virtual IOReturn	ReadTOC (	IOMemoryDescriptor *	buffer,
+									CDTOCFormat				format,
+									UInt8					msf,
+									UInt32					trackSessionNumber,
+									UInt16 *				actualByteCount );
+	
+	/* Added with 10.1.3 */
+	OSMetaClassDeclareReservedUsed ( IOSCSIMultimediaCommandsDevice, 2 );
+    
+	virtual IOReturn	ReadDiscInfo (	IOMemoryDescriptor *	buffer,
+										UInt16 *				actualByteCount );
+	
+	/* Added with 10.1.3 */
+	OSMetaClassDeclareReservedUsed ( IOSCSIMultimediaCommandsDevice, 3 );
+	
+	virtual IOReturn	ReadTrackInfo (	IOMemoryDescriptor *	buffer,
+										UInt32					address,
+										CDTrackInfoAddressType	addressType,
+										UInt16 *				actualByteCount );
+	
 private:
 	
 	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	1 );
-    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	2 );
-    OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	3 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	4 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	5 );
     OSMetaClassDeclareReservedUnused ( IOSCSIMultimediaCommandsDevice, 	6 );

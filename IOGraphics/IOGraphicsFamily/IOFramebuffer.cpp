@@ -1945,20 +1945,30 @@ IOReturn IOFramebuffer::extSetAttribute(
     UInt32	data[2];
 
 
-    stopCursor();
+    switch( attribute ) {
+    
+        case kIOMirrorAttribute:
+    
+            stopCursor();
+        
+            if( isConsoleDevice())
+                getPlatform()->setConsoleInfo( 0, kPEDisableScreen);
+        
+            deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
+        
+            data[0] = value;
+            data[1] = (UInt32) other;
+            err = setAttribute( attribute, (UInt32) &data );
+        
+            clutValid = false;
+        
+            setupForCurrentConfig();
+            break;
 
-    if( isConsoleDevice())
-        getPlatform()->setConsoleInfo( 0, kPEDisableScreen);
-
-    deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
-
-    data[0] = value;
-    data[1] = (UInt32) other;
-    err = setAttribute( attribute, (UInt32) &data );
-
-    clutValid = false;
-
-    setupForCurrentConfig();
+        default:
+            err = setAttribute( attribute, value );
+            break;
+    }
    
     return( err );
 }
@@ -1978,14 +1988,10 @@ IOReturn IOFramebuffer::extGetAttribute(
 IOReturn IOFramebuffer::extGetInformationForDisplayMode(
 		IODisplayModeID mode, void * info, IOByteCount length )
 {
-    UInt32		flags = 0;
-    IOReturn		err;
-    bool		getTiming;
-    struct AllInfo {
-      IODisplayModeInformation	info;
-      IOTimingInformation 	timingInfo;
-    };
-    AllInfo * out = (AllInfo *) info;
+    UInt32			 flags = 0;
+    IOReturn			 err;
+    bool			 getTiming;
+    IOFBDisplayModeDescription * out = (IOFBDisplayModeDescription *) info;
 
     if( length < sizeof( IODisplayModeInformation))
         return( kIOReturnBadArgument );
@@ -1997,11 +2003,9 @@ IOReturn IOFramebuffer::extGetInformationForDisplayMode(
 	    out->info.flags &= ~kDisplayModeSafetyFlags;
 	    out->info.flags |= flags;
 	}
-        getTiming = (length >= sizeof(AllInfo));
+        getTiming = (length >= sizeof(IOFBDisplayModeDescription));
         out->timingInfo.flags = getTiming ? kIODetailedTimingValid : 0;
-	if( getTiming
-         && (kIOReturnSuccess == getTimingInfoForDisplayMode( mode, &out->timingInfo )))
-            out->info.reserved[0] = out->timingInfo.appleTimingID;
+        err = getTimingInfoForDisplayMode( mode, &out->timingInfo );
     }
 
     return( err );

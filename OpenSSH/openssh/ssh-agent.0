@@ -1,13 +1,11 @@
-
-SSH-AGENT(1)                System Reference Manual               SSH-AGENT(1)
+SSH-AGENT(1)            System General Commands Manual            SSH-AGENT(1)
 
 NAME
      ssh-agent - authentication agent
 
 SYNOPSIS
-     ssh-agent command args ...
-     ssh-agent [-c | -s]
-     ssh-agent -k
+     ssh-agent [-c | -s] [-d] [command [args ...]]
+     ssh-agent [-c | -s] -k
 
 DESCRIPTION
      ssh-agent is a program to hold private keys used for public key authentiM--
@@ -19,14 +17,17 @@ DESCRIPTION
 
      The options are as follows:
 
-     -c      Generate C-shell commands on stdout. This is the default if SHELL
-             looks like it's a csh style of shell.
+     -c      Generate C-shell commands on stdout.  This is the default if
+             SHELL looks like it's a csh style of shell.
 
-     -s      Generate Bourne shell commands on stdout. This is the default if
+     -s      Generate Bourne shell commands on stdout.  This is the default if
              SHELL does not look like it's a csh style of shell.
 
      -k      Kill the current agent (given by the SSH_AGENT_PID environment
              variable).
+
+     -d      Debug mode.  When this option is specified ssh-agent will not
+             fork.
 
      If a commandline is given, this is executed as a subprocess of the agent.
      When the command dies, so does the agent.
@@ -47,12 +48,12 @@ DESCRIPTION
      can thus use the privileges given by the identities anywhere in the netM--
      work in a secure way.
 
-     There are two main ways to get an agent setup: Either you let the agent
-     start a new subcommand into which some environment variables are exportM--
-     ed, or you let the agent print the needed shell commands (either sh(1) or
-     csh(1) syntax can be generated) which can be evalled in the calling
-     shell.  Later ssh(1) looks at these variables and uses them to establish
-     a connection to the agent.
+     There are two main ways to get an agent setup: Either the agent starts a
+     new subcommand into which some environment variables are exported, or the
+     agent prints the needed shell commands (either sh(1) or csh(1) syntax can
+     be generated) which can be evalled in the calling shell.  Later ssh(1)
+     looks at these variables and uses them to establish a connection to the
+     agent.
 
      A unix-domain socket is created (/tmp/ssh-XXXXXXXX/agent.<pid>), and the
      name of this socket is stored in the SSH_AUTH_SOCK environment variable.
@@ -67,8 +68,8 @@ DESCRIPTION
 FILES
      $HOME/.ssh/identity
              Contains the protocol version 1 RSA authentication identity of
-             the user.  This file should not be readable by anyone but the usM--
-             er.  It is possible to specify a passphrase when generating the
+             the user.  This file should not be readable by anyone but the
+             user.  It is possible to specify a passphrase when generating the
              key; that passphrase will be used to encrypt the private part of
              this file.  This file is not used by ssh-agent but is normally
              added to the agent using ssh-add(1) at login time.
@@ -95,6 +96,6 @@ AUTHORS
      versions 1.5 and 2.0.
 
 SEE ALSO
-     ssh(1),  ssh-add(1),  ssh-keygen(1),  sshd(8)
+     ssh(1), ssh-add(1), ssh-keygen(1), sshd(8)
 
-BSD Experimental              September 25, 1999                             2
+BSD                           September 25, 1999                           BSD

@@ -349,11 +349,6 @@ IOUSBMassStorageClass::message( UInt32 type, IOService * provider, void * argume
 bool	
 IOUSBMassStorageClass::BeginProvidedServices( void )
 {
-#if 0
-	registerService();
-	
-	return true;
-#endif
  	// If this is a BO device that supports multiple LUNs, we will need 
 	// to spawn off a nub for each valid LUN.  If this is a CBI/CB
 	// device or a BO device that only supports LUN 0, this object can
@@ -393,7 +388,7 @@ IOUSBMassStorageClass::BeginProvidedServices( void )
     else
     {
     	// CBI and CB protocols do not support LUNs so for these the 
-    	// maximum LUN will always bo zero.
+    	// maximum LUN will always be zero.
         fMaxLogicalUnitNumber = 0;
     }
 
@@ -832,8 +827,6 @@ IOUSBMassStorageClass::GetNextBulkOnlyCommandTag( void )
 	return fBulkOnlyCommandTag;
 }
 
-// Space reserved for future expansion.
-OSMetaClassDefineReservedUsed(IOUSBMassStorageClass,  1);
 // Will get called when a device has been resumed
 IOReturn
 IOUSBMassStorageClass::HandlePowerOn ( void )
@@ -842,7 +835,7 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 	UInt8	eStatus[2];
         	
 	// The USB hub port that the device is connected to has been resumed,
-	// check to see if the device is still respodning correctly and if not, 
+	// check to see if the device is still responding correctly and if not, 
 	// fix it so that it is. 
 	STATUS_LOG(("%s: HandlePowerOn", getName() ));
 	if ( GetStatusEndpointStatus( GetBulkInPipe(), &eStatus[0], NULL) != kIOReturnSuccess)
@@ -863,6 +856,8 @@ IOUSBMassStorageClass::HandlePowerOn ( void )
 	
 }
 
+// Space reserved for future expansion.
+OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 1 );
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 2 );
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 3 );
 OSMetaClassDefineReservedUnused( IOUSBMassStorageClass, 4 );

@@ -228,6 +228,7 @@ typedef struct Disk * DiskPtr;
 // if there are any such disks.
 // Otherwise returns kDiskStateIdle
 
+DiskState AreWeBusy( void );
 DiskState AreWeBusyForDisk( DiskPtr diskPtr );
 
 //------------------------------------------------------------------------
@@ -275,8 +276,8 @@ boolean_t IsNetwork( DiskPtr diskPtr );
 
 //------------------------------------------------------------------------
 
-void PrepareToSendPreUnmountMsgs( );
-void PrepareToSendPreEjectMsgs( );
+void PrepareToSendPreUnmountMsgs( void );
+void PrepareToSendPreEjectMsgs( void );
 
 void SendUnrecognizedDiskMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole );
 void SendUnrecognizedDiskArbitrationMsgs(mach_port_t port, char *devname, char *fstype, char *deviceType, int isWritable, int isRemovable, int isWhole, int diskType );
@@ -286,8 +287,9 @@ void SendDiskChangedMsgs(char *devname, char *newMountpoint, char *newVolumeName
 void SendDiskWillBeCheckedMessages( DiskPtr disk );
 void SendCallFailedMessage(ClientPtr clientPtr, DiskPtr diskPtr, int failedType, int error);
 int SendDiskAppearedMsgs( void );
-void SendPreUnmountMsgsForDisk( DiskPtr diskPtr );
-void SendPreEjectMsgsForDisk( DiskPtr diskPtr );
+void SendUnmountCommitMsgs( void );
+void SendPreUnmountMsgs( void );
+void SendPreEjectMsgs( void );
 void SendUnmountPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, pid_t pid );
 void SendEjectPostNotifyMsgsForOnePartition( char * ioBSDName, int errorCode, pid_t pid );
 void SendEjectPostNotifyMsgsForAllPartitions( DiskPtr diskPtr, int errorCode, pid_t pid );
@@ -296,8 +298,8 @@ void SendCompletedMsgs( int messageType, int newDisks );
 
 void SendClientWasDisconnectedMsg(ClientPtr Client);
 
-void CompleteEjectForDisk( DiskPtr diskPtr );
-void CompleteUnmountForDisk( DiskPtr diskPtr );
+void CompleteEject( void );
+void CompleteUnmount( void );
 
 char *mountPath( void );
 void cleanUpAfterFork(void);

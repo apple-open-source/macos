@@ -37,6 +37,14 @@ BufferFifo::~BufferFifo()
     }
 }
 
+void BufferFifo::clearBuffer()
+{
+    while (!mBuffers.empty()) {
+        delete mBuffers.front();
+        mBuffers.pop();
+    }
+    mSize = 0;
+}
 
 //
 // This is the put function of a Sink. We store the data in at most two buffers:
@@ -45,6 +53,8 @@ BufferFifo::~BufferFifo()
 //
 void BufferFifo::consume(const void *data, size_t size)
 {
+    mSize += size;
+    
     // step 1: fill the rearmost (partially filled) buffer
     if (size > 0 && !mBuffers.empty()) {
         Buffer *current = mBuffers.back();

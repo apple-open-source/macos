@@ -138,6 +138,7 @@ void Transfer::fail()
 //
 void Transfer::abort()
 {
+    observe(Observer::aborting);
     if (isDocked())
         mConnection->retain(false);	// indeterminate state; don't keep it
     fail();

@@ -142,6 +142,10 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
         fMaxBrightness = 255;
         fCurrentBrightness = fMaxBrightness;
     }
+
+    if( fCurrentBrightness < (fMinBrightness + 2))
+        fCurrentBrightness = fMinBrightness + 2;
+
     fCurrentUserBrightness = fCurrentBrightness;
 
     fMaxBrightnessLevel[0] = 0;
@@ -209,11 +213,13 @@ bool IOBacklightDisplay::doIntegerSet( OSDictionary * params,
 
 bool IOBacklightDisplay::setBrightness( SInt32 value )
 {
-    UInt32	newState;
     bool	ret = true;
 
     if( !fDisplayParams)
         return( false );
+
+#if 0
+    UInt32	newState;
 
     // We make sure the brightness is not above the maximum
     // brightness level of our current power state.  If it
@@ -232,8 +238,12 @@ bool IOBacklightDisplay::setBrightness( SInt32 value )
             value = fCurrentBrightness;
     }
 
-    if( value != fCurrentBrightness) {
+    if( value != fCurrentBrightness)
+#endif
+    {
         fCurrentBrightness = value;
+        if( value <= fMinBrightness)
+            value = 0;
         ret = super::doIntegerSet( fDisplayParams, gIODisplayBrightnessKey, value);
     }
 

@@ -27,11 +27,13 @@
 #include <IOKit/storage/IOCDBlockStorageDevice.h>
 #include <libkern/OSByteOrder.h>
 
-
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #define	super	IOBlockStorageDriver
 OSDefineMetaClassAndStructors(IOCDBlockStorageDriver,IOBlockStorageDriver)
+
+#define kCDPMAMaxSize 8192                                         /* private */
+#define kCDTOCMaxSize 8192                                         /* private */
 
 static char * strclean(char * s)
 {
@@ -86,7 +88,7 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
     IOReturn result;
     bool ok;
     int i;
-    UInt64 nblocks;
+    UInt64 nbytes;
     int nentries;
     int nDataTracks;
     int nAudioTracks;
@@ -104,13 +106,12 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
     
     nDataTracks = 0;
     nAudioTracks = 0;
-    nblocks = 0;
 
     _minBlockNumberAudio = 0xFFFFFFFF;
     _maxBlockNumberAudio = 0xFFFFFFFF;
 
     if (_toc) {
-        nentries = (_toc->length - sizeof(UInt16)) / sizeof(CDTOCDescriptor);
+        nentries = CDTOCGetDescriptorCount(_toc);
 
         for (i = 0; i < nentries; i++) {   
             UInt32 lba = CDConvertMSFToLBA(_toc->descriptors[i].p);
@@ -126,15 +127,9 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
                 }
             /* leadout */
             } else if (_toc->descriptors[i].point == 0xA2 && _toc->descriptors[i].adr == 1) {
-                if (nblocks < lba) {
-                    nblocks = lba;
-                }
+                _maxBlockNumber = max(_maxBlockNumber, lba ? (lba - 1) : 0);
                 _maxBlockNumberAudio = min(_maxBlockNumberAudio, lba ? (lba - 1) : 0);
             }
-        }
-
-        if (nblocks < _maxBlockNumber + 1) {
-            nblocks = _maxBlockNumber + 1;
         }
 
         if (_maxBlockNumberAudio < _minBlockNumberAudio) {
@@ -159,8 +154,62 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
                 }
             }
         }
-    } else if (_maxBlockNumber) {
-        nblocks = _maxBlockNumber + 1;
+    } else {
+        /* Obtain information about the unfinalized tracks on the disc: */
+
+        switch (getMediaType()) {
+            case kCDMediaTypeR:
+            case kCDMediaTypeRW: {
+                IOBufferMemoryDescriptor *buffer;
+                CDPMA *pma;
+                UInt16 pmaSize;
+
+                /* Read the PMA in full: */
+
+                buffer = IOBufferMemoryDescriptor::withCapacity(kCDPMAMaxSize,kIODirectionIn);
+                if (buffer == NULL) {
+                    break;
+                }
+
+                getProvider()->readTOC(buffer,kCDTOCFormatPMA,true,0,&pmaSize);
+
+                /* Reject the PMA if its size is too small: */
+
+                if (pmaSize <= sizeof(CDPMA)) {
+                    break;
+                }
+
+                pma = (CDPMA *) buffer->getBytesNoCopy();
+                pmaSize = min(pmaSize,OSSwapBigToHostInt16(pma->dataLength) + sizeof(pma->dataLength));
+                if (pmaSize <= sizeof(CDPMA)) {
+                    break;
+                }
+
+                /* Scan thru the track list. */
+
+                nentries = (pmaSize - sizeof(UInt32)) / sizeof(CDPMADescriptor);
+
+                for (i = 0; i < nentries; i++) {
+                    UInt32 lba = CDConvertMSFToLBA(pma->descriptors[i].address);
+
+                    /* tracks 1-99, not skip intervals */
+                    if (pma->descriptors[i].point <= 99 && pma->descriptors[i].adr == 1) {
+                        _maxBlockNumber = max(_maxBlockNumber, lba ? (lba - 1) : 0);
+                    }
+                }
+
+                buffer->release();
+                break;
+            }
+            default:
+                break;
+        }
+    }
+
+    if (_maxBlockNumber) {
+        nbytes = kBlockSizeCD * (_maxBlockNumber + 1);  
+    } else {
+        nbytes = 0;
     }
 
     /* Instantiate a CD Media nub above ourselves. */
@@ -180,7 +229,7 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
     strcat(name, "Media");
     strclean(name);
 
-    _mediaObject = instantiateMediaObject(0,nblocks*kBlockSizeCD,kBlockSizeCD,name);
+    _mediaObject = instantiateMediaObject(0,nbytes,kBlockSizeCD,name);
     result = (_mediaObject) ? kIOReturnSuccess : kIOReturnBadArgument;
 
     if (result == kIOReturnSuccess) {
@@ -280,14 +329,15 @@ IOCDBlockStorageDriver::cacheTocInfo(void)
     }
 
     toc = (CDTOC *) buffer->getBytesNoCopy();
-    tocSize = OSSwapBigToHostInt16(toc->length) + sizeof(UInt16);
+    tocSize = OSSwapBigToHostInt16(toc->length) + sizeof(toc->length);
 
     buffer->release();
 
-    /* Reject TOC if its size is too small: */
+    /* Reject the TOC if its size is too small: */
 
-    if (tocSize < sizeof(CDTOC))
-        return kIOReturnError;
+    if (tocSize <= sizeof(CDTOC)) {
+        return(kIOReturnNotFound);
+    }
 
     /* Read the TOC in full: */
 
@@ -318,12 +368,6 @@ IOCDBlockStorageDriver::cacheTocInfo(void)
     _tocSize = tocSize;
 
     buffer->release();
-
-    /* Convert big-endian values in TOC to host-endianess: */
-
-    if (_tocSize >= sizeof(UInt16)) {
-        _toc->length = OSSwapBigToHostInt16(_toc->length);
-    }
 
     return(result);
 }
@@ -689,9 +733,35 @@ IOCDBlockStorageDriver::setSpeed(UInt16 kilobytesPerSecond)
 
 OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 1);
 
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  2);
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  3);
-OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  4);
+IOReturn
+IOCDBlockStorageDriver::readTOC(IOMemoryDescriptor *buffer,CDTOCFormat format,
+                                UInt8 formatAsTime,UInt8 trackOrSessionNumber,
+                                UInt16 *actualByteCount)
+{
+    return(getProvider()->readTOC(buffer,format,formatAsTime,trackOrSessionNumber,actualByteCount));
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 2);
+
+IOReturn
+IOCDBlockStorageDriver::readDiscInfo(IOMemoryDescriptor *buffer,
+                                     UInt16 *actualByteCount)
+{
+    return(getProvider()->readDiscInfo(buffer,actualByteCount));
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 3);
+
+IOReturn
+IOCDBlockStorageDriver::readTrackInfo(IOMemoryDescriptor *buffer,UInt32 address,
+                                      CDTrackInfoAddressType addressType,
+                                      UInt16 *actualByteCount)
+{
+    return(getProvider()->readTrackInfo(buffer,address,addressType,actualByteCount));
+}
+
+OSMetaClassDefineReservedUsed(IOCDBlockStorageDriver, 4);
+
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  5);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  6);
 OSMetaClassDefineReservedUnused(IOCDBlockStorageDriver,  7);

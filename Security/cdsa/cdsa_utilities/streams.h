@@ -74,9 +74,15 @@ protected:
 //
 class Sink {
 public:
+    Sink() : mSize(0) {}
     virtual ~Sink() { }
     virtual void consume(const void *data, size_t length) = 0;
     virtual void setSize(size_t expectedSize);
+    size_t getSize() {return mSize;}
+    
+protected:
+    size_t mSize;
+
 };
 
 
@@ -154,7 +160,7 @@ public:
 //
 class MemorySink : public Sink {
 public:
-    MemorySink() : mBuffer(NULL), mSize(0), mMax(0) { }
+    MemorySink() : mBuffer(NULL), mMax(0) { }
     ~MemorySink()	{ free(mBuffer); }
     
     void consume(const void *data, size_t length);
@@ -170,7 +176,6 @@ private:
     
 private:
     void *mBuffer;		// buffer base
-    size_t mSize;		// currently used
     size_t mMax;		// currently allocated
 };
 
