@@ -22,13 +22,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-#define	__APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
-#undef	__APPLE_API_PRIVATE
-
         .text
         .align 2
         .globl _pthread_self
 _pthread_self:
-        ba	_COMM_PAGE_PTHREAD_SELF
+        li r0, 0x7FF2
+        sc
+        blr

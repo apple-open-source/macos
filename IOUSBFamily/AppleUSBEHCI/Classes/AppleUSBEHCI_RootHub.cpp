@@ -506,9 +506,10 @@ AppleUSBEHCI::EHCIRootHubResetChangeConnection(UInt16 port)
     value |= kEHCIPortSC_ConnectChange;					// clear status change
 
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+    IOSync();
+
     value = getPortSCForWriting(_pEHCIRegisters,port);
 
-    IOSync();
     return kIOReturnSuccess;
 }
 
@@ -555,11 +556,11 @@ AppleUSBEHCI::EHCIRootHubResetEnableChange(UInt16 port)
 
     value = getPortSCForWriting(_pEHCIRegisters,port);
 
-    value |= kEHCIPortSC_EnableChange;/* clear status change */
+    value |= kEHCIPortSC_EnableChange;			// clear status change
 
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
-
     IOSync();
+
     return kIOReturnSuccess;
 }
 
@@ -607,40 +608,38 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	// Having probelms with reset happening to powered off device, reset change is on 
 	// when next device is connected. That consfuses hub logic which skips the reset
 	// state. So no device is enumerated if that happens.
-	// This is all because EHCI is so miserly, they can't have a proper reset state machine like OHIC.
+	// This is all because EHCI is so miserly, they can't have a proper reset state machine like OHCI.
 	USBLog(1, "%s[%p]::EHCIRootHubResetPort - Not resetting port, beacuse device is unplugged of powered off (%x).", getName(), this, value);
 	return kIOReturnNotResponding;	
     }
 
     if( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
-	USBLog(5, "%s[%p]::EHCIRootHubResetPort - low speed device, releasing port %d", getName(), this, port);
+	USBLog(4, "%s[%p]::EHCIRootHubResetPort - low speed device, releasing port %d", getName(), this, port);
 	value |= kEHCIPortSC_Owner;
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+	IOSync();
 	changeBits[port-1] |= kHubPortBeingReset;		// Make a reset change bit change
 	return kIOReturnSuccess;
     }
 	
     value |= kEHCIPortSC_Reset;
-
-    waitForSOF(_pEHCIRegisters);
-
+        value &= ~kEHCIPortSC_Enabled;
+    
     // Set the reset on
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
-
-    for(count = 0; count < 10; count++)
-    {
-	waitForSOF(_pEHCIRegisters);
-    }
+    IOSync();
+    
+    IOSleep(10);
     
     value = getPortSCForWriting(_pEHCIRegisters, port);
-    value &= ~(kEHCIPortSC_Reset | kEHCIPortSC_Enabled);
-
-    IOSleep(1);
+    value &= ~kEHCIPortSC_Reset;
 
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+    IOSync();
 
-    IOSleep(1);
+    // sleep for 3ms instead of 2ms, just to give the chip a little more margin
+    IOSleep(2);
     
     count = 0;
     do {
@@ -650,20 +649,29 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 
     USBLog(5, "%s[%p]::EHCIRootHubResetPort reset took extra %d", getName(), this, count);
 
+    IOSleep(1);
+    
+    if ( portSC != USBToHostLong(_pEHCIRegisters->PortSC[port-1]) )
+    {
+        USBLog(1, "%s[%p]::EHCIRootHubResetPort-  portSC is not equal to value of register! (%p)(%p)", getName(), this, portSC, USBToHostLong(_pEHCIRegisters->PortSC[port-1]));
+	// use the updated value instead of the cached one
+	portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
+    }
+
     if( ((portSC & kEHCIPortSC_Reset) != 0) || (count >= 2000) )
     {
-	USBLog(5, "%s[%p]::EHCIRootHubResetPort-  port slow to come out of reset %d", getName(), this, count);
+	USBLog(4, "%s[%p]::EHCIRootHubResetPort-  port slow to come out of reset %d", getName(), this, count);
     }
 
     if( (portSC & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
     {
 	// Have been disconnected or powered off, pretend reset never happened.
 	
-	USBLog(1, "%s[%p]::EHCIRootHubResetPort - Not resetting port 2, beacuse device is unplugged of powered off (%x).", getName(), this, value);
+	USBLog(1, "%s[%p]::EHCIRootHubResetPort - Not resetting port 2, beacuse device is unplugged of powered off (%x).", getName(), this, portSC);
 	return kIOReturnNotResponding;	
     }
 
-    USBLog(2, "%s[%p]::EHCIRootHubResetPort - Setting port reset change bit.", getName(), this, value);
+    USBLog(5, "%s[%p]::EHCIRootHubResetPort - Setting port reset change bit.", getName(), this, value);
     changeBits[port-1] |= kHubPortBeingReset;
 
     if( (portSC & kEHCIPortSC_Enabled) == 0)
@@ -672,6 +680,8 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	value = getPortSCForWriting(_pEHCIRegisters, port);
 	value |= kEHCIPortSC_Owner;
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+	IOSync();
+        
 	return kIOReturnSuccess;
     }
     else
@@ -681,12 +691,11 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
 	if( (portSC & kEHCIPortSC_Enabled) == 0)
 	{
-	    USBLog(5, "%s[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* %x", getName(), this, portSC);
+	    USBLog(3, "%s[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* %x", getName(), this, portSC);
 	}
     }
 
     USBLog(5, "%s[%p]::EHCIRootHubResetPort done", getName(), this);
-    IOSync();
     
     // Make the status change interrupt happen, of Reset will hang waiting for it
     // I think this is safe as the root hub runs outside the lock.
@@ -705,7 +714,7 @@ AppleUSBEHCI::EHCIRootHubPortEnable(UInt16 port, bool enable)
 {
     UInt32 		value;
 
-    USBLog(3,"%s[%p]::EHCIRootHubPortEnable maybe port: %d, on: %d", getName(), this, port, enable);
+    USBLog(3,"%s[%p]::EHCIRootHubPortEnable port: %d, on: %d", getName(), this, port, enable);
 
     if (enable)
     {
@@ -749,6 +758,7 @@ AppleUSBEHCI::EHCIRootHubPortSuspend(UInt16 port, bool suspend)
         value = getPortSCForWriting(_pEHCIRegisters, port);
         value &= ~kEHCIPortSC_Resume; /* resume port */
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+        IOSync();
 	changeBits[port-1] |= kHubPortBeingReset;
 	UIMRootHubStatusChange();
     }
@@ -771,6 +781,7 @@ AppleUSBEHCI::EHCIRootHubPortPower(UInt16 port, bool on)
 	// and they don't seem to be able to be set simultaneously. So first set the PP, then connect and disconnect
 	value |= kEHCIPortSC_Power;								// enable port power
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
+        IOSync();
 	value |= kEHCIPortSC_WKCNNT_E | kEHCIPortSC_WKDSCNNT_E;					// enable connect/disconnect
     }
     else
@@ -779,7 +790,6 @@ AppleUSBEHCI::EHCIRootHubPortPower(UInt16 port, bool on)
     }
 
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
-
     IOSync();
 
     return kIOReturnSuccess;

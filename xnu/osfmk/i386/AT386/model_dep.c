@@ -371,7 +371,7 @@ machine_init(void)
 	 * Display CPU identification
 	 */
 	cpuid_cpu_display("CPU identification", 0);
-	cpuid_feature_display("CPU features", 0);
+	cpuid_cache_display("CPU configuration", 0);
 
 #if	MP_V1_1
 	mp_v1_1_init();

@@ -59,27 +59,17 @@ int OSCompareAndSwap( UInt32 oldVal, UInt32 newVal, UInt32 * addr )
 
 	ENTRY	_OSCompareAndSwap
 .L_CASretry:
-		lwz		r6,0(r5)		// Get the swap value
-		cmpw	r6,r3			// Is is the same
-		bne--	.L_CASfail2		// No...
-		
-.L_CASretry2:
-		lwarx	r6,0,r5			// Get it atomically now
-		cmpw	r6,r3			// Same?
-		bne--	.L_CASfail		// Nope, go say so and toss reservations...
-		stwcx.	r4,0,r5			// Stash the new value
-		bne--	.L_CASretry2	// Just got collision...
-		isync
-		li	r3,	1
-		blr
-
+	lwarx	r6,	0,r5
+	cmpw	r6,	r3
+	bne-	.L_CASfail
+	stwcx.	r4,	0,r5
+	bne-	.L_CASretry
+	isync
+	li	r3,	1
+	blr
 .L_CASfail:
-		li		a7,-4			// Point to a spot in the red zone
-		stwcx.	a7,a7,r1		// Kill reservation
-		
-.L_CASfail2:	
-		li	r3,	0
-		blr
+	li	r3,	0
+	blr
 
 
 /*

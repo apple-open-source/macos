@@ -1,4 +1,3 @@
-#include "string.h"
 #include "as.h"
 #include "flonum.h"
 #include "expr.h"
@@ -19,7 +18,7 @@ static char **get_operand(
 static char *get_suffix(
     unsigned long type);
 
-int
+void
 main(void)
 {
     const template *t;
@@ -86,16 +85,6 @@ main(void)
 		    if((type0 & Mem) != 0)
 			suffix = get_suffix(type0);
 
-		    /*
-		     * This is to avoid the problem with the
-		     * fildll opcode which is a fildq and
-		     * fistpll opcode which is a fistpq
-		     */
-		    if((strcmp(t->name, "fildl") == 0 ||
-			strcmp(t->name, "fistpl") == 0) &&
-			strcmp(suffix, "l") == 0)
-			suffix = "";
-
 		    /* fwait prefixed instructions */
 		    if((t->base_opcode & 0xff00) == 0x9b00 &&
 		       strcmp(suffix, "w") == 0)
@@ -117,7 +106,7 @@ main(void)
 			type1 = 1 << j;
 			if((type1 & t->operand_types[1]) == 0)
 			    continue;
-			if((type0 & RegALL) != 0 && (type1 & RegALL) != 0)
+			if((type0 & Reg) != 0 && (type1 & Reg) != 0)
 			    if(type0 != type1)
 				continue;
 
@@ -143,7 +132,6 @@ main(void)
 		}
 	    }
 	}
-	return(0);
 }
 
 static
@@ -171,8 +159,6 @@ unsigned long type)
 static char *Reg8_table[] = { "%bl", NULL };
 static char *Reg16_table[] = { "%bx", NULL };
 static char *Reg32_table[] = { "%ebx", NULL };
-static char *RegMM_table[] = { "%mm3", NULL };
-static char *RegXMM_table[] = { "%xmm5", NULL };
 static char *Imm8_table[] = { "$0x7f", NULL };
 static char *Imm8S_table[] = { "$0xfe", NULL };
 static char *Imm16_table[] = { "$0xface", NULL };
@@ -210,8 +196,6 @@ unsigned long type)
 	case Reg8:	return(Reg8_table);
 	case Reg16:	return(Reg16_table);
 	case Reg32:	return(Reg32_table);
-	case RegMM:	return(RegMM_table);
-	case RegXMM:	return(RegXMM_table);
 	case Imm8:	return(Imm8_table);
 	case Imm8S:	return(Imm8S_table);
 	case Imm16:	return(Imm16_table);

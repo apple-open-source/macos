@@ -66,7 +66,6 @@
 #define EXC_PPC_PRIVINST	3    /* priviledged instruction */
 #define EXC_PPC_PRIVREG		4    /* priviledged register */
 #define EXC_PPC_TRACE		5    /* trace/single-step */
-#define EXC_PPC_PERFMON     6    /* performance monitor */ 
 
 /*
  *	EXC_BAD_ACCESS

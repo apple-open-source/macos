@@ -82,6 +82,8 @@ extern struct sysctl_oid sysctl__hw_l2cachesize_compat;
 extern struct sysctl_oid sysctl__hw_l3cachesize_compat;
 extern struct sysctl_oid sysctl__hw_tbfrequency_compat;
 
+extern struct sysctl_oid sysctl__hw__cpu_capabilities;
+
 extern struct sysctl_oid sysctl__kern_sysv_shmmax;
 extern struct sysctl_oid sysctl__kern_sysv_shmmin;
 extern struct sysctl_oid sysctl__kern_sysv_shmmni;
@@ -468,6 +470,8 @@ struct sysctl_oid *newsysctl_list[] =
     ,&sysctl__hw_l2cachesize_compat
     ,&sysctl__hw_l3cachesize_compat
     ,&sysctl__hw_tbfrequency_compat
+
+    ,&sysctl__hw__cpu_capabilities
 
     ,&sysctl__net_inet_icmp_icmplim
     ,&sysctl__net_inet_icmp_maskrepl

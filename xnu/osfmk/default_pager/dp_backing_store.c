@@ -552,7 +552,7 @@ default_pager_backing_store_create(
 		priority = BS_MINPRI;
 	bs->bs_priority = priority;
 
-	bs->bs_clsize = bs_get_global_clsize(atop_32(clsize));
+	bs->bs_clsize = bs_get_global_clsize(atop(clsize));
 
 	BSL_LOCK();
 	queue_enter(&backing_store_list.bsl_queue, bs, backing_store_t,
@@ -616,7 +616,7 @@ default_pager_backing_store_info(
 	basic->bs_pages_out_fail= bs->bs_pages_out_fail;
 
 	basic->bs_priority	= bs->bs_priority;
-	basic->bs_clsize	= ptoa_32(bs->bs_clsize);	/* in bytes */
+	basic->bs_clsize	= ptoa(bs->bs_clsize);	/* in bytes */
 
 	BS_UNLOCK(bs);
 
@@ -1227,7 +1227,7 @@ ps_vstruct_create(
 	vs->vs_errors = 0;
 
 	vs->vs_clshift = local_log2(bs_get_global_clsize(0));
-	vs->vs_size = ((atop_32(round_page_32(size)) - 1) >> vs->vs_clshift) + 1;
+	vs->vs_size = ((atop(round_page(size)) - 1) >> vs->vs_clshift) + 1;
 	vs->vs_async_pending = 0;
 
 	/*
@@ -1773,7 +1773,7 @@ ps_clmap(
 	VS_MAP_LOCK(vs);
 
 	ASSERT(vs->vs_dmap);
-	cluster = atop_32(offset) >> vs->vs_clshift;
+	cluster = atop(offset) >> vs->vs_clshift;
 
 	/*
 	 * Initialize cluster error value
@@ -1889,14 +1889,14 @@ ps_clmap(
 	 * relatively quick.
 	 */
 	ASSERT(trunc_page(offset) == offset);
-	newcl = ptoa_32(newcl) << vs->vs_clshift;
+	newcl = ptoa(newcl) << vs->vs_clshift;
 	newoff = offset & ((1<<(vm_page_shift + vs->vs_clshift)) - 1);
 	if (flag == CL_ALLOC) {
 		/*
 		 * set bits in the allocation bitmap according to which
 		 * pages were requested.  size is in bytes.
 		 */
-		i = atop_32(newoff);
+		i = atop(newoff);
 		while ((size > 0) && (i < VSCLSIZE(vs))) {
 			VSM_SETALLOC(*vsmap, i);
 			i++;
@@ -1909,7 +1909,7 @@ ps_clmap(
 		 * Offset is not cluster aligned, so number of pages
 		 * and bitmaps must be adjusted
 		 */
-		clmap->cl_numpages -= atop_32(newoff);
+		clmap->cl_numpages -= atop(newoff);
 		CLMAP_SHIFT(clmap, vs);
 		CLMAP_SHIFTALLOC(clmap, vs);
 	}
@@ -1938,7 +1938,7 @@ ps_clmap(
 		} else {
 			BS_STAT(clmap->cl_ps->ps_bs,
 				clmap->cl_ps->ps_bs->bs_pages_out_fail +=
-					atop_32(size));
+					atop(size));
 			off = VSM_CLOFF(*vsmap);
 			VSM_SETERR(*vsmap, error);
 		}
@@ -1985,7 +1985,7 @@ ps_clunmap(
 		vm_offset_t 	newoff;
 		int		i;
 
-		cluster = atop_32(offset) >> vs->vs_clshift;
+		cluster = atop(offset) >> vs->vs_clshift;
 		if (vs->vs_indirect)	/* indirect map */
 			vsmap = vs->vs_imap[cluster/CLMAP_ENTRIES];
 		else
@@ -2010,7 +2010,7 @@ ps_clunmap(
 			 * Not cluster aligned.
 			 */
 			ASSERT(trunc_page(newoff) == newoff);
-			i = atop_32(newoff);
+			i = atop(newoff);
 		} else
 			i = 0;
 		while ((i < VSCLSIZE(vs)) && (length > 0)) {
@@ -2081,7 +2081,7 @@ vs_cl_write_complete(
 		dprintf(("write failed error = 0x%x\n", error));
 		/* add upl_abort code here */
 	} else
-		GSTAT(global_stats.gs_pages_out += atop_32(size));
+		GSTAT(global_stats.gs_pages_out += atop(size));
 	/*
 	 * Notify the vstruct mapping code, so it can do its accounting.
 	 */
@@ -2237,7 +2237,7 @@ ps_read_device(
 	default_pager_thread_t *dpt = NULL;
 
 	device = dev_port_lookup(ps->ps_device);
-	clustered_reads[atop_32(size)]++;
+	clustered_reads[atop(size)]++;
 
 	dev_offset = (ps->ps_offset +
 		      (offset >> (vm_page_shift - ps->ps_record_shift)));
@@ -2369,7 +2369,7 @@ ps_write_device(
 
 
 
-	clustered_writes[atop_32(size)]++;
+	clustered_writes[atop(size)]++;
 
 	dev_offset = (ps->ps_offset +
 		      (offset >> (vm_page_shift - ps->ps_record_shift)));
@@ -2406,7 +2406,7 @@ ps_write_device(
 					 "device_write_request returned ",
 					 kr, addr, size, offset));
 			BS_STAT(ps->ps_bs,
-				ps->ps_bs->bs_pages_out_fail += atop_32(size));
+				ps->ps_bs->bs_pages_out_fail += atop(size));
 			/* do the completion notification to free resources */
 			device_write_reply(reply_port, kr, 0);
 			return PAGER_ERROR;
@@ -2432,7 +2432,7 @@ ps_write_device(
 				 "device_write returned ",
 				 kr, addr, size, offset));
 			BS_STAT(ps->ps_bs,
-				ps->ps_bs->bs_pages_out_fail += atop_32(size));
+				ps->ps_bs->bs_pages_out_fail += atop(size));
 			return PAGER_ERROR;
 		}
 		if (bytes_written & ((vm_page_size >> ps->ps_record_shift) - 1))
@@ -2494,7 +2494,7 @@ pvs_object_data_provided(
 	       upl, offset, size));
 
 	ASSERT(size > 0);
-	GSTAT(global_stats.gs_pages_in += atop_32(size));
+	GSTAT(global_stats.gs_pages_in += atop(size));
 
 
 #if	USE_PRECIOUS
@@ -2623,7 +2623,7 @@ pvs_cluster_read(
 			        /*
 				 * Let VM system know about holes in clusters.
 				 */
-			        GSTAT(global_stats.gs_pages_unavail += atop_32(abort_size));
+			        GSTAT(global_stats.gs_pages_unavail += atop(abort_size));
 
 				page_list_count = 0;
 				memory_object_super_upl_request(
@@ -2813,8 +2813,8 @@ pvs_cluster_read(
 			 */
 			if (error != KERN_SUCCESS) {
 				BS_STAT(psp[beg_pseg]->ps_bs,
-					psp[beg_pseg]->ps_bs->bs_pages_in_fail
-						+= atop_32(failed_size));
+					psp[beg_pseg]->ps_bs->bs_pages_in_fail 
+						+= atop(failed_size));
 			}
 			size       -= xfer_size;
 			vs_offset  += xfer_size;
@@ -2894,7 +2894,7 @@ vs_cluster_write(
 				(memory_object_offset_t)offset,
 				cnt, super_size, 
 				&upl, NULL, &page_list_count,
-				request_flags | UPL_FOR_PAGEOUT);
+				request_flags | UPL_PAGEOUT);
 
 		pl = UPL_GET_INTERNAL_PAGE_LIST(upl);
 
@@ -3145,7 +3145,7 @@ ps_vstruct_allocated_size(
 		}
 	}
 
-	return ptoa_32(num_pages);
+	return ptoa(num_pages);
 }
 
 size_t
@@ -3354,7 +3354,7 @@ vs_get_map_entry(
 	struct vs_map	*vsmap;
 	vm_offset_t	cluster;
 
-	cluster = atop_32(offset) >> vs->vs_clshift;
+	cluster = atop(offset) >> vs->vs_clshift;
 	if (vs->vs_indirect) {
 		long	ind_block = cluster/CLMAP_ENTRIES;
 
@@ -3719,7 +3719,7 @@ ps_read_file(
 	int			result;
 
 
-	clustered_reads[atop_32(size)]++;
+	clustered_reads[atop(size)]++;
 
 	f_offset = (vm_object_offset_t)(ps->ps_offset + offset);
 	
@@ -3757,7 +3757,7 @@ ps_write_file(
 
 	int		error = 0;
 
-	clustered_writes[atop_32(size)]++;
+	clustered_writes[atop(size)]++;
 	f_offset = (vm_object_offset_t)(ps->ps_offset + offset);
 
 	if (vnode_pageout(ps->ps_vnode,

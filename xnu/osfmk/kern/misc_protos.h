@@ -120,8 +120,6 @@ extern integer_t sprintf(char *buf, const char *fmt, ...);
 
 extern void printf(const char *format, ...);
 
-extern void dbugprintf(const char *format, ...);
-
 extern void kdp_printf(const char *format, ...);
 
 extern void printf_init(void);

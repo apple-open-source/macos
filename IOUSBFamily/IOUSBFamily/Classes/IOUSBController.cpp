@@ -429,7 +429,10 @@ IOUSBController::GetNewAddress(void)
             assigned[i] = true;
         }
     }
-    
+
+    // If you want addresses to start at the top (127) and decrease, use the following:
+    // for (i = kUSBMaxDevices-1; i > 0; i--)
+    //
     for (i = 1; i < kUSBMaxDevices; i++)
     {
 	if (!assigned[i])
@@ -739,8 +742,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     if (command == 0)
         return;
 
-    USBLog(7,"InterruptPacketHandler: transaction complete status=0x%x bufferSizeRemaining = %d", status, 
-	    (int)bufferSizeRemaining);
+    USBLog(7,"InterruptPacketHandler: addr=%d:%d transaction complete status=0x%x bufferSizeRemaining = %d, buffer: %p, reqCount = %d", command->GetAddress(), command->GetEndpoint(), status,(int)bufferSizeRemaining, command->GetBuffer(), command->GetReqCount());
 
     if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
@@ -926,13 +928,13 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
 {
     IOUSBController*	me = OSDynamicCast(IOUSBController, target);
     IOReturn		err;
-    
+
     if (!me || !source || me->isInactive() || me->_pcCardEjected )
     {
         me->_watchdogTimerActive = false;
         return;
     }
-    
+     
     // reset the clock
     err = source->setTimeoutMS(kUSBWatchdogTimeoutMS);
     if (err)
@@ -957,6 +959,12 @@ IOUSBController::DoIOTransfer(OSObject *owner,
     IOUSBController	*controller = (IOUSBController *)owner;
     IOUSBCommand	*command  = (IOUSBCommand *) cmd;
     IOReturn		err       = kIOReturnSuccess;
+
+    if ( controller->_pcCardEjected )
+    {
+        USBLog(1, "%s[%p]::DoIOTransfer - trying to queue when PC Card ejected", controller->getName(), controller);
+        return kIOReturnNotResponding;
+    }
 
     switch (command->GetType())
     {
@@ -994,6 +1002,12 @@ IOUSBController::DoControlTransfer(OSObject *owner,
                            void *arg2, void *arg3)
 {
     IOUSBController *me = (IOUSBController *)owner;
+
+    if ( me->_pcCardEjected )
+    {
+        USBLog(1, "%s[%p]::DoControlTransfer - trying to queue when PC Card ejected", me->getName(), me);
+        return kIOReturnNotResponding;
+    }
 
     return me->ControlTransaction((IOUSBCommand *)arg0);
 }
@@ -1971,7 +1985,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         // available bus entry after that.
         //
         bus = ( ((functionNum & 0x7) << 5) | (deviceNum & 0x1f) );
-
+        
         if ( gUsedBusIDs[bus] )
         {
             //

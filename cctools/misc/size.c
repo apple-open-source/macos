@@ -92,7 +92,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    int i;
+    unsigned long i;
     enum bool args_left;
     struct flags flag;
     struct arch_flag *arch_flags;

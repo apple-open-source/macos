@@ -54,7 +54,7 @@
 *******************************************************************************/
 #include "math.h"
 
-double cabs ( __complex_t z )
+double cabs ( _complex z )
 {
     return hypot ( z.Real, z.Imag );
 }

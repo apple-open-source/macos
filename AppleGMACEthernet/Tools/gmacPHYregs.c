@@ -69,11 +69,12 @@
 
 	enum	/* request codes to send to the user client:	*/
 	{
-		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
-		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
-		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
-		kGMACUserCmd_GetTxRing	= 0x33,		// get Tx DMA elements
-		kGMACUserCmd_GetRxRing	= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_GetLog			= 0x30,		// get entire GMAC ELG buffer
+		kGMACUserCmd_GetRegs		= 0x31,		// get all GMAC registers
+		kGMACUserCmd_GetOneReg		= 0x32,		// get one particular GMAC register
+		kGMACUserCmd_GetTxRing		= 0x33,		// get Tx DMA elements
+		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
 		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
 		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
@@ -109,7 +110,7 @@ int main( int argc, char ** argv )
 {
 	if ( argc == 1 )
 	{
-		Usage( argv[0] );
+		DumpMII();		/* If no arguments, dump all PHY registers	*/
 		return 0;
 	}
 
@@ -126,11 +127,11 @@ int main( int argc, char ** argv )
 		rc = sscanf( argv[2], "%ld", &regnum );
 		if ( rc == 1 && regnum < 32 )
 		{
-			printf( "reading mii register %ld\n", regnum );
+			printf( "Reading PHY register %ld\n", regnum );
 			DumpOneMII( regnum );
 		}
 		else
-			printf( "bad register number?\n" );
+			printf( "Bad register number?\n" );
 		return 0;
 	}
 
@@ -264,7 +265,11 @@ void DumpMII()
 		{
 		//	printf( "read all MII worked\n" );
 			for ( i = 0 ; i < 32; i++ )
-				printf( "[%2d] 0x%04x\n",	i, buffer[i] );
+			{	if ( (i & 3) == 0 )
+					printf( "\n[%2d]",	i );
+				printf( "\t0x%04x",		buffer[i] );
+			}
+			printf( "\n" );
 		}
 		else printf( "command/request failed 0x%x\n", kr );
 

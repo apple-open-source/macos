@@ -668,11 +668,11 @@ ffs_pageout(ap)
 	}
         
 
-	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page_32(xfer_size), ip->i_size, devBlockSize, flags);
+	error = cluster_pageout(vp, pl, pl_offset, f_offset, round_page(xfer_size), ip->i_size, devBlockSize, flags);
 
 	if(save_error) {
 		lupl_offset = size - save_size;
-		resid = round_page_32(save_size);
+		resid = round_page(save_size);
 		if (!nocommit)
 			ubc_upl_abort_range(pl, lupl_offset, resid,
 				UPL_ABORT_FREE_ON_EMPTY);

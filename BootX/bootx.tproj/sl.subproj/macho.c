@@ -25,7 +25,7 @@
 /*
  *  macho.c - Functions for decoding a Mach-o Kernel.
  *
- *  Copyright (c) 1998-2003 Apple Computer, Inc.
+ *  Copyright (c) 1998-2000 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -40,56 +40,33 @@ static long DecodeSegment(long cmdBase);
 static long DecodeUnixThread(long cmdBase);
 static long DecodeSymbolTable(long cmdBase);
 
-static unsigned long gPPCAddress;
+static long gPPCOffset;
 
 // Public Functions
 
-long ThinFatBinaryMachO(void **binary, unsigned long *length)
+long DecodeMachO(void)
 {
-  unsigned long nfat, swapped, size;
-  struct fat_header *fhp = (struct fat_header *)*binary;
-  struct fat_arch   *fap =
-    (struct fat_arch *)((unsigned long)*binary + sizeof(struct fat_header));
-  
-  if (fhp->magic == FAT_MAGIC) {
-    nfat = fhp->nfat_arch;
-    swapped = 0;
-  } else if (fhp->magic == FAT_CIGAM) {
-    nfat = NXSwapInt(fhp->nfat_arch);
-    swapped = 1;
-  } else {
-    return -1;
-  }
-  
-  for (; nfat > 0; nfat--, fap++) {
-    if (swapped) {
-      fap->cputype = NXSwapInt(fap->cputype);
-      fap->offset = NXSwapInt(fap->offset);
-      fap->size = NXSwapInt(fap->size);
-    }
-    
-    if (fap->cputype == CPU_TYPE_POWERPC) {
-      *binary = (void *) ((unsigned long)*binary + fap->offset);
-      size = fap->size;
-      break;
-    }
-  }
-  
-  if (length != 0) *length = size;
-  
-  return 0;
-}
-
-long DecodeMachO(void *binary)
-{
+  struct fat_header  *fH;
+  struct fat_arch    *fA;
   struct mach_header *mH;
   long   ncmds, cmdBase, cmd, cmdsize, headerBase, headerAddr, headerSize;
   long   cnt, ret;
   
-  gPPCAddress = (unsigned long)binary;
+  // Test for a fat header.
+  fH = (struct fat_header *)kLoadAddr;
+  if (fH->magic == FAT_MAGIC) {
+    fA = (struct fat_arch *)(kLoadAddr + sizeof(struct fat_header));
+    // see if the there is one for PPC.
+    for (cnt = 0; cnt < fH->nfat_arch; cnt++) {
+      if (fA[cnt].cputype == CPU_TYPE_POWERPC) {
+	gPPCOffset = fA[cnt].offset;
+      }
+    }
+  }
   
-  headerBase = gPPCAddress;
-  cmdBase = headerBase + sizeof(struct mach_header);
+  // offset will be the start of the 
+  headerBase = kLoadAddr + gPPCOffset;
+  cmdBase = headerBase+ sizeof(struct mach_header);
   
   mH = (struct mach_header *)(headerBase);
   if (mH->magic != MH_MAGIC) return -1;
@@ -159,7 +136,7 @@ static long DecodeSegment(long cmdBase)
   vmaddr = (char *)segCmd->vmaddr;
   vmsize = segCmd->vmsize;
   
-  fileaddr = (char *)(gPPCAddress + segCmd->fileoff);
+  fileaddr = (char *)(kLoadAddr + gPPCOffset + segCmd->fileoff);
   filesize = segCmd->filesize;
   
 #if 0
@@ -254,7 +231,7 @@ static long DecodeSymbolTable(long cmdBase)
   symTableSave->stroff = tmpAddr + symsSize;
   symTableSave->strsize = symTab->strsize;
   
-  bcopy((char *)(gPPCAddress + symTab->symoff),
+  bcopy((char *)(kLoadAddr + gPPCOffset + symTab->symoff),
 	(char *)tmpAddr, totalSize);
   
   return 0;

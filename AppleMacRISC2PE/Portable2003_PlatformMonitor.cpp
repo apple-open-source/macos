@@ -146,15 +146,15 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
             {	// Sensor 0
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(53), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(51),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
                             {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(53), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(51),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
                             {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
@@ -162,15 +162,15 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
             {	// Sensor 1
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(79), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(75),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
                             {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(79), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(75),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState2 },	// kThermalState1 
                             {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
                             {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
@@ -178,17 +178,17 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
             {	// Sensor 2
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState0, 	TEMP_SENSOR_FMT(93), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState1, 	TEMP_SENSOR_FMT(103), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(98),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(103), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(99),	kThermalState0, 	TEMP_SENSOR_FMT(105), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(101),	kThermalState1, 	TEMP_SENSOR_FMT(107), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(103),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(83), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState0, 	TEMP_SENSOR_FMT(93), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState1, 	TEMP_SENSOR_FMT(103), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(98),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(103), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(99),	kThermalState0, 	TEMP_SENSOR_FMT(105), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(101),	kThermalState1, 	TEMP_SENSOR_FMT(107), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(103),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 3
@@ -228,49 +228,49 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
             {	// Sensor 0
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(76), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(74),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(76), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(74),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 1
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(75), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(73),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(75), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(73),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 2
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(82), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(80),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
-                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(73), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(68),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(82), 	kThermalState1 },	// kThermalState0 
+                            {	 TEMP_SENSOR_FMT(80),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 3
@@ -278,15 +278,15 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(50), 	kThermalState1 },	// kThermalState0 
                             {	 TEMP_SENSOR_FMT(45),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(50), 	kThermalState1 },	// kThermalState0 
                             {	 TEMP_SENSOR_FMT(45),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 4
@@ -393,48 +393,48 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 1
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 2
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(68), 	kThermalState1 },	// kThermalState0 
-                            {	 TEMP_SENSOR_FMT(63),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(66),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 3
@@ -442,15 +442,15 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(50), 	kThermalState1 },	// kThermalState0 
                             {	 TEMP_SENSOR_FMT(45),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
                     {	// Clamshell closed
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
                             {	 TEMP_SENSOR_FMT(0),	kThermalState0, 	TEMP_SENSOR_FMT(50), 	kThermalState1 },	// kThermalState0 
                             {	 TEMP_SENSOR_FMT(45),	kThermalState0, 	TEMP_SENSOR_FMT(110), 	kThermalState2 },	// kThermalState1 
-                            {	 TEMP_SENSOR_FMT(78),	kThermalState1, 	TEMP_SENSOR_FMT(93), 	kThermalState3 },	// kThermalState2 
-                            {	 TEMP_SENSOR_FMT(88),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
+                            {	 TEMP_SENSOR_FMT(108),	kThermalState1, 	TEMP_SENSOR_FMT(115), 	kThermalState3 },	// kThermalState2 
+                            {	 TEMP_SENSOR_FMT(113),	kThermalState2, 	TEMP_SENSOR_FMT(117), 	kThermalState3 },	// kThermalState3 
                     },
             },
             {	// Sensor 4
@@ -489,21 +489,19 @@ OSDefineMetaClassAndStructors(Portable2003_PlatformMonitor, IOPlatformMonitor)
 static bool actionFullPower ()
 {
 	IOService *serv;
-	//debug_msg("IOPMon::actionFullPower - starting\n");
+	debug_msg("IOPMon::actionFullPower - starting\n");
 	// CPU at full power if not already there
 	serv = conSensorArray[kSlewController].conSensor;
 	if ((conSensorArray[kSlewController].state != kCPUPowerState0) && 
 		(serv = conSensorArray[kSlewController].conSensor)) {
-		conSensorArray[kSlewController].state = kCPUPowerState0;
-		//serv->setAggressiveness (kPMSetProcessorSpeed, 0);
+		debug_msg ("IOPMon::actionFullPower - slewing fast\n");
                 if (conSensorArray[kSlewController].registered) {
+                    conSensorArray[kSlewController].state = kCPUPowerState0;
                     gIOPMon->setBusSlew ((UInt32) 0);
-                } else {
-                    IOLog ("IOPMon::actionFullPower - no slew controller available; using PMU switching\n");
-                    serv->setAggressiveness (kPMSetProcessorSpeed, 2);
+                    provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonFull);
                 }
-		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonFull);
 	}
+        
 	// GPU at full power if not already there
 	if ((conSensorArray[kGPUController].state != kGPUPowerState0) &&
 		(serv = conSensorArray[kGPUController].conSensor)) {
@@ -523,20 +521,16 @@ static bool actionFullPower ()
 static bool actionPower1 ()
 {	
 	IOService *serv;
-	//debug_msg("IOPMon::actionPower1 - starting\n");
+	debug_msg("IOPMon::actionPower1 - starting\n");
 	// Step down CPU if not already slow
 	if ((conSensorArray[kSlewController].state != kCPUPowerState1) && 
 		(serv = conSensorArray[kSlewController].conSensor)) {
-		conSensorArray[kSlewController].state = kCPUPowerState1;
-		//debug_msg ("IOPMon::actionPower1 - sending CPU aggressiveness 1\n");
-		//serv->setAggressiveness (kPMSetProcessorSpeed, 1);
+		debug_msg ("IOPMon::actionPower1 - slewing slow\n");
                 if (conSensorArray[kSlewController].registered) {
+                    conSensorArray[kSlewController].state = kCPUPowerState1;
                     gIOPMon->setBusSlew ((UInt32) 1);
-                } else {
-                    IOLog ("IOPMon::actionFullPower - no slew controller available; using PMU switching\n");
-                    serv->setAggressiveness (kPMSetProcessorSpeed, 3);
-                }
-		provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
+                    provider->setProperty (gIOPMonCPUActionKey, (OSObject *)gIOPMonReduced);
+                } 
 	}
 	
 	// GPU is still at full power
@@ -642,7 +636,7 @@ bool Portable2003_PlatformMonitor::start ( IOService * nub )
 
         platform_name = macRISC2PE->getParentEntry(gIOServicePlane)->getName();
 
-        IOLog("Portable2003_PlatformMonitor::start - machine type %s\n", platform_name);
+        //IOLog("Portable2003_PlatformMonitor::start - machine type %s\n", platform_name);
         if	(!strcmp(platform_name, "PowerBook5,2")) machineType = kPB52MachineType;
         else if	(!strcmp(platform_name, "PowerBook5,3")) machineType = kPB53MachineType;
 	
@@ -820,6 +814,7 @@ IOReturn Portable2003_PlatformMonitor::powerStateDidChangeTo (IOPMPowerFlags the
     if (theFlags & IOPMPowerOn) {
         // Wake sequence:
 		debug_msg ("Portable2003_PlatformMonitor::powerStateDidChangeTo - wake\n");
+                // we don't want to remember any prior actions and start "fresh" after a wake from sleep
 		restorePlatformState();
     }
      
@@ -952,6 +947,9 @@ bool Portable2003_PlatformMonitor::restoreThermalState ()
 {
 	OSNumber			*threshLow, *threshHigh;
 	UInt32				i;
+
+        // reset current thermal state to the initial state since we're starting fresh...
+        currentThermalState = kThermalState0;
 
 	// need to get updated info from sensors
 	for (i = 0; i < kMaxSensorIndex; i++) {
@@ -1191,6 +1189,7 @@ bool Portable2003_PlatformMonitor::adjustPlatformState ()
 		updateIOPMonStateInfo(kIOPMonPowerSensor, currentPowerState);
 	}
 	if (lastThermalState != currentThermalState) {
+                lastAction = 0;
 		lastThermalState = currentThermalState;
 		updateIOPMonStateInfo(kIOPMonThermalSensor, currentThermalState);
 	}
@@ -1216,14 +1215,13 @@ bool Portable2003_PlatformMonitor::adjustPlatformState ()
 IOReturn Portable2003_PlatformMonitor::registerConSensor (OSDictionary *dict, IOService *conSensor)
 {
 	UInt32 			csi, subsi, type, initialState, initialValue;
-	ThermalValue		initialThermalValue;
 	ConSensorInfo		*csInfo;
 	OSObject		*obj;
         		
 	if (!lookupConSensorInfo (dict, conSensor, &type, &csi, &subsi))
 		return kIOReturnBadArgument;
 		
-	IOLog ("Portable2003_PlatformMonitor::registerConSensor - type %ld, csi %ld, subsi %ld\n", type, csi, subsi);
+	//IOLog ("Portable2003_PlatformMonitor::registerConSensor - type %ld, csi %ld, subsi %ld\n", type, csi, subsi);
 	
 	if (subsi < kMaxSensorIndex)	// Is subsensor index valid? If so use subSensorArray
 		csInfo = &subSensorArray[subsi];
@@ -1243,12 +1241,13 @@ IOReturn Portable2003_PlatformMonitor::registerConSensor (OSDictionary *dict, IO
 			 */
 			if (!csInfo->sensorValid)
 				return kIOReturnUnsupported;		// Don't need this sensor - tell it to go away
-				
-			if (!retrieveCurrentValue (dict, &initialThermalValue))
-				return kIOReturnBadArgument;
+			
+			//if (!retrieveCurrentValue (dict, &initialThermalValue))
+			//	return kIOReturnBadArgument;
 			
 			// Figure out our initial state
-			initialState = lookupThermalStateFromValue (subsi, initialThermalValue);
+                        // Just initialize the initial state/initial value to 0 for now and let the normal HandleThermalEvent get called if it needs to later...
+			//initialState = lookupThermalStateFromValue (subsi, initialThermalValue);
 			
 			if (!(csInfo->threshDict = OSDictionary::withCapacity(3)))
 				return kIOReturnNoMemory;
@@ -1264,13 +1263,6 @@ IOReturn Portable2003_PlatformMonitor::registerConSensor (OSDictionary *dict, IO
 			
 			csInfo->registered = true;
 			
-			// If this sensor's current state is higher then aggregate sensor state, boost state
-			if (initialState > conSensorArray[csi].state) {
-				// This needs to be on the workloop - maybe whole routine does
-				conSensorArray[csi].state = initialState;
-				adjustPlatformState ();							// Adjust for new thermal state
-			} else
-				initialState = conSensorArray[csi].state;		// Our effective state is same as worst thermal state
 			break;
 		
 		case kIOPMonPowerSensor:
@@ -1307,8 +1299,8 @@ IOReturn Portable2003_PlatformMonitor::registerConSensor (OSDictionary *dict, IO
 			break;
 	}
 	
-	conSensorArray[csi].value = initialValue;
-	conSensorArray[csi].state = initialState;
+	csInfo->value = initialValue;
+	csInfo->state = initialState;
 
 	return kIOReturnSuccess;
 }
@@ -1421,7 +1413,7 @@ bool Portable2003_PlatformMonitor::handlePowerEvent (IOPMonEventData *eventData)
 	UInt32		nextPowerState;
 	bool		result;
         
-        //debug_msg("Portable2003_PlatformMonitor::handlePowerEvent - started\n");
+        debug_msg("Portable2003_PlatformMonitor::handlePowerEvent - started\n");
 	if (!(retrieveCurrentValue (eventData->eventDict, &nextPowerState)))
 		return false;
 		

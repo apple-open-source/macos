@@ -22,7 +22,6 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "frags.h"
 #include "fixes.h"
 #include "symbols.h"
-#include "input-scrub.h"
 
 /*
  * fix_new() creates a fixS in obstack 'notes'.
@@ -52,7 +51,6 @@ int	r_type)		/* relocation type */
 	fixP->fx_pcrel       = pcrel;
 	fixP->fx_pcrel_reloc = pcrel_reloc;
 	fixP->fx_r_type      = r_type;
-	as_file_and_line (&fixP->file, &fixP->line);
 
 	fixP->fx_next              = frchain_now->frch_fix_root;
 	frchain_now->frch_fix_root = fixP;

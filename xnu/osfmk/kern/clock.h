@@ -189,10 +189,6 @@ extern int64_t		clock_set_calendar_adjtime(
 
 extern void			clock_initialize_calendar(void);
 
-extern void			clock_gettimeofday(
-                        uint32_t			*secs,
-                        uint32_t			*microsecs);
-
 #endif	/* __APPLE_API_PRIVATE */
 
 #ifdef	__APPLE_API_UNSTABLE

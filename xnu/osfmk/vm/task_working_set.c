@@ -293,8 +293,8 @@ tws_hash_line_clear(
 							&& (dump_pmap == 1)) {
 						pmap_remove_some_phys((pmap_t)
 							vm_map_pmap(
-								current_map()),
-							p->phys_page);
+								hash_ele->map),
+							p->phys_addr);
 					}
 				   }
 				   local_off += PAGE_SIZE_64;
@@ -582,7 +582,7 @@ printf("cache_lookup, result = 0x%x, addr = 0x%x, object 0x%x, offset 0x%x%x\n",
 			pmap_remove(map->pmap, 0, GLOBAL_SHARED_TEXT_SEGMENT);
 			pmap_remove(map->pmap, 
 				GLOBAL_SHARED_DATA_SEGMENT 
-				+ SHARED_DATA_REGION_SIZE, 0xFFFFFFFFFFFFF000);
+				+ SHARED_DATA_REGION_SIZE, 0xFFFFF000);
 	}
 
 	/* This next bit of code, the and alternate hash */
@@ -1039,8 +1039,8 @@ tws_build_cluster(
 	int			age_of_cache;
 	int			pre_heat_size;
 	unsigned int		ele_cache;
-	unsigned int		end_cache = 0;
-	unsigned int		start_cache = 0;
+	unsigned int		end_cache = NULL;
+	unsigned int		start_cache = NULL;
 
 	if((object->private) || !(object->pager))
 		return;
@@ -1086,7 +1086,7 @@ tws_build_cluster(
 			*start = *start & TWS_HASH_OFF_MASK;
 			*end = *start + (32 * PAGE_SIZE_64);
 			if(*end > object_size) {
-				*end = trunc_page_64(object_size);
+				*end = trunc_page(object_size);
 				max_length = 0;
 				if(before >= *end) {
 					*end = after;
@@ -1109,7 +1109,7 @@ tws_build_cluster(
 					*end = after + 
 						(32 * PAGE_SIZE_64);
 					if(*end > object_size) {
-						*end = trunc_page_64(object_size);
+						*end = trunc_page(object_size);
 						max_length = 0;
 						if(*start >= *end) {
 							*end = after;
@@ -1133,7 +1133,7 @@ tws_build_cluster(
 					break;
 			}
 
-			if(start_cache != 0) {
+			if(start_cache != NULL) {
 				unsigned int mask;
 
 				for (mask = 1; mask != 0; mask = mask << 1) {
@@ -1145,7 +1145,7 @@ tws_build_cluster(
 						break;
 				}
 			}
-			if(end_cache != 0) {
+			if(end_cache != NULL) {
 				unsigned int mask;
 
 				for (mask = 0x80000000; 

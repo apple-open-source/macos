@@ -80,65 +80,42 @@ ml_static_ptovirt(
 boolean_t ml_probe_read(
 	vm_offset_t paddr,
 	unsigned int *val);
-boolean_t ml_probe_read_64(
-	addr64_t paddr,
-	unsigned int *val);
 
 /* Read physical address byte */
 unsigned int ml_phys_read_byte(
 	vm_offset_t paddr);
-unsigned int ml_phys_read_byte_64(
-	addr64_t paddr);
 
 /* Read physical address half word */
 unsigned int ml_phys_read_half(
 	vm_offset_t paddr);
-unsigned int ml_phys_read_half_64(
-	addr64_t paddr);
 
 /* Read physical address word*/
 unsigned int ml_phys_read(
 	vm_offset_t paddr);
-unsigned int ml_phys_read_64(
-	addr64_t paddr);
 unsigned int ml_phys_read_word(
 	vm_offset_t paddr);
-unsigned int ml_phys_read_word_64(
-	addr64_t paddr);
 
 /* Read physical address double word */
 unsigned long long ml_phys_read_double(
 	vm_offset_t paddr);
-unsigned long long ml_phys_read_double_64(
-	addr64_t paddr);
 
 /* Write physical address byte */
 void ml_phys_write_byte(
 	vm_offset_t paddr, unsigned int data);
-void ml_phys_write_byte_64(
-	addr64_t paddr, unsigned int data);
 
 /* Write physical address half word */
 void ml_phys_write_half(
 	vm_offset_t paddr, unsigned int data);
-void ml_phys_write_half_64(
-	addr64_t paddr, unsigned int data);
 
 /* Write physical address word */
 void ml_phys_write(
 	vm_offset_t paddr, unsigned int data);
-void ml_phys_write_64(
-	addr64_t paddr, unsigned int data);
 void ml_phys_write_word(
 	vm_offset_t paddr, unsigned int data);
-void ml_phys_write_word_64(
-	addr64_t paddr, unsigned int data);
 
 /* Write physical address double word */
 void ml_phys_write_double(
 	vm_offset_t paddr, unsigned long long data);
-void ml_phys_write_double_64(
-	addr64_t paddr, unsigned long long data);
 
 void ml_static_mfree(
 	vm_offset_t,
@@ -183,6 +160,8 @@ vm_offset_t ml_static_malloc(
 #endif /* PEXPERT_KERNEL_PRIVATE || MACH_KERNEL_PRIVATE  */
 
 #ifdef  MACH_KERNEL_PRIVATE 
+/* check pending timers */
+#define machine_clock_assist()
 
 void machine_idle(void);
 

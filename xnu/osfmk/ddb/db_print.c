@@ -190,7 +190,7 @@ db_show_regs(
 				12-strlen(regp->name)-((i<10)?1:2), "");
 		else
 		    db_printf("%-12s", regp->name);
-		db_printf("%#*llN", 2+2*sizeof(db_expr_t), value);
+		db_printf("%#*N", 2+2*sizeof(vm_offset_t), value);
 		db_find_xtrn_task_sym_and_offset((db_addr_t)value, &name, 
 							&offset, task);
 		if (name != 0 && offset <= db_maxoff && offset != value) {
@@ -722,7 +722,7 @@ db_show_one_act(
 	    thr_act = (thread_act_t) addr;
 
 	if ((act_id = db_lookup_act(thr_act)) < 0) {
-	    db_printf("bad thr_act address %#llX\n", addr);
+	    db_printf("bad thr_act address %#x\n", addr);
 	    db_error(0);
 	    /*NOTREACHED*/
 	}
@@ -774,7 +774,7 @@ db_show_one_task(
 	    task = (task_t) addr;
 
 	if ((task_id = db_lookup_task(task)) < 0) {
-	    db_printf("bad task address 0x%llX\n", addr);
+	    db_printf("bad task address 0x%x\n", addr);
 	    db_error(0);
 	    /*NOTREACHED*/
 	}
@@ -972,7 +972,7 @@ db_show_port_id(
 	} else
 	    thr_act = (thread_act_t) addr;
 	if (db_lookup_act(thr_act) < 0) {
-	    db_printf("Bad thr_act address 0x%llX\n", addr);
+	    db_printf("Bad thr_act address 0x%x\n", addr);
 	    db_error(0);
 	    /*NOTREACHED*/
 	}

@@ -1139,8 +1139,6 @@ check_free_space(journal *jnl, int desired_size)
 //	   desired_size, free_space(jnl));
     
     while (1) {
-		int old_start_empty;
-
 		if (counter++ == 5000) {
 			dump_journal(jnl);
 			panic("jnl: check_free_space: buffer flushing isn't working "
@@ -1161,7 +1159,6 @@ check_free_space(journal *jnl, int desired_size)
 		// here's where we lazily bump up jnl->jhdr->start.  we'll consume
 		// entries until there is enough space for the next transaction.
 		//
-		old_start_empty = 1;
 		simple_lock(&jnl->old_start_lock);
 		for(i=0; i < sizeof(jnl->old_start)/sizeof(jnl->old_start[0]); i++) {
 			int   counter;
@@ -1185,7 +1182,6 @@ check_free_space(journal *jnl, int desired_size)
 				continue;
 			}
 
-			old_start_empty   = 0;
 			jnl->jhdr->start  = jnl->old_start[i];
 			jnl->old_start[i] = 0;
 			if (free_space(jnl) > desired_size) {
@@ -1197,19 +1193,6 @@ check_free_space(journal *jnl, int desired_size)
 		
 		// if we bumped the start, loop and try again
 		if (i < sizeof(jnl->old_start)/sizeof(jnl->old_start[0])) {
-			continue;
-		} else if (old_start_empty) {
-			//
-			// if there is nothing in old_start anymore then we can
-			// bump the jhdr->start to be the same as active_start
-			// since it is possible there was only one very large
-			// transaction in the old_start array.  if we didn't do
-			// this then jhdr->start would never get updated and we
-			// would wind up looping until we hit the panic at the
-			// start of the loop.
-			//
-			jnl->jhdr->start = jnl->active_start;
-			write_journal_header(jnl);
 			continue;
 		}
 

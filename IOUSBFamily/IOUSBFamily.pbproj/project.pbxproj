@@ -945,7 +945,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 2.0.2;
+				MODULE_VERSION = 2.0.3;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -969,7 +969,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.2, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.0.3, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -981,11 +981,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.2</string>
+	<string>2.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.2</string>
+	<string>2.0.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -1253,7 +1253,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.0.1;
 				OTHER_CFLAGS = "-fno-default-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1292,7 +1292,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.0, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.0.1, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1304,11 +1304,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0</string>
+	<string>2.0.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -1709,7 +1709,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.0.3;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1733,7 +1733,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBHub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.0, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.0.3 Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1745,11 +1745,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0</string>
+	<string>2.0.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBHub0</key>
@@ -5599,7 +5599,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBEHCI;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.0.3;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				PRODUCT_NAME = AppleUSBEHCI;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -5621,7 +5621,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBEHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.0, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.0.3, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -5633,11 +5633,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0</string>
+	<string>2.0.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBEHCI</key>

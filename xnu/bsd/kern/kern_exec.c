@@ -169,7 +169,7 @@ execve(p, uap, retval)
 	vm_map_t old_map;
 	vm_map_t map;
 	int i;
-	boolean_t		clean_regions = FALSE;
+	boolean_t		new_shared_regions = FALSE;
 	union {
 		/* #! and name of interpreter */
 		char			ex_shell[SHSIZE];
@@ -535,11 +535,23 @@ again:
 	VOP_UNLOCK(vp, 0, p);
 	if(ws_cache_name) {
 		tws_handle_startup_file(task, cred->cr_uid, 
-			ws_cache_name, vp, &clean_regions);
+			ws_cache_name, vp, &new_shared_regions);
+	}
+	if (new_shared_regions) {
+		shared_region_mapping_t	new_shared_region;
+		shared_region_mapping_t	old_shared_region;
+	
+		if (shared_file_create_system_region(&new_shared_region))
+			panic("couldn't create system_shared_region\n");
+
+		vm_get_shared_region(task, &old_shared_region);
+		vm_set_shared_region(task, new_shared_region);
+
+		shared_region_mapping_dealloc(old_shared_region);
 	}
 
 	lret = load_machfile(vp, mach_header, arch_offset,
-		arch_size, &load_result, thr_act, map, clean_regions);
+				arch_size, &load_result, thr_act, map);
 
 	if (lret != LOAD_SUCCESS) {
 		error = load_return_to_errno(lret);
@@ -832,8 +844,8 @@ create_unix_stack(map, user_stack, customstack, p)
 
 	p->user_stack = user_stack;
 	if (!customstack) {
-		size = round_page_64(unix_stack_size(p));
-		addr = trunc_page_32(user_stack - size);
+		size = round_page(unix_stack_size(p));
+		addr = trunc_page(user_stack - size);
 		return (vm_allocate(map,&addr, size, FALSE));
 	} else
 		return(KERN_SUCCESS);

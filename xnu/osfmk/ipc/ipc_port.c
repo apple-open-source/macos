@@ -1159,7 +1159,7 @@ ipc_port_dealloc_special(
 {
 	ip_lock(port);
 	assert(ip_active(port));
-//	assert(port->ip_receiver_name != MACH_PORT_NULL);
+	assert(port->ip_receiver_name != MACH_PORT_NULL);
 	assert(port->ip_receiver == space);
 
 	/*

@@ -85,7 +85,7 @@ CreateBufferFromIORegistry ( struct mount * mountPtr )
 	{
 		
 		// Get the TOC property
-		objectPtr = cdMediaPtr->getProperty ( kIOCDMediaTOCKey );
+		objectPtr = cdMediaPtr->getProperty ( kIOCDMediaTOC );
 		if ( objectPtr == NULL )
 		{
 		

@@ -255,7 +255,6 @@ char	*pmap_phys_attributes;
  */
 #define	PHYS_MODIFIED	INTEL_PTE_MOD	/* page modified */
 #define	PHYS_REFERENCED	INTEL_PTE_REF	/* page referenced */
-#define PHYS_NCACHE	INTEL_PTE_NCACHE
 
 /*
  *	Amount of virtual memory mapped by one
@@ -795,19 +794,6 @@ pmap_bootstrap(
 
 	kernel_pmap->pdirbase = kvtophys((vm_offset_t)kernel_pmap->dirbase);
 
-	if (cpuid_features() & CPUID_FEATURE_PAT)
-	{
-		uint64_t pat;
-		uint32_t msr;
-	    
-		msr = 0x277;
-		asm volatile("rdmsr" : "=A" (pat) : "c" (msr));
-	    
-		pat &= ~(0xfULL << 48);
-		pat |= 0x01ULL << 48;
-	    
-		asm volatile("wrmsr" :: "A" (pat), "c" (msr));
-	}
 }
 
 void
@@ -1301,13 +1287,11 @@ pmap_remove_some_phys(
  *	rounded to the hardware page size.
  */
 
-
-/* FIXMEx86 */
 void
 pmap_remove(
 	pmap_t		map,
-	addr64_t	s,
-	addr64_t	e)
+	vm_offset_t	s,
+	vm_offset_t	e)
 {
 	spl_t			spl;
 	register pt_entry_t	*pde;
@@ -1684,15 +1668,8 @@ Retry:
 	    /*
 	     *	May be changing its wired attribute or protection
 	     */
-	
+		
 	    template = pa_to_pte(pa) | INTEL_PTE_VALID;
-
-	    if(flags & VM_MEM_NOT_CACHEABLE) {
-		if(!(flags & VM_MEM_GUARDED))
-			template |= INTEL_PTE_PTA;
-		template |= INTEL_PTE_NCACHE;
-	    }
-
 	    if (pmap != kernel_pmap)
 		template |= INTEL_PTE_USER;
 	    if (prot & VM_PROT_WRITE)
@@ -2011,13 +1988,6 @@ RetryPvList:
 	 *	only the pfn changes.
 	 */
 	template = pa_to_pte(pa) | INTEL_PTE_VALID;
-
-	if(flags & VM_MEM_NOT_CACHEABLE) {
-		if(!(flags & VM_MEM_GUARDED))
-			template |= INTEL_PTE_PTA;
-		template |= INTEL_PTE_NCACHE;
-	}
-
 	if (pmap != kernel_pmap)
 		template |= INTEL_PTE_USER;
 	if (prot & VM_PROT_WRITE)
@@ -2173,7 +2143,7 @@ pmap_expand(
 	 *	Map the page to its physical address so that it
 	 *	can be found later.
 	 */
-	pa = m->phys_page;
+	pa = m->phys_addr;
 	vm_object_lock(pmap_object);
 	vm_page_insert(m, pmap_object, pa);
 	vm_page_lock_queues();
@@ -2244,22 +2214,6 @@ pmap_copy(
 #endif	/* lint */
 }
 #endif/* 	0 */
-
-/*
- * pmap_sync_caches_phys(ppnum_t pa)
- * 
- * Invalidates all of the instruction cache on a physical page and
- * pushes any dirty data from the data cache for the same physical page
- */
- 
-void pmap_sync_caches_phys(ppnum_t pa)
-{
-	if (!(cpuid_features() & CPUID_FEATURE_SS))
-	{
-		__asm__ volatile("wbinvd");	
-	}
-	return;
-}
 
 int	collect_ref;
 int	collect_unref;

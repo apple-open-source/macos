@@ -1,4 +1,3 @@
-RC_OS = macos
 OFLAG = -O
 LIBSTUFF = -L$(SYMROOT)/../libstuff -lstuff
 
@@ -12,7 +11,7 @@ ifeq "macos" "$(RC_OS)"
 endif
 
 ifneq "mwccppc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall $(X_CFLAGS)
+  GCC_FLAGS = -Wall -Wno-precomp $(X_CFLAGS)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ]; then \

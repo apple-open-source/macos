@@ -86,17 +86,16 @@ struct magic *m;
 
 	if (m->flag & INDIR)
 		(void) fprintf(stderr, "(%s,%d),",
-			       (m->in.type >= 0 &&
-				(size_t)m->in.type < SZOF(typ)) ? 
+			       (m->in.type >= 0 && m->in.type < SZOF(typ)) ? 
 					typ[(unsigned char) m->in.type] :
 					"*bad*",
 			       m->in.offset);
 
 	(void) fprintf(stderr, " %s%s", (m->flag & UNSIGNED) ? "u" : "",
-		       (m->type >= 0 && (size_t)m->type < SZOF(typ)) ? 
+		       (m->type >= 0 && m->type < SZOF(typ)) ? 
 				typ[(unsigned char) m->type] : 
 				"*bad*");
-	if (m->mask != ~0UL)
+	if (m->mask != ~0L)
 		(void) fprintf(stderr, " & %.8x", m->mask);
 
 	(void) fprintf(stderr, ",%c", m->reln);

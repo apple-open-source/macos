@@ -78,10 +78,6 @@ ENTRY(atomic_switch_trap, TAG_NO_FRAME_USED)
 
 			li		r5, BTTD_TRAP_VECTOR
 
-			cmplwi	r24,0x3C							; (BRINGUP)
-			bne		.L_CallPseudoKernel					; (BRINGUP)
-			nop											; (BRINGUP)
-
 /******************************************************************************
  * void CallPseudoKernel ( int vector, thread_act_t * act, BEDA_t * beda, savearea *sv )
  *
@@ -141,20 +137,20 @@ ENTRY(atomic_switch_trap, TAG_NO_FRAME_USED)
 
 .L_CallFromPreemptiveThread:
 
-			lwz		r1,savesrr0+4(r4)					; Get current PC
-			lwz		r2,saver1+4(r4)						; Get current R1
-			lwz		r3,savesrr1+4(r4)					; Get current MSR
+			lwz		r1,savesrr0(r4)						; Get current PC
+			lwz		r2,saver1(r4)						; Get current R1
+			lwz		r3,savesrr1(r4)						; Get current MSR
 			stw		r1,BEDA_SRR0(r26)					; Save current PC
 			rlwinm	r3,r3,0,MSR_BE_BIT+1,MSR_SE_BIT-1				
 														; Clear SE|BE bits in MSR
 			stw		r2,BEDA_SPRG1(r26)					; Save current R1 
-			stw		r3,savesrr1+4(r4)					; Load new MSR
+			stw		r3,savesrr1(r4)						; Load new MSR
 
 			lwz		r1,BEDA_SPRG0(r26)					; Get replacement R1
 			lwzx	r2,r5,r6							; Load vector address
 			stw		r3,BEDA_SRR1(r26)					; Update saved MSR
-			stw		r1,saver1+4(r4)						; Load up new R1
-			stw		r2,savesrr0+4(r4)					; Save vector as PC
+			stw		r1,saver1(r4)						; Load up new R1
+			stw		r2,savesrr0(r4)						; Save vector as PC
 
 			b		EXT(fastexit)						; Go back and take the fast path exit...
 
@@ -190,7 +186,7 @@ ENTRY(atomic_switch_trap, TAG_NO_FRAME_USED)
 			ori		r7,r7,(0x8000 >> (bbNoMachSCbit - 16))	; Disable Mach SCs for Blue Box
 
 			cmpwi	r2,0								; Is this a preemptive thread
-			stw		r1,savectr+4(r4)						; Update CTR
+			stw		r1,savectr(r4)						; Update CTR
 			beq		.L_ExitFromPreemptiveThread
 
 			lwz		r8,BTTD_INTCONTROLWORD(r6)			; Get ICW
@@ -206,10 +202,10 @@ ENTRY(atomic_switch_trap, TAG_NO_FRAME_USED)
 			beq		cr1,.L_ExitToSystemContext			; We are in system context
 			beq		.L_ExitUpdateRuptControlWord		; We do not have a pending interrupt
 
-			lwz		r2,saver1+4(r4)						; Get current R1
+			lwz		r2,saver1(r4)						; Get current R1
 			lwz		r1,BEDA_SPRG0(r26)					; Get replacement R1
 			stw		r2,BEDA_SPRG1(r26)					; Save current R1
-			stw		r1,saver1+4(r4)						; Load up new R1
+			stw		r1,saver1(r4)						; Load up new R1
 			lwz		r3,BTTD_PENDINGINT_VECTOR(r6)		; Get pending interrupt PC
 			b		.L_ExitAbortExit					; Abort and Exit
 
@@ -222,17 +218,17 @@ ENTRY(atomic_switch_trap, TAG_NO_FRAME_USED)
 
 .L_ExitFromPreemptiveThread:
 			mfsprg	r3,0								; Get the per_proc
-			lwz		r2,savesrr1+4(r4)					; Get current MSR	
+			lwz		r2,savesrr1(r4)						; Get current MSR	
 			lwz		r1,BEDA_SRR1(r26)					; Get new MSR
 			stw		r7,ACT_MACT_SPF(r13)				; Update special flags
 			stw		r7,spcFlags(r3)						; Update per_proc version
 			rlwimi	r2,r1,0,MSR_FE0_BIT,MSR_FE1_BIT
 														; Insert FE0,FE1,SE,BE bits
 			lwz		r3,BEDA_SRR0(r26)					; Get new PC
-			stw		r2,savesrr1+4(r4)						; Update MSR
+			stw		r2,savesrr1(r4)						; Update MSR
 
 .L_ExitAbortExit:
-			stw		r3,savesrr0+4(r4)						; Update PC
+			stw		r3,savesrr0(r4)						; Update PC
 
 			b		EXT(fastexit)						; Go back and take the fast path exit...
 

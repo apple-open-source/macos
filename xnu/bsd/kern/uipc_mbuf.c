@@ -82,14 +82,10 @@
 #include <kern/kern_types.h>
 #include <kern/sched_prim.h>
 
-#include <IOKit/IOMapper.h>
-
 #define _MCLREF(p)       (++mclrefcnt[mtocl(p)])
 #define _MCLUNREF(p)     (--mclrefcnt[mtocl(p)] == 0)
 
-extern pmap_t kernel_pmap;    /* The kernel's pmap */
-/* kernel translater */
-extern ppnum_t pmap_find_phys(pmap_t pmap, addr64_t va);
+extern  kernel_pmap;    /* The kernel's pmap */
 
 decl_simple_lock_data(, mbuf_slock);
 struct mbuf 	*mfree;		/* mbuf free list */
@@ -99,7 +95,6 @@ int		m_want;		/* sleepers on mbufs */
 extern int	nmbclusters;	/* max number of mapped clusters */
 short		*mclrefcnt; 	/* mapped cluster reference counts */
 int             *mcl_paddr;
-static ppnum_t mcl_paddr_base;	/* Handle returned by IOMapper::iovmAlloc() */
 union mcluster 	*mclfree;	/* mapped cluster free list */
 int		max_linkhdr;	/* largest link-level header */
 int		max_protohdr;	/* largest protocol header */
@@ -173,11 +168,10 @@ mbinit()
 {
 	int s,m;
 	int initmcl = 32;
-        int mcl_pages;
 
 	if (nclpp)
 		return;
-	nclpp = round_page_32(MCLBYTES) / MCLBYTES;	/* see mbufgc() */
+	nclpp = round_page(MCLBYTES) / MCLBYTES;	/* see mbufgc() */
 	if (nclpp < 1) nclpp = 1;
 	MBUF_LOCKINIT();
 //	NETISR_LOCKINIT();
@@ -197,14 +191,11 @@ mbinit()
 	for (m = 0; m < nmbclusters; m++)
 		mclrefcnt[m] = -1;
 
-        /* Calculate the number of pages assigned to the cluster pool */
-        mcl_pages = nmbclusters/(PAGE_SIZE/CLBYTES);
-	MALLOC(mcl_paddr, int *, mcl_pages * sizeof(int), M_TEMP, M_WAITOK);
+	MALLOC(mcl_paddr, int *, (nmbclusters/(PAGE_SIZE/CLBYTES)) * sizeof (int),
+					M_TEMP, M_WAITOK);
 	if (mcl_paddr == 0)
 		panic("mbinit1");
-        /* Register with the I/O Bus mapper */
-        mcl_paddr_base = IOMapperIOVMAlloc(mcl_pages);
-	bzero((char *)mcl_paddr, mcl_pages * sizeof(int));
+	bzero((char *)mcl_paddr, (nmbclusters/(PAGE_SIZE/CLBYTES)) * sizeof (int));
 
 	embutl = (union mcluster *)((unsigned char *)mbutl + (nmbclusters * MCLBYTES));
 
@@ -245,11 +236,11 @@ m_clalloc(ncl, nowait)
 
 	if (ncl < i) 
 		ncl = i;
-	size = round_page_32(ncl * MCLBYTES);
+	size = round_page(ncl * MCLBYTES);
 	mcl = (union mcluster *)kmem_mb_alloc(mb_map, size);
 
 	if (mcl == 0 && ncl > 1) {
-		size = round_page_32(MCLBYTES); /* Try for 1 if failed */
+		size = round_page(MCLBYTES); /* Try for 1 if failed */
 		mcl = (union mcluster *)kmem_mb_alloc(mb_map, size);
 	}
 
@@ -259,19 +250,8 @@ m_clalloc(ncl, nowait)
 		for (i = 0; i < ncl; i++) {
 			if (++mclrefcnt[mtocl(mcl)] != 0)
 				panic("m_clalloc already there");
-			if (((int)mcl & PAGE_MASK) == 0) {
-                                ppnum_t offset = ((char *)mcl - (char *)mbutl)/PAGE_SIZE;
-                                ppnum_t new_page = pmap_find_phys(kernel_pmap, (vm_address_t) mcl);
-
-                                /*
-                                 * In the case of no mapper being available
-                                 * the following code nops and returns the
-                                 * input page, if there is a mapper the I/O
-                                 * page appropriate is returned.
-                                 */
-                                new_page = IOMapperInsertPage(mcl_paddr_base, offset, new_page);
-			        mcl_paddr[offset] = new_page << 12;
-                        }
+			if (((int)mcl & PAGE_MASK) == 0)
+			        mcl_paddr[((char *)mcl - (char *)mbutl)/PAGE_SIZE] = pmap_extract(kernel_pmap, (char *)mcl);
 
 			mcl->mcl_next = mclfree;
 			mclfree = mcl++;

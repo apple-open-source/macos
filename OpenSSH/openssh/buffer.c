@@ -23,8 +23,11 @@ RCSID("$OpenBSD: buffer.c,v 1.16 2002/06/26 08:54:18 markus Exp $");
 void
 buffer_init(Buffer *buffer)
 {
-	buffer->alloc = 4096;
-	buffer->buf = xmalloc(buffer->alloc);
+	const u_int len = 4096;
+
+	buffer->alloc = 0;
+	buffer->buf = xmalloc(len);
+	buffer->alloc = len;
 	buffer->offset = 0;
 	buffer->end = 0;
 }
@@ -34,8 +37,10 @@ buffer_init(Buffer *buffer)
 void
 buffer_free(Buffer *buffer)
 {
-	memset(buffer->buf, 0, buffer->alloc);
-	xfree(buffer->buf);
+	if (buffer->alloc > 0) {
+		memset(buffer->buf, 0, buffer->alloc);
+		xfree(buffer->buf);
+	}
 }
 
 /*
@@ -69,6 +74,7 @@ buffer_append(Buffer *buffer, const void *data, u_int len)
 void *
 buffer_append_space(Buffer *buffer, u_int len)
 {
+	u_int newlen;
 	void *p;
 
 	if (len > 0x100000)
@@ -98,11 +104,13 @@ restart:
 		goto restart;
 	}
 	/* Increase the size of the buffer and retry. */
-	buffer->alloc += len + 32768;
-	if (buffer->alloc > 0xa00000)
+	
+	newlen = buffer->alloc + len + 32768;
+	if (newlen > 0xa00000)
 		fatal("buffer_append_space: alloc %u not supported",
-		    buffer->alloc);
-	buffer->buf = xrealloc(buffer->buf, buffer->alloc);
+		    newlen);
+	buffer->buf = xrealloc(buffer->buf, newlen);
+	buffer->alloc = newlen;
 	goto restart;
 	/* NOTREACHED */
 }

@@ -44,7 +44,6 @@
 #include <kern/spl.h>
 
 #include <machine/mach_param.h>	/* HZ */
-#include <machine/commpage.h>
 #include <ppc/proc_reg.h>
 
 #include <pexpert/pexpert.h>
@@ -124,9 +123,6 @@ static boolean_t		rtclock_initialized;
 static uint64_t			rtclock_tick_deadline[NCPUS];
 static uint64_t		 	rtclock_tick_interval;
 
-static uint32_t			rtclock_sec_divisor;
-static uint32_t			rtclock_ns_per_tick;
-
 static void		timespec_to_absolutetime(
 							mach_timespec_t		timespec,
 							uint64_t			*result);
@@ -188,9 +184,6 @@ timebase_callback(
 	LOCK_RTC(s);
 	rtclock.timebase_const.numer = numer;
 	rtclock.timebase_const.denom = denom;
-    rtclock_sec_divisor = freq->timebase_num / freq->timebase_den;
-    rtclock_ns_per_tick = NSEC_PER_SEC / rtclock_sec_divisor;
-    commpage_set_timestamp(0,0,0,0);
 	UNLOCK_RTC(s);
 }
 
@@ -569,62 +562,6 @@ calend_init(void)
 }
 
 /*
- * Get the current clock microtime and sync the timestamp
- * on the commpage.  Only called from ppc_gettimeofday(),
- * ie in response to a system call from user mode.
- */
-void
-clock_gettimeofday(
-	uint32_t			*secp,
-	uint32_t			*usecp)
-{
-	uint64_t			now;
-    UnsignedWide		wide_now;
-	UnsignedWide		t64;
-	uint32_t			t32;
-	uint32_t			numer, denom;
-    uint32_t			secs,usecs;
-    mach_timespec_t		curr_time;
-	spl_t				s;
-
-	LOCK_RTC(s);
-	if (!rtclock.calend_is_set) {
-		UNLOCK_RTC(s);
-		return;
-	}
-
-	numer = rtclock.timebase_const.numer;
-	denom = rtclock.timebase_const.denom;
-
-	clock_get_uptime(&now);
-    wide_now = *((UnsignedWide*) &now);
-
-	umul_64by32(wide_now, numer, &t64, &t32);
-
-	udiv_96by32(t64, t32, denom, &t64, &t32);
-
-	udiv_96by32to32and32(t64, t32, NSEC_PER_SEC,
-								&curr_time.tv_sec, &curr_time.tv_nsec);
-
-	ADD_MACH_TIMESPEC(&curr_time, &rtclock.calend_offset);
-    
-	secs = curr_time.tv_sec;
-	usecs = curr_time.tv_nsec / NSEC_PER_USEC;
-    *secp = secs;
-    *usecp = usecs;
-
-    t32 = curr_time.tv_nsec - (usecs * NSEC_PER_USEC);
-    t32 = t32 / rtclock_ns_per_tick;
-    now -= t32;
-
-    commpage_set_timestamp(now,secs,usecs,rtclock_sec_divisor);
-    
-	UNLOCK_RTC(s);
-
-	return;
-} 
-
-/*
  * Get the current clock time.
  */
 kern_return_t
@@ -661,7 +598,6 @@ calend_settime(
 	rtclock.calend_offset = *new_time;
 	SUB_MACH_TIMESPEC(&rtclock.calend_offset, &curr_time);
 	rtclock.calend_is_set = TRUE;
-    commpage_set_timestamp(0,0,0,0);  /* disable timestamp */
 	UNLOCK_RTC(s);
 
 	PESetGMTTimeOfDay(new_time->tv_sec);
@@ -709,10 +645,8 @@ clock_adjust_calendar(
 	spl_t		s;
 
 	LOCK_RTC(s);
-	if (rtclock.calend_is_set) {
+	if (rtclock.calend_is_set)
 		ADD_MACH_TIMESPEC_NSEC(&rtclock.calend_offset, nsec);
-        commpage_set_timestamp(0,0,0,0);  /* disable timestamp */
-    }
 	UNLOCK_RTC(s);
 }
 
@@ -732,7 +666,6 @@ clock_initialize_calendar(void)
 	rtclock.calend_offset.tv_nsec = 0;
 	SUB_MACH_TIMESPEC(&rtclock.calend_offset, &curr_time);
 	rtclock.calend_is_set = TRUE;
-    commpage_set_timestamp(0,0,0,0);  /* disable timestamp */
 	UNLOCK_RTC(s);
 }
 

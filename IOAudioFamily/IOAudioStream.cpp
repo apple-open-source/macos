@@ -124,18 +124,10 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 {
     IOReturn result = kIOReturnSuccess;
     OSDictionary *formatDict = NULL;
-	IOAudioStreamFormatExtension validFormatExtension;
     
     if (streamFormat) {
-		if (!formatExtension) {
-			IOAudioStreamFormatDesc formatDesc;
-			validateFormat((IOAudioStreamFormat *)streamFormat, NULL, &formatDesc);
-			memcpy (&validFormatExtension, &formatDesc.formatExtension, sizeof (validFormatExtension));
-		} else {
-			validFormatExtension = *formatExtension;
-		}
-        if (formatDict = createDictionaryFromFormat(streamFormat, &validFormatExtension)) {
-            result = setFormat(streamFormat, &validFormatExtension, formatDict, callDriver);
+        if (formatDict = createDictionaryFromFormat(streamFormat, formatExtension)) {
+            result = setFormat(streamFormat, formatExtension, formatDict, callDriver);
             formatDict->release();
         } else {
             result = kIOReturnError;

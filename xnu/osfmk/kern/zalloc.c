@@ -326,8 +326,8 @@ zinit(
 		((size-1) % sizeof(z->free_elements));
  	if (alloc == 0)
 		alloc = PAGE_SIZE;
-	alloc = round_page_32(alloc);
-	max   = round_page_32(max);
+	alloc = round_page(alloc);
+	max   = round_page(max);
 	/*
 	 * We look for an allocation size with least fragmentation
 	 * in the range of 1 - 5 pages.  This size will be used unless
@@ -434,7 +434,7 @@ zget_space(
 		 *	Add at least one page to allocation area.
 		 */
 
-		space_to_add = round_page_32(size);
+		space_to_add = round_page(size);
 
 		if (new_space == 0) {
 			kern_return_t retval;
@@ -503,7 +503,7 @@ zget_space(
 void
 zone_steal_memory(void)
 {
-	zdata_size = round_page_32(128*sizeof(struct zone));
+	zdata_size = round_page(128*sizeof(struct zone));
 	zdata = pmap_steal_memory(zdata_size);
 }
 
@@ -529,7 +529,7 @@ zfill(
 	if (nelem <= 0)
 		return 0;
 	size = nelem * zone->elem_size;
-	size = round_page_32(size);
+	size = round_page(size);
 	kr = kmem_alloc_wired(kernel_map, &memory, size);
 	if (kr != KERN_SUCCESS)
 		return 0;
@@ -587,17 +587,17 @@ zone_init(
 						FALSE, TRUE, &zone_map);
 	if (retval != KERN_SUCCESS)
 		panic("zone_init: kmem_suballoc failed");
-	zone_max = zone_min + round_page_32(max_zonemap_size);
+	zone_max = zone_min + round_page(max_zonemap_size);
 	/*
 	 * Setup garbage collection information:
 	 */
-	zone_table_size = atop_32(zone_max - zone_min) * 
+	zone_table_size = atop(zone_max - zone_min) * 
 				sizeof(struct zone_page_table_entry);
 	if (kmem_alloc_wired(zone_map, (vm_offset_t *) &zone_page_table,
 			     zone_table_size) != KERN_SUCCESS)
 		panic("zone_init");
-	zone_min = (vm_offset_t)zone_page_table + round_page_32(zone_table_size);
-	zone_pages = atop_32(zone_max - zone_min);
+	zone_min = (vm_offset_t)zone_page_table + round_page(zone_table_size);
+	zone_pages = atop(zone_max - zone_min);
 	zone_map_min_address = zone_min;
 	zone_map_max_address = zone_max;
 	simple_lock_init(&zone_page_table_lock, ETAP_MISC_ZONE_PTABLE);
@@ -668,7 +668,7 @@ zalloc_canblock(
 
 				if (vm_pool_low())
 					alloc_size = 
-					  round_page_32(zone->elem_size);
+					  round_page(zone->elem_size);
 				else
 					alloc_size = zone->alloc_size;
 
@@ -1007,8 +1007,8 @@ zone_page_collectable(
 		panic("zone_page_collectable");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		if (zone_page_table[i].in_free_list ==
@@ -1033,8 +1033,8 @@ zone_page_keep(
 		panic("zone_page_keep");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		zone_page_table[i].in_free_list = 0;
@@ -1054,8 +1054,8 @@ zone_page_in_use(
 		panic("zone_page_in_use");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		if (zone_page_table[i].in_free_list > 0)
@@ -1076,8 +1076,8 @@ zone_page_free(
 		panic("zone_page_free");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		assert(zone_page_table[i].in_free_list >= 0);
@@ -1099,8 +1099,8 @@ zone_page_init(
 		panic("zone_page_init");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		zone_page_table[i].alloc_count = value;
@@ -1121,8 +1121,8 @@ zone_page_alloc(
 		panic("zone_page_alloc");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		/* Set alloc_count to (ZONE_PAGE_USED + 1) if
@@ -1149,8 +1149,8 @@ zone_page_dealloc(
 		panic("zone_page_dealloc");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		zone_page_table[i].alloc_count--;
@@ -1171,8 +1171,8 @@ zone_add_free_page_list(
 		panic("zone_add_free_page_list");
 #endif
 
-	i = atop_32(addr-zone_map_min_address);
-	j = atop_32((addr+size-1) - zone_map_min_address);
+	i = atop(addr-zone_map_min_address);
+	j = atop((addr+size-1) - zone_map_min_address);
 	lock_zone_page_table();
 	for (; i <= j; i++) {
 		if (zone_page_table[i].alloc_count == 0) {
@@ -1398,7 +1398,7 @@ host_zone_info(
 
 		names = *namesp;
 	} else {
-		names_size = round_page_32(max_zones * sizeof *names);
+		names_size = round_page(max_zones * sizeof *names);
 		kr = kmem_alloc_pageable(ipc_kernel_map,
 					 &names_addr, names_size);
 		if (kr != KERN_SUCCESS)
@@ -1411,7 +1411,7 @@ host_zone_info(
 
 		info = *infop;
 	} else {
-		info_size = round_page_32(max_zones * sizeof *info);
+		info_size = round_page(max_zones * sizeof *info);
 		kr = kmem_alloc_pageable(ipc_kernel_map,
 					 &info_addr, info_size);
 		if (kr != KERN_SUCCESS) {

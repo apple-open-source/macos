@@ -96,7 +96,6 @@ bool IOAudioControlUserClient::initWithAudioControl(IOAudioControl *control, tas
     }
 
     audioControl = control;
-	audioControl->retain();
     clientTask = task;
     notificationMessage = 0;
 
@@ -123,11 +122,8 @@ IOReturn IOAudioControlUserClient::clientClose()
     IOLog("IOAudioControlUserClient[%p]::clientClose()\n", this);
 #endif
 
-    if (audioControl) {
-		if (!audioControl->isInactive () && !isInactive()) {
-			audioControl->clientClosed(this);
-		}
-		audioControl->release();
+    if (audioControl && !isInactive()) {
+        audioControl->clientClosed(this);
         audioControl = 0;
     }
     

@@ -75,7 +75,7 @@ target(void)
     char text_addr_string[10], data_addr_string[10];
     struct alias *ap;
     struct oddball *obp;
-    unsigned long i;
+    long i;
     const struct arch_flag *family_arch_flag;
 
 	/*

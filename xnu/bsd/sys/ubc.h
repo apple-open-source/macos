@@ -112,7 +112,7 @@ int	ubc_release_named __P((struct vnode *));
 int	ubc_invalidate __P((struct vnode *, off_t, size_t));
 int	ubc_isinuse __P((struct vnode *, int));
 
-int	ubc_page_op __P((struct vnode *, off_t, int, ppnum_t *, int *));
+int	ubc_page_op __P((struct vnode *, off_t, int, vm_offset_t *, int *));
 
 /* cluster IO routines */
 int	cluster_read __P((struct vnode *, struct uio *, off_t, int, int));
@@ -164,7 +164,6 @@ __END_DECLS
 /* Flags for ubc_getobject() */
 #define UBC_FLAGS_NONE		0x0000
 #define UBC_HOLDOBJECT		0x0001
-#define UBC_FOR_PAGEOUT         0x0002
 
 #endif /* __APPLE_API_EVOLVING */
 

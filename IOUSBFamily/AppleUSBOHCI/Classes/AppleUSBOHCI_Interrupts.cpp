@@ -112,7 +112,7 @@ void AppleUSBOHCI::InterruptHandler(OSObject *owner,
 
     if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
         return;
-        
+
     // Finish pending transactions first.
     //
     controller->finishPending();
@@ -145,12 +145,50 @@ AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     //
     if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
         return false;
-
+    
     // Process this interrupt
     //
     result = controller->FilterInterrupt(0);
     return result;
 }
+
+
+//================================================================================================
+//
+//  IsValidPhysicalAddress()
+//
+//  This routine will search for the incoming physical address in our GTD and ITD Memory Blocks.  This
+//  is used to verify that the address is one that we "know" about before we actually try to read from
+//  it to get the logical address (that is stored at the beginning of the memory blocks).
+//
+//  Note that the comparison is making use of the fact that we allocate our memory blocks in kOHCIPageSize
+//  chunks, so we only need to compare the page #'s to see if they are equal.  We are assuming that the
+//  incoming address is the address of an OHCI page (lower 12 bits are 0).
+//
+//================================================================================================
+//
+bool
+AppleUSBOHCI::IsValidPhysicalAddress(IOPhysicalAddress pageAddr)
+{
+    AppleUSBOHCIitdMemoryBlock 	*itdMemBlock = _itdMBHead;
+    AppleUSBOHCIgtdMemoryBlock 	*gtdMemBlock = _gtdMBHead;
+
+    while (gtdMemBlock)
+    {
+        if ( pageAddr == (gtdMemBlock->GetSharedPhysicalPtr(0) & kOHCIPageMask) )
+            return true;
+        gtdMemBlock = gtdMemBlock->GetNextBlock();
+    }
+
+    while (itdMemBlock)
+    {
+        if ( pageAddr == (itdMemBlock->GetSharedPhysicalPtr(0) & kOHCIPageMask) )
+            return true;
+        itdMemBlock = itdMemBlock->GetNextBlock();
+    }
+    return false;
+}
+
 
 bool 
 AppleUSBOHCI::FilterInterrupt(int index)
@@ -159,8 +197,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
     register UInt32				activeInterrupts;
     register UInt32				enabledInterrupts;
     IOPhysicalAddress				physicalAddress;
-    AppleOHCIGeneralTransferDescriptorPtr 	pHCDoneTD;
-    AppleOHCIGeneralTransferDescriptorPtr	nextTD, prevTD;
+    AppleOHCIGeneralTransferDescriptorPtr 	pHCDoneTD = NULL;
+    AppleOHCIGeneralTransferDescriptorPtr	nextTD = NULL, prevTD = NULL;
     AbsoluteTime				timeStamp;
     UInt32					numberOfTDs = 0;
     IOPhysicalAddress				oldHead;
@@ -331,12 +369,33 @@ AppleUSBOHCI::FilterInterrupt(int index)
             // And save the current head
             //
             cachedHead = physicalAddress;
-            
-            
-            // Now get the logical address from the physical one
-            //
-            pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
-            
+
+            if ( physicalAddress == NULL )
+                pHCDoneTD = NULL;
+            else
+            {
+                if ( _onCardBus )
+                {
+                    if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
+                    {
+                        pHCDoneTD = NULL;
+                    }
+                    else
+                    {
+                        // Now get the logical address from the physical one
+                        //
+                        pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
+                    }
+                }
+                else
+                {
+                    // Now get the logical address from the physical one
+                    //
+                    pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
+                }
+            }
+
+
             // write to 0 to the HCCA DoneHead ptr so we won't look at it anymore.
             //
             *(UInt32 *)(_pHCCA + kHCCADoneHeadOffset) = 0L;
@@ -364,12 +423,28 @@ AppleUSBOHCI::FilterInterrupt(int index)
                 // Increment our count of the number of TDs that this queue head is pointing to
                 //
                 numberOfTDs++;
-                
+
                 // Find the next one
                 //
                 physicalAddress = USBToHostLong(pHCDoneTD->pShared->nextTD) & kOHCIHeadPMask;
-                nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
-        
+
+                if ( physicalAddress == NULL )
+                    nextTD = NULL;
+                else
+                {
+                    if ( _onCardBus )
+                    {
+                        if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
+                        {
+                            nextTD = NULL;
+                        }
+                        else
+                            nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
+                    }
+                    else
+                        nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
+                }
+                
                 if ( (pHCDoneTD->pType == kOHCIIsochronousInLowLatencyType) || 
                     (pHCDoneTD->pType == kOHCIIsochronousOutLowLatencyType) )
                 {

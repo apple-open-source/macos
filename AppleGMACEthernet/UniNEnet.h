@@ -85,7 +85,7 @@ extern "C"
 #warning *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***
 #else /* ) not USE_ELG: (	*/
 #define ELG(A,B,ASCI,S)
-#define ALRT(A,B,ASCI,STRING)	IOLog( "UniNEnet: %8x %8x " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
+#define ALRT(A,B,ASCI,STRING)	IOLog( "{ %8x %8x} " STRING "\n", (unsigned int)(A), (unsigned int)(B) )
 #define UC_ELG(A,B,ASCI,STRING)
 #endif /* USE_ELG )) */
 
@@ -167,11 +167,12 @@ extern "C"
 
 	enum
 	{		/* command values to send to the user client:	*/
-		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
-		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
-		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
-		kGMACUserCmd_GetTxRing	= 0x33,		// get Tx DMA elements
-		kGMACUserCmd_GetRxRing	= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_GetLog			= 0x30,		// get entire GMAC ELG buffer
+		kGMACUserCmd_GetRegs		= 0x31,		// get all GMAC registers
+		kGMACUserCmd_GetOneReg		= 0x32,		// get one particular GMAC register
+		kGMACUserCmd_GetTxRing		= 0x33,		// get Tx DMA elements
+		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
 		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
 		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
@@ -211,11 +212,15 @@ public:
 	virtual IOExternalMethod*	getExternalMethodForIndex( UInt32 index );
 	virtual bool		start( IOService *provider );
 
+private:
+
 	IOReturn doRequest(		void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 	IOReturn getGMACLog(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 	IOReturn getGMACRegs(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
+	IOReturn getOneGMACReg(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 	IOReturn getGMACTxRing(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 	IOReturn getGMACRxRing(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
+	IOReturn writeOneGMACReg(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 
 	IOReturn readAllMII(	void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
 	IOReturn readMII(		void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize );
@@ -328,6 +333,8 @@ public:
 
 	UInt32		fConfiguration;
 	UInt32		fXIFConfiguration;
+	UInt32		fTxConfiguration;
+	UInt32		fTxMACConfiguration;
 	UInt32		fRxMACConfiguration;
 	UInt32		fMACControlConfiguration;
 	UInt32		fRxMACStatus;				// preserve auto-clear register.
@@ -351,6 +358,7 @@ private:			// Instance methods:
 	void		debugTransmitCleanup();
 	bool		receivePackets( bool fDebugger );
 	void		packetToDebugger( struct mbuf *packet, u_int size );
+	void		restartTransmitter();
 	void		restartReceiver();
 	void		putToSleep( bool pangeaClockOnly );
 	bool		wakeUp( bool pangeaClockOnly );
@@ -449,5 +457,7 @@ public:		// Override methods:
 	virtual IOReturn	newUserClient( task_t, void*, UInt32, IOUserClient** );
 	bool				miiReadWord(  UInt16 *dataPtr, UInt16 reg );
     bool				miiWriteWord( UInt16 data,     UInt16 reg );
+	void				enableCellClock();
+	void				disableCellClock();
 
 };/* end class UniNEnet */

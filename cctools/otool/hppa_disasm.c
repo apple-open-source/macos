@@ -126,7 +126,7 @@ enum bool verbose)
     enum byte_sex host_byte_sex;
     enum bool swapped;
     unsigned long opcode;
-    unsigned int i, num, do_completers;
+    int i, num, do_completers;
     char *format, c;
     int jbsr;
     unsigned long sect_offset;
@@ -475,7 +475,7 @@ enum bool verbose)
 
 	if(reloc_found && r_extern == 1){
 	    if(symbols[r_symbolnum].n_un.n_strx < 0 ||
-	       (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	       symbols[r_symbolnum].n_un.n_strx >= strings_size)
 		name = "bad string offset";
 	    else
 		name = strings + symbols[r_symbolnum].n_un.n_strx;
@@ -623,7 +623,7 @@ unsigned long pc,
 struct relocation_info *relocs,
 unsigned long nrelocs)
 {
-    unsigned long i;
+    int i;
     struct relocation_info *rp;
     unsigned long r_type, r_address;
   

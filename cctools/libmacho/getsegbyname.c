@@ -62,7 +62,7 @@ getsegbyname(
 {
 	static struct mach_header *mhp = NULL;
 	struct segment_command *sgp;
-	unsigned long i;
+	long i;
 #ifndef __OPENSTEP__
 	if (mhp == NULL) {
 		mhp = _NSGetMachExecuteHeader();

@@ -39,6 +39,8 @@
 #include <mach/machine/vm_param.h>
 #include <assym.s>
 
+#define kernAccess 31
+
 ;
 ;
 ;			General stuff what happens here:
@@ -69,7 +71,11 @@
 
 LEXT(AltivecAssist)
 
+			mfmsr		r20							; Get the current MSR
 			li			r10,emvr0					; Point to the vector savearea
+			oris		r20,r20,hi16(MASK(MSR_VEC))	; Turn on vector
+			mtmsr		r20							; Turn on vector
+			isync
 			
 			li			r11,emvr1					; Another savearea
 			stvxl		v0,r10,r2					; Save V0

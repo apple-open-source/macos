@@ -180,7 +180,6 @@ protected:
     struct ExpansionData {
 		unsigned long long			idleSleepDelayTime;
 		IOTimerEventSource *		idleTimer;
-		IOService *					ourProvider;
 	};
     
     ExpansionData *reserved;
@@ -191,8 +190,8 @@ public:
 
 	virtual void setDeviceTransportType(const UInt32 transportType);
 
-    /*!
-	 * @function setIdleAudioSleepTime
+    /*
+     * @function start
      * @abstract This function is to be called by a driver that doesn't want to be told about the audio
 	 * going idle immediately, but at some point in the future.
 	 * @discussion This is useful if the device will want to power down its hardware into an idle sleep
@@ -270,7 +269,7 @@ public:
      
     virtual void free();
 
-    /*!
+    /*
      * @function start
      * @abstract This function is called automatically by the system to tell the driver to start vending
      *  services to the rest of the system.
@@ -297,9 +296,7 @@ public:
      * @param The service provider nub for the device.
      */
     virtual void stop(IOService *provider);
-
-	virtual bool willTerminate(IOService *provider, IOOptionBits options);
-
+    
     /*!
      * @function initHardware
      * @abstract This function is called by start() to provide a convenient place for the subclass to 

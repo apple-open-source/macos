@@ -175,12 +175,6 @@ getval(
 				c -= 'a' - 10;
 			else if ((c >= 'A') && (c <= 'F'))
 				c -= 'A' - 10;
-			else if (c == 'k' || c == 'K')
-				{ sign *= 1024; break; }
-			else if (c == 'm' || c == 'M')
-				{ sign *= 1024 * 1024; break; }
-			else if (c == 'g' || c == 'G')
-				{ sign *= 1024 * 1024 * 1024; break; }
 			else if (isargsep(c))
 				break;
 			else

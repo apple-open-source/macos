@@ -585,7 +585,7 @@ thread_init(void)
 #ifndef MACHINE_STACK
 	simple_lock_init(&stack_lock_data, ETAP_THREAD_STACK);	/* Initialize the stack lock */
 	
-	if (KERNEL_STACK_SIZE < round_page_32(KERNEL_STACK_SIZE)) {	/* Kernel stacks must be multiples of pages */
+	if (KERNEL_STACK_SIZE < round_page(KERNEL_STACK_SIZE)) {	/* Kernel stacks must be multiples of pages */
 		panic("thread_init: kernel stack size (%08X) must be a multiple of page size (%08X)\n", 
 			KERNEL_STACK_SIZE, PAGE_SIZE);
 	}
@@ -1545,7 +1545,7 @@ host_stack_usage(
 
 	*reservedp = 0;
 	*totalp = total;
-	*spacep = *residentp = total * round_page_32(KERNEL_STACK_SIZE);
+	*spacep = *residentp = total * round_page(KERNEL_STACK_SIZE);
 	*maxusagep = maxusage;
 	*maxstackp = 0;
 	return KERN_SUCCESS;
@@ -1673,7 +1673,7 @@ processor_set_stack_usage(
 		kfree(addr, size);
 
 	*totalp = total;
-	*residentp = *spacep = total * round_page_32(KERNEL_STACK_SIZE);
+	*residentp = *spacep = total * round_page(KERNEL_STACK_SIZE);
 	*maxusagep = maxusage;
 	*maxstackp = maxstack;
 	return KERN_SUCCESS;

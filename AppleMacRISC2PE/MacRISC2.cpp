@@ -104,7 +104,8 @@ bool MacRISC2PE::start(IOService *provider)
     if (tmpData == 0) return false;
     macRISC2Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
     
-    hasPMon = ((!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3")));
+    // If this machine is a P99, P84, P72D, Q16, Q41, or Q54, it has a platform monitor, which we'll load later in this function
+    hasPMon = (!strcmp (provider_name, "PowerBook5,1")) || (!strcmp (provider_name, "PowerBook5,2")) || (!strcmp (provider_name, "PowerBook5,3"));
    	
 	// get uni-N version for use by platformAdjustService
 	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
@@ -375,6 +376,184 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 {
     bool           result;
   
+	/*
+		
+	this is for 3290321 & 3383856 to patch up audio components of an improper device tree. 
+	the following properties need to be removed from any platform that has the
+	"has-anded-reset" property it's sound node.
+	
+	extint-gpio4's	'audio-gpio' property with value of 'line-input-detect'
+					'audio-gpio-active-state' property
+
+	gpio5's			'audio-gpio' property with value of 'headphone-mute'
+					'audio-gpio-active-state' property
+
+	gpio6's			'audio-gpio' property with value of 'amp-mute'
+					'audio-gpio-active-state' property
+
+	gpio11's		'audio-gpio' property with value of 'audio-hw-reset'
+					'audio-gpio-active-state' property
+
+	extint-gpio15's	'audio-gpio' property with value of 'headphone-detect'
+					'audio-gpio-active-state' property
+			
+	*/
+	
+    if(!strcmp(service->getName(), "sound"))
+	{
+		OSObject			*hasAndedReset;
+		const OSSymbol		*audioSymbol = OSSymbol::withCString("audio-gpio");
+		const OSSymbol		*activeStateSymbol = OSSymbol::withCString("audio-gpio-active-state");
+
+		IORegistryEntry		*gpioNode, *childNode;
+		OSIterator			*childIterator;
+		OSData				*tmpOSData;
+
+		hasAndedReset = service->getProperty("has-anded-reset", gIODTPlane);
+		
+		if(hasAndedReset)
+		{
+			gpioNode = IORegistryEntry::fromPath("mac-io/gpio", gIODTPlane);
+			if(gpioNode)
+			{
+				childIterator = gpioNode->getChildIterator(gIODTPlane);
+				if(childIterator)
+				{
+					IOLog("**** PAS: got childIterator\n");
+					
+					while((childNode = (IORegistryEntry *)(childIterator->getNextObject())) != NULL)
+					{
+						if(!strcmp(childNode->getName(), "extint-gpio4"))
+						{
+							tmpOSData = OSDynamicCast(OSData, childNode->getProperty(audioSymbol));
+							if(tmpOSData)
+							{
+								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "line-input-detect"))
+								{
+									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+									childNode->removeProperty(audioSymbol);
+
+									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
+									if(tmpOSData)
+									{
+										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+										
+										// we don't care what the returned value is, we just need to delete the property
+										childNode->removeProperty(activeStateSymbol);
+									}
+								}
+							}
+						} 
+						
+						else if(!strcmp(childNode->getName(), "extint-gpio15"))
+						{
+							tmpOSData = OSDynamicCast(OSData, childNode->getProperty(audioSymbol));
+							if(tmpOSData)
+							{
+								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "headphone-detect"))
+								{
+									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+									childNode->removeProperty(audioSymbol);
+
+									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
+									if(tmpOSData)
+									{
+										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+										
+										// we don't care what the returned value is, we just need to delete the property
+										childNode->removeProperty(activeStateSymbol);
+									}
+								}
+							}
+						}
+					
+						else if(!strcmp(childNode->getName(), "gpio5"))
+						{
+							tmpOSData = OSDynamicCast(OSData, childNode->getProperty(audioSymbol));
+							if(tmpOSData)
+							{
+								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "headphone-mute"))
+								{
+									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+									childNode->removeProperty(audioSymbol);
+
+									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
+									if(tmpOSData)
+									{
+										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+										
+										// we don't care what the returned value is, we just need to delete the property
+										childNode->removeProperty(activeStateSymbol);
+									}
+								}
+							}
+						} 
+						
+						else if(!strcmp(childNode->getName(), "gpio6"))
+						{
+							tmpOSData = OSDynamicCast(OSData, childNode->getProperty(audioSymbol));
+							if(tmpOSData)
+							{
+								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "amp-mute"))
+								{
+									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+									childNode->removeProperty(audioSymbol);
+
+									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
+									if(tmpOSData)
+									{
+										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+										
+										// we don't care what the returned value is, we just need to delete the property
+										childNode->removeProperty(activeStateSymbol);
+									}
+								}
+							}
+						} 
+						
+						else if(!strcmp(childNode->getName(), "gpio11"))
+						{
+							tmpOSData = OSDynamicCast(OSData, childNode->getProperty(audioSymbol));
+							if(tmpOSData)
+							{
+								if(!strcmp((const char *)tmpOSData->getBytesNoCopy(), "audio-hw-reset"))
+								{
+									IOLog("**** PAS: deleting %s with value %s\n", (const char *)audioSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+									childNode->removeProperty(audioSymbol);
+
+									tmpOSData = OSDynamicCast(OSData, childNode->getProperty(activeStateSymbol));
+									if(tmpOSData)
+									{
+										IOLog("**** PAS: deleting %s with value %s\n", (const char *)activeStateSymbol->getCStringNoCopy(), (const char *)tmpOSData->getBytesNoCopy());
+										
+										// we don't care what the returned value is, we just need to delete the property
+										childNode->removeProperty(activeStateSymbol);
+									}
+								}
+							}
+						}
+					}
+
+                    childIterator->release();
+				
+				} else
+				{
+					IOLog("MacRISC2PE::platformAdjustService ERROR - could not find childIterator\n");
+					return false;
+				}
+			
+			} else
+			{
+				IOLog("MacRISC2PE::platformAdjustService ERROR - could not find gpioNode\n");
+				return false;
+			}
+		}
+ 
+		audioSymbol->release();
+		activeStateSymbol->release();
+		return true;
+	}
+
     if (IODTMatchNubWithKeys(service, "open-pic"))
     {
 	const OSSymbol	* keySymbol;
@@ -620,6 +799,8 @@ void MacRISC2PE::enableUniNFireWireCablePower(bool enable)
 {
     // Turn off cable power supply on mid/merc/pismo(on pismo only, this kills the phy)
 
+	const OSSymbol *tmpSymbol = OSSymbol::withCString("keyLargo_writeRegUInt8");
+
     if(getMachineType() == kMacRISC2TypePowerBook)
     {
         IOService *keyLargo;
@@ -629,10 +810,11 @@ void MacRISC2PE::enableUniNFireWireCablePower(bool enable)
         {
             UInt32 gpioOffset = 0x73;
             
-            keyLargo->callPlatformFunction(OSSymbol::withCString("keyLargo_writeRegUInt8"),
-                    true, (void *)&gpioOffset, (void *)(enable ? 0:4), 0, 0);
+            keyLargo->callPlatformFunction(tmpSymbol, true, (void *)&gpioOffset, (void *)(enable ? 0:4), 0, 0);
         }
     }
+	
+	tmpSymbol->release();
 }
 
 IOReturn MacRISC2PE::accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data)
@@ -690,9 +872,10 @@ IOReturn MacRISC2PE::platformPowerMonitor(UInt32 *powerFlags)
 				if (!dict) {
 					ioPMon = NULL;
 				} else {
+				
 					powerBits = OSNumber::withNumber ((long long)*powerFlags, 32);
 					
-					dict->setObject (kIOPMonTypeKey, OSSymbol::withCString (kIOPMonTypeClamshellSens));
+					dict->setObject (kIOPMonTypeKey, OSSymbol::withCString(kIOPMonTypeClamshellSens));
 					dict->setObject (kIOPMonCurrentValueKey, powerBits);
 		
 					if (messageClient (kIOPMonMessageRegister, ioPMon, (void *)dict) != kIOReturnSuccess) {
@@ -806,7 +989,7 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
 	
 	// No need to keep original around
 	removeProperty(desc);
-         
+    		
     root = IOPMrootDomain::construct();
     root->attach(this);
     root->start(this);

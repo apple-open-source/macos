@@ -371,23 +371,27 @@ AppleUSBHubPort::RemoveDevice(void)
 {
     bool			ok;
     const IORegistryPlane 	* usbPlane;
-        
-    
-    if (_portDevice) 
+    IOUSBDevice			*cachedPortDevice;
+
+
+    if (_portDevice)
     {
-        USBLog(3, "AppleUSBHubPort[%p]::RemoveDevice start (%s)", this, _portDevice->getName());
-        usbPlane = _portDevice->getPlane(kIOUSBPlane);
-        
+        // Cache our port device so that we can set it to NULL so we don't reenter
+        // this code (due to above check)
+        //
+        cachedPortDevice = _portDevice;
+        _portDevice = NULL;
+
+        USBLog(3, "AppleUSBHubPort[%p]::RemoveDevice start (%s)", this, cachedPortDevice->getName());
+        usbPlane = cachedPortDevice->getPlane(kIOUSBPlane);
+
         if ( usbPlane )
-            _portDevice->detachAll(usbPlane);
-            
-	// ok = _portDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-	ok = _portDevice->terminate(kIOServiceRequired);
-        if( !ok)
-            IOLog("AppleUSBHubPort:RemoveDevice: _portDevice->terminate() failed\n");
-	_portDevice->release();
-	_portDevice = 0;
+            cachedPortDevice->detachAll(usbPlane);
+
+        cachedPortDevice->terminate(kIOServiceRequired);
+        cachedPortDevice->release();
     }
+
     InitPortVectors();
 }
 

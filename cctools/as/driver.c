@@ -42,8 +42,7 @@ char **envp)
 #endif
     const char *AS = "/as";
 
-    int i;
-    unsigned long count, verbose;
+    unsigned long i, count, verbose;
     char *p, c, *arch_name, *as, *as_local;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;

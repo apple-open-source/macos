@@ -68,10 +68,9 @@ typedef struct {
 mythread_state_flavor_t thread_flavor_array[]={
 		{PPC_THREAD_STATE , PPC_THREAD_STATE_COUNT},
 		{PPC_FLOAT_STATE, PPC_FLOAT_STATE_COUNT}, 
-		{PPC_EXCEPTION_STATE, PPC_EXCEPTION_STATE_COUNT},
-		{PPC_VECTOR_STATE, PPC_VECTOR_STATE_COUNT}
+		{PPC_EXCEPTION_STATE, PPC_EXCEPTION_STATE_COUNT}
 		};
-int mynum_flavors=4;
+int mynum_flavors=3;
 #elif defined (__i386__)
 mythread_state_flavor_t thread_flavor_array [] = { 
 		{i386_THREAD_STATE, i386_THREAD_STATE_COUNT},
@@ -256,7 +255,7 @@ coredump(p)
 	mh->sizeofcmds = command_size;
 
 	hoffset = sizeof(struct mach_header);	/* offset into header */
-	foffset = round_page_32(header_size);	/* offset into file */
+	foffset = round_page(header_size);	/* offset into file */
 	vmoffset = VM_MIN_ADDRESS;		/* offset into VM */
 	/* We use to check for an error, here, now we try and get 
 	 * as much as we can

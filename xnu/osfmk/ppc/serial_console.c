@@ -39,6 +39,7 @@
 #include <ppc/POWERMAC/video_console_entries.h>
 #include <ppc/misc_protos.h>
 #include <ppc/POWERMAC/serial_io.h>
+#include <ppc/POWERMAC/mp/mp.h>
 #include <kern/cpu_number.h>
 #include <ppc/Firmware.h>
 #include <ppc/proc_reg.h>
@@ -101,7 +102,6 @@ unsigned int killprint = 0;
 unsigned int debcnputc = 0;
 extern unsigned int	mappingdeb0;
 extern int debugger_holdoff[NCPUS];
-extern int debugger_cpu;
 
 static void _cnputc(char c)
 {

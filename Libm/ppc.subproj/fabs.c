@@ -62,14 +62,14 @@
 
 /* gcc 2.95 inlines fabs() and fabsf() of its own accord. But in case we ever get here ... */ 
 
-#define __FABS(x) \
+#define __fabs(x) \
 ({ \
     double __value, __arg = (x); \
     asm volatile ("fabs %0,%1" : "=f" (__value): "f" (__arg)); \
     __value; \
 })  
 
-#define __FABSF(x) \
+#define __fabsf(x) \
 ({ \
     float __value, __arg = (x); \
     asm volatile ("fabs %0,%1" : "=f" (__value): "f" (__arg)); \
@@ -78,12 +78,12 @@
 
 double fabs(double x)
 {
-    return __FABS(x);
+    return __fabs(x);
 }
 
 float fabsf(float x)
 {
-    return __FABSF(x);
+    return __fabsf(x);
 }
 
 #else       /* __APPLE_CC__ version */

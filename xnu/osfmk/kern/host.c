@@ -514,7 +514,7 @@ host_processor_info(
 		if (machine_slot[i].is_cpu)
 			num++;
 
-	size = (vm_size_t)round_page_32(num * count * sizeof(natural_t));
+	size = (vm_size_t)round_page(num * count * sizeof(natural_t));
 
 	kr = vm_allocate(ipc_kernel_map, &addr, size, TRUE);
 	if (kr != KERN_SUCCESS)

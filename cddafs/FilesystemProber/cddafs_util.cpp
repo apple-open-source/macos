@@ -31,40 +31,36 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // System Includes
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <architecture/byte_order.h>
-#include <mach/mach_init.h>
 #include <servers/netname.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/sysctl.h>
-#include <sys/disk.h>
+#include <dev/disk.h>
+#include <fcntl.h>
 #include <sys/errno.h>
-#include <sys/paths.h>
+#include <mach/mach_init.h>
+#include <sys/loadable_fs.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/mount.h>
-#include <sys/loadable_fs.h>
+#include <dirent.h>
+#include <architecture/byte_order.h>
 
 // CoreFoundation Includes
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreFoundation/CFPriv.h>
 
 // IOKit Includes
 #include <IOKit/IOKitLib.h>
-#include <IOKit/storage/IOCDMedia.h>
 
 // Project includes
 #include "cddafs_util.h"
 #include "mntopts.h"
 #include "AppleCDDAFileSystemDefines.h"
 
-	#include "CDDATrackName.h"
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -481,7 +477,9 @@ Probe ( char * deviceNamePtr )
 	{
 		
 		CFStringRef			albumName 			= 0;
+		UInt8				albumNameSize		= 0;
 		CDDATrackName *		database 			= NULL;
+		char				name[2048];
 		
 		database = new CDDATrackName;
 		
@@ -499,24 +497,29 @@ Probe ( char * deviceNamePtr )
 			
 		}
 		
+		#if DEBUG
+		CFShow ( albumName );
+		#endif
+		
 		if ( albumName != 0 )
 		{
 			
-			Boolean		success				= false;
-			char		buffer[MAXNAMLEN];
+			albumNameSize = CFStringGetLength ( albumName );
 			
-			#if DEBUG
-			CFShow ( albumName );
-			#endif
+		}
+		
+		// Make sure we fit into a MAXNAMLEN sized string
+		if ( ( albumNameSize < MAXNAMLEN ) && ( albumNameSize != 0 ) )
+		{
 			
-			success = _CFStringGetFileSystemRepresentation ( albumName,
-														     ( UInt8 * ) buffer,
-															 MAXNAMLEN );
+			// Just use the album name for now.
+			Boolean	result;
 			
-			if ( success == true )
+			result = CFStringGetCString ( albumName, name, sizeof ( name ), kCFStringEncodingUTF8 );
+			if ( result == true )
 			{
 				
-				WriteDiskLabel ( buffer );
+				WriteDiskLabel ( name );
 				
 			}
 			
@@ -528,10 +531,6 @@ Probe ( char * deviceNamePtr )
 				
 			}
 			
-			// release it
-			CFRelease ( albumName );
-			albumName = 0;
-			
 		}
 		
 		else
@@ -540,6 +539,11 @@ Probe ( char * deviceNamePtr )
 			// Good old "Audio CD" should work...
 			WriteDiskLabel ( kMountPointName );
 			
+		}
+		
+		if ( albumName != 0 )
+		{
+			CFRelease ( albumName );
 		}
 		
 		if ( database != NULL )
@@ -1119,7 +1123,6 @@ GetTrackData ( const char * 				bsdDevNode,
 	
 	data 		= CFDataCreateMutable ( kCFAllocatorDefault, 0 );
 	
-	database	= new CDDATrackName;
 	
 	database->Init ( bsdDevNode, TOCData );
 	
@@ -1144,27 +1147,34 @@ GetTrackData ( const char * 				bsdDevNode,
 		if ( trackString != 0 )
 		{
 			
+			CFIndex		numCharsConverted 	= 0;
+			CFIndex		numChars 			= 0;
 			UInt32		size 				= 0;
 			UInt8		tmp					= 0;
-			Boolean		success				= false;
 			char		buffer[MAXNAMLEN];
 			
-			success = _CFStringGetFileSystemRepresentation ( trackString,
-														     ( UInt8 * ) buffer,
-															 MAXNAMLEN );
-			
-			size = strlen ( buffer );
+			size = CFStringGetLength ( trackString );
 			
 			DebugLog ( ( "size = %ld\n", size ) );
+			
+			numCharsConverted = CFStringGetBytes (
+									trackString,
+									CFRangeMake ( 0, CFStringGetLength ( trackString ) ),
+									kCFStringEncodingUTF8,
+									0,
+									false,
+									( UInt8 * ) buffer,
+									MAXNAMLEN,
+									&numChars );
+			
+			DebugLog ( ( "numChars = %ld, numCharsConverted = %ld\n", numChars, numCharsConverted ) );
 			
 			// add the track number to the data object
 			CFDataAppendBytes ( data,
 								&currentTrack,
 								1 );
 			
-			// Size better be less than MAXNAMLEN!
-			tmp = size & 0x000000FF;
-			
+			tmp = numChars & 0xFF;
 			// add the size to the data object
 			CFDataAppendBytes ( data,
 								&tmp,
@@ -1661,7 +1671,7 @@ GetTOCDataPtr ( const char * deviceNamePtr )
 				
 				// Get the TOCInfo
 				data = ( CFDataRef ) CFDictionaryGetValue ( properties, 
-															CFSTR ( kIOCDMediaTOCKey ) );
+															CFSTR ( kIOCDMediaTOC ) );
 				if ( data != NULL )
 				{
 					

@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All rights reserved. 
+ * Copyright (c) 1998 Apple Computer, Inc.  All rights reserved. 
  *
  * HISTORY
  *
@@ -115,15 +115,13 @@ enum {
 enum
 {
     // capabilities bits in the 16 bit capabilities register
-    kPCIPMCPMESupportFromD3Cold	= 0x8000,
-    kPCIPMCPMESupportFromD3Hot	= 0x4000,
+    kPCIPMCPMESupportFromD3Cold		= 0x8000,
+    kPCIPMCPMESupportFromD3Hot		= 0x4000,
     kPCIPMCPMESupportFromD2		= 0x2000,
     kPCIPMCPMESupportFromD1		= 0x1000,
     kPCIPMCPMESupportFromD0		= 0x0800,
     kPCIPMCD2Support			= 0x0400,
-    kPCIPMCD1Support			= 0x0200,
- 
-    kPCIPMCD3Support			= 0x0001
+    kPCIPMCD1Support			= 0x0200
 };
 
 enum

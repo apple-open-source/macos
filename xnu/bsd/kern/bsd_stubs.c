@@ -123,7 +123,7 @@ bdevsw_add(int index, struct bdevsw * bsw)
 	struct bdevsw *devsw;
 
 	if (index == -1) {
-	    devsw = &bdevsw[1];		/* Start at slot 1 - this is a hack to fix the index=1 hack */
+	    devsw = bdevsw;
 	    /* yes, start at 1 to avoid collision with volfs (Radar 2842228) */
 	    for(index=1; index < nblkdev; index++, devsw++) {
 		if(memcmp((char *)devsw, 

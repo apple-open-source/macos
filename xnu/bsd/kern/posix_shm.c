@@ -510,7 +510,7 @@ pshm_truncate(p, fp, fd, length, retval)
 		return(EINVAL);
 	}
 
-	size = round_page_64(length);
+	size = round_page (length);
 	kret = vm_allocate(current_map(), &user_addr, size, TRUE);
 	if (kret != KERN_SUCCESS) 
 		goto out;
@@ -664,9 +664,9 @@ pshm_mmap(struct proc *p, struct mmap_args *uap, register_t *retval, struct file
 
 	if ((flags & MAP_FIXED) == 0) {
 		find_space = TRUE;
-		user_addr = round_page_32(user_addr); 
+		user_addr = round_page(user_addr); 
 	} else {
-		if (user_addr != trunc_page_32(user_addr))
+		if (user_addr != trunc_page(user_addr))
 			return (EINVAL);
 		find_space = FALSE;
 		(void) vm_deallocate(user_map, user_addr, user_size);

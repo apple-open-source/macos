@@ -463,8 +463,7 @@ PPCI2CInterface::i2cStandardSubModeInterrupts(UInt8 interruptStatus)
                         else {
                             // write operation
                             setData(*dataBuffer++);
-							if (nBytes != 0)
-								nBytes--;
+                            nBytes--;
                         }
 
                         currentState = ki2cStateWaitingForIDATA;
@@ -503,8 +502,7 @@ PPCI2CInterface::i2cStandardSubModeInterrupts(UInt8 interruptStatus)
                 if (success) {
                     if (isReading) {
                         *dataBuffer++ = getData();
-						if (nBytes != 0)
-							nBytes--;
+                        nBytes--;
 
                         if (nBytes == 0)			// read operation completed
                             currentState = ki2cStateWaitingForISTOP;
@@ -612,7 +610,7 @@ PPCI2CInterface::waitForCompletion()
 {
     // increase timeout for AppleTexasAudio (part can take seconds to come back)
     // UInt16 loop = 50 + nBytes * 1500;   //Old timeout
-	UInt16 loop = waitTime;   	// New timeout is variable			   
+	UInt16 loop = 15000;   				   //New timeout fixed at 15 seconds
     
     UInt8 intStat = getInterruptStatus();
  
@@ -875,10 +873,6 @@ PPCI2CInterface::start(IOService *provider)
 
     // by default we work in polling mode:
     pollingMode = true;
-	
-	// worst case timeout (to be optimized in setPollingMode)
-	waitTime = 15000;   
-
 
     // Makes sure that other drivers can use it:
     publishResource(getResourceName(), this );
@@ -923,6 +917,7 @@ bool PPCI2CInterface::retrieveProperty(IOService *provider)
             IOLog("                                      APPLE I2C:    UniN-i2c COMPATIBLE !\n");
     #endif // DEBUGPMU
             i2cUniN = true;
+
             return true;
         }        
     }
@@ -984,40 +979,19 @@ PPCI2CInterface::setPollingMode(bool newPollingMode)
 
     // sets the new mode:
     pollingMode = newPollingMode;
-	
-	// set polled mode default timeouts 
-	waitTime = 15000;   //(for audio mainly)
-	
+
     // if the new mode is polling off I assume the drive should behave as interrupt driven:
     if (!newPollingMode) {
-		
         if (myProvider->registerInterrupt(0, this, handleHardwareInterrupt, 0 ) != kIOReturnSuccess) {
-			kprintf("AppleI2C: setting hardware INTERRUPT failed; using POLLED mode instead.\n");
+			IOLog("AppleI2C: setting hardware INTERRUPT failed; using POLLED mode instead.\n");
             // since we can not register the interrupts:
             pollingMode = true;
             return false;
         }
-		waitTime = 3000;  //default timeout for all busses in interrupt mode
     }
 
     return true;
 }
-
-// This allows the client to adjust the per-byte timeout
-bool
-PPCI2CInterface::setI2cTimeout(UInt16 i2cTimeout)
-{
-// Do a range check to keep it reasonable...
-if ((i2cTimeout > 0) && (i2cTimeout < 15000))  
-	{
-		waitTime = i2cTimeout;  
-		return true;
-	}
-else  
-		return false;
-
-}
-
 
 // These are to setup the mode for the I2C bus:
 void
@@ -1241,12 +1215,7 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
 
     // and the number of bytes still to transfer
     nBytes = len;
-	if (len == 0)
-		{
-		kprintf("*** writeI2CBus LEN 0 ! \n");
-		return false;
-		}
-		
+
     // the current transfer address:
     currentAddress = address;
 
@@ -1280,7 +1249,7 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
             // Waits until the transfer is finished (look in the interrupt driver where this
             // gets the signal).
             //semaphore_wait(mySync);
-			timeout.tv_sec = waitTime;  // 15 second timeout
+			timeout.tv_sec = 15;  // 15 second timeout
 			timeout.tv_nsec = 0;
 
             if (0 != semaphore_timedwait( mySync, timeout ))  {
@@ -1288,7 +1257,7 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
 				success = false;
 				semaphore_destroy(current_task(), mySync);  // JUST SO IOLOG IS OK
 				myProvider->disableInterrupt(0);   // JUST SO IOLOG IS OK
-				kprintf("APPLE I2C WRITE SEMAPHORE EXCEEDED TIMEOUT OR OTHER ERROR\n");
+				IOLog("APPLE I2C WRITE SEMAPHORE EXCEEDED TIMEOUT OR OTHER ERROR\n");
 				}
 			else 
 				{
@@ -1305,7 +1274,7 @@ PPCI2CInterface::writeI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UI
         myProvider->disableInterrupt(0);
 		}
 		if (!(transferWasSuccesful && success))
-			kprintf("APPLE I2C WRITE FAILED INTERRUPT TRANSFER, address = 0x%2x\n", address);
+			IOLog("APPLE I2C WRITE FAILED INTERRUPT TRANSFER, address = 0x%2x\n", address);
 
     }
    return  (transferWasSuccesful && success);
@@ -1334,11 +1303,6 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
 
     // and the number of bytes still to receive
     nBytes = len;
-	if (len == 0)
-		{
-		kprintf("*** readI2CBus LEN 0 ! \n");
-		return false;
-		}
 
     // the current transfer address:
     currentAddress = address;
@@ -1379,7 +1343,7 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
             // Waits until the transfer is finished (look in the interrupt driver where this
             // gets the signal).
             //semaphore_wait(mySync);
-			timeout.tv_sec = waitTime;  // 15 second timeout
+			timeout.tv_sec = 15;  // 15 second timeout
 			timeout.tv_nsec = 0;
 
             if (0 != semaphore_timedwait( mySync, timeout ))  {
@@ -1387,7 +1351,7 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
 				success = false;
 				semaphore_destroy(current_task(), mySync);  // JUST SO IOLOG IS OK
 				myProvider->disableInterrupt(0);   // JUST SO IOLOG IS OK
-				kprintf("APPLE I2C READ SEMAPHORE EXCEEDED TIMEOUT OR OTHER ERROR\n");
+				IOLog("APPLE I2C READ SEMAPHORE EXCEEDED TIMEOUT OR OTHER ERROR\n");
 				}
 			else 
 				{
@@ -1404,8 +1368,7 @@ PPCI2CInterface::readI2CBus(UInt8 address, UInt8 subAddress, UInt8 *newData, UIn
         myProvider->disableInterrupt(0);
 		}
 		if (!(transferWasSuccesful && success))
-			kprintf("APPLE I2C READ FAILED INTERRUPT TRANSFER, address = 0x%2x, bus = %s\n", address, (i2cUniN ? "UniN" : "MacIO"));
-
+			IOLog("APPLE I2C READ FAILED INTERRUPT TRANSFER, address = 0x%2x\n", address);
 	}
     return  (transferWasSuccesful && success);
 }
@@ -1477,7 +1440,6 @@ PPCI2CInterface::getResourceName()
 #define kCloseI2Cbus				"closeI2CBus"
 #define kSetDumbMode				"setDumbMode"
 #define kSetPollingMode				"setPollingMode"
-#define kSetI2cTimeout				"setI2cTimeout"
 #define kSetStandardMode			"setStandardMode"
 #define kSetStandardSubMode			"setStandardSubMode"
 #define kSetCombinedMode			"setCombinedMode"
@@ -1562,12 +1524,6 @@ PPCI2CInterface::callPlatformFunction( const OSSymbol *functionSymbol,
     }
     else if (strcmp(functionName, kSetPollingMode) == 0) {
             if (setPollingMode((bool) param1))
-                return (kIOReturnSuccess);
-            else 
-               return (kIOReturnBadArgument);
-    }
-    else if (strcmp(functionName, kSetI2cTimeout) == 0) {
-            if (setI2cTimeout((UInt16) param1))
                 return (kIOReturnSuccess);
             else 
                return (kIOReturnBadArgument);

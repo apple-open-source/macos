@@ -791,7 +791,7 @@ kmod_dump(vm_offset_t *addr, unsigned int cnt)
         if (!k->address) {
             continue; // skip fake entries for built-in kernel components
         }
-        if (pmap_find_phys(kernel_pmap, (addr64_t)k) == 0) {
+        if (pmap_extract(kernel_pmap, (vm_offset_t)k) == 0) {
             kdb_printf("         kmod scan stopped due to missing "
                 "kmod page: %08x\n", stop_kmod);
             break;
@@ -811,7 +811,7 @@ kmod_dump(vm_offset_t *addr, unsigned int cnt)
                 for (r = k->reference_list; r; r = r->next) {
                     kmod_info_t * rinfo;
 
-                    if (pmap_find_phys(kernel_pmap, (addr64_t)r) == 0) {
+                    if (pmap_extract(kernel_pmap, (vm_offset_t)r) == 0) {
                         kdb_printf("            kmod dependency scan stopped "
                             "due to missing dependency page: %08x\n", r);
                         break;
@@ -823,7 +823,7 @@ kmod_dump(vm_offset_t *addr, unsigned int cnt)
                         continue; // skip fake entries for built-ins
                     }
 
-                    if (pmap_find_phys(kernel_pmap, (addr64_t)rinfo) == 0) {
+                    if (pmap_extract(kernel_pmap, (vm_offset_t)rinfo) == 0) {
                         kdb_printf("            kmod dependency scan stopped "
                             "due to missing kmod page: %08x\n", rinfo);
                         break;

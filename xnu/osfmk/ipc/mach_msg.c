@@ -1048,9 +1048,9 @@ mach_msg_overwrite_trap(
 
 		assert(ip_active(dest_port));
 		assert(dest_port->ip_receiver != ipc_space_kernel);
-//		assert(!imq_full(&dest_port->ip_messages) ||
-//		       (MACH_MSGH_BITS_REMOTE(hdr->msgh_bits) ==
-//						MACH_MSG_TYPE_PORT_SEND_ONCE));
+		assert(!imq_full(&dest_port->ip_messages) ||
+		       (MACH_MSGH_BITS_REMOTE(hdr->msgh_bits) ==
+						MACH_MSG_TYPE_PORT_SEND_ONCE));
 		assert((hdr->msgh_bits & MACH_MSGH_BITS_CIRCULAR) == 0);
 
 	    {

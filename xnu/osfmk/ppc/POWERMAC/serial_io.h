@@ -127,10 +127,19 @@ extern int		switch_to_video_console(
 extern void		switch_to_old_console(
 				int			old_console);
 
-void serial_keyboard_init(void);
-void serial_keyboard_start(void);
-void serial_keyboard_poll(void);
 
+/*
+ * JMM - We are not really going to support this driver in SMP (barely
+ * support it now - so just pick up the stubbed out versions.
+ */
+#define DECL_FUNNEL(class,f)
+#define DECL_FUNNEL_VARS
+#define FUNNEL_INIT(f,p)
+#define FUNNEL_ENTER(f)
+#define FUNNEL_EXIT(f)
+#define FUNNEL_ESCAPE(f)		(1)
+#define FUNNEL_REENTER(f,count)
+#define FUNNEL_IN_USE(f)		(TRUE)
 
 /*
  * Flags

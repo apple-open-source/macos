@@ -173,7 +173,7 @@ shm_deallocate_segment(shmseg)
 	char * ptr;
 
 	shm_handle = shmseg->shm_internal;
-	size = round_page_32(shmseg->shm_segsz);
+	size = round_page(shmseg->shm_segsz);
 	mach_destroy_memory_entry(shm_handle->shm_object);
 	FREE((caddr_t)shm_handle, M_SHM);
 	shmseg->shm_internal = NULL;
@@ -193,7 +193,7 @@ shm_delete_mapping(p, shmmap_s)
 
 	segnum = IPCID_TO_IX(shmmap_s->shmid);
 	shmseg = &shmsegs[segnum];
-	size = round_page_32(shmseg->shm_segsz);
+	size = round_page(shmseg->shm_segsz);
 	result = vm_deallocate(current_map(), shmmap_s->va, size);
 	if (result != KERN_SUCCESS)
 		return EINVAL;
@@ -282,7 +282,7 @@ shmat(p, uap, retval)
 	}
 	if (i >= shminfo.shmseg)
 		return EMFILE;
-	size = round_page_32(shmseg->shm_segsz);
+	size = round_page(shmseg->shm_segsz);
 	prot = VM_PROT_READ;
 	if ((uap->shmflg & SHM_RDONLY) == 0)
 		prot |= VM_PROT_WRITE;
@@ -296,7 +296,7 @@ shmat(p, uap, retval)
 		else
 			return EINVAL;
 	} else {
-		attach_va = round_page_32((unsigned int)uap->shmaddr);
+		attach_va = round_page(uap->shmaddr);
 	}
 
 	shm_handle = shmseg->shm_internal;
@@ -525,7 +525,7 @@ shmget_allocate_segment(p, uap, mode, retval)
 		return EINVAL;
 	if (shm_nused >= shminfo.shmmni) /* any shmids left? */
 		return ENOSPC;
-	size = round_page_32(uap->size);
+	size = round_page(uap->size);
 	if (shm_committed + btoc(size) > shminfo.shmall)
 		return ENOMEM;
 	if (shm_last_free < 0) {

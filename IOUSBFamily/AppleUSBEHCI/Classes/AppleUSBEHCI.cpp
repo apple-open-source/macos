@@ -22,6 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOMemoryCursor.h>
 #include <IOKit/IOMessage.h>
@@ -143,7 +145,7 @@ IOReturn
 AppleUSBEHCI::UIMInitialize(IOService * provider)
 {
     UInt32 	CapLength, USBCmd;
-    IOReturn	err = 0;
+    IOReturn	err = kIOReturnSuccess;
     UInt32	lvalue;
     int		i;
     
@@ -158,6 +160,7 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
         if (!(_deviceBase = provider->mapDeviceMemoryWithIndex(0)))
         {
             USBError(1, "%s[%p]::UIMInitialize - unable to get device memory", getName(), this);
+            err = kIOReturnNoResources;
             break;
         }
 
@@ -177,15 +180,17 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
                                                                             
         if ( !_filterInterruptSource )
         {
-             USBError(1,"%s[%p]: unable to get filterInterruptEventSource", getName(), this);
-             continue;
+            USBError(1,"%s[%p]: unable to get filterInterruptEventSource", getName(), this);
+            err = kIOReturnNoResources;
+            break;
         }
         
         err = _workLoop->addEventSource(_filterInterruptSource);
         if ( err != kIOReturnSuccess )
         {
-             USBError(1,"%s[%p]: unable to add filter event source: 0x%x", getName(), this, err);
-             continue;
+            USBError(1,"%s[%p]: unable to add filter event source: 0x%x", getName(), this, err);
+            err = kIOReturnNoResources;
+            break;
         }
 
         /*
@@ -252,7 +257,7 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 	//USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
 	// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
 	// this line will eliminate park mode completely
-	//USBCmd &= ~kEHCICMDAsyncParkModeEnable;
+	// USBCmd &= ~kEHCICMDAsyncParkModeEnable;
 	USBCmd |= 8 << kEHCICMDIntThresholdOffset;					// Interrupt every 8 micro frames (1 frame)
 	_pEHCIRegisters->USBCMD = USBToHostLong(USBCmd);				// start your engines
 	
@@ -342,19 +347,23 @@ AppleUSBEHCI::UIMFinalize(void)
 {
     int 	i;
     IOReturn	err = kIOReturnSuccess;
-    
-    USBLog (3, "%s[%p]: @ %lx (%lx)(shutting down HW)",getName(),this,
-            (long)_deviceBase->getVirtualAddress(),
-            _deviceBase->getPhysicalAddress());
 
+    if ( _deviceBase )
+        USBLog (3, "%s[%p]: @ %lx (%lx)(shutting down HW)",getName(), this, (long)_deviceBase->getVirtualAddress(), _deviceBase->getPhysicalAddress());
+    
     // Disable the interrupt delivery
     //
-    _workLoop->disableAllInterrupts();
+    if ( _workLoop )
+        _workLoop->disableAllInterrupts();
+
+    // Wait for the interrupts to propagate
+    //
+    IOSleep(2);
 
     // If we are NOT being terminated, then talk to the OHCI controller and
     // set up all the registers to be off
     //
-    if ( !isInactive() )
+    if ( !isInactive() && _pEHCIRegisters && _device )
     {
         // Disable All EHCI Interrupts
         //
@@ -395,15 +404,18 @@ AppleUSBEHCI::UIMFinalize(void)
 
     // Free the memory allocated in the InterruptInitialize()
     //
-    IOFree( _periodicList, kEHCIPeriodicFrameListsize );
-    IOFree( _logicalPeriodicList, kEHCIPeriodicFrameListsize );
+    if ( _periodicList )
+        IOFree( _periodicList, kEHCIPeriodicFrameListsize );
+
+    if ( _logicalPeriodicList )
+        IOFree( _logicalPeriodicList, kEHCIPeriodicFrameListsize );
 
     // Need to Free any Isoch Endpoints
     //
 
     // Remove the interruptEventSource we created
     //
-    if ( _filterInterruptSource )
+    if ( _filterInterruptSource && _workLoop )
     {
         _workLoop->removeEventSource(_filterInterruptSource);
         _filterInterruptSource->release();
@@ -676,6 +688,7 @@ AppleUSBEHCI::AllocateTD(void)
 	freeTD->pLogicalNext = NULL;
 	freeTD->lastFrame = 0;
 	freeTD->lastRemaining = 0;
+	freeTD->command = NULL;
     }
     return freeTD;
 }
@@ -874,66 +887,6 @@ AppleUSBEHCI::doCallback(EHCIGeneralTransferDescriptorPtr nextTD,
                            UInt32			    bufferSizeRemaining)
 {
     USBError(1, "%s[%p]::doCallback unimemented *************", getName(), this);
-
-#if 0
-    EHCIGeneralTransferDescriptorPtr    pCurrentTD, pTempTD;
-    EHCIEndpointDescriptorPtr           pED;
-    IOPhysicalAddress			PhysAddr;
-
-    pED = (EHCIEndpointDescriptorPtr) nextTD->pEndpoint;
-    pED->flags |= HostToUSBWord(kEHCIEDControl_K);				// mark endpoint as skipped
-    PhysAddr = (IOPhysicalAddress) USBToHostLong(pED->tdQueueHeadPtr) & kEHCIHeadPMask;
-    nextTD = (EHCIGeneralTransferDescriptorPtr) GetLogicalAddress(PhysAddr);
-
-    pCurrentTD = nextTD;
-    if(pCurrentTD == NULL) 
-    {
-        USBError(1, "%s[%p]::doCallback - No transfer descriptors", getName(), this);
-	return;
-    }
-    USBLog(5, "AppleUSBEHCI::doCallback: pCurrentTD = %p, pED->pLogicalTailP = %p", pCurrentTD, pED->pLogicalTailP);
-    while (pCurrentTD != pED->pLogicalTailP)
-    {
-        // UnlinkTD! But don't lose the data toggle or halt bit
-        //
-        pED->tdQueueHeadPtr = pCurrentTD->nextTD | (pED->tdQueueHeadPtr & HostToUSBLong(~kEHCIHeadPointer_headP));
-        USBLog(5, "AppleUSBEHCI::doCallback- queueheadptr is now %p", pED->tdQueueHeadPtr);
-        
-        bufferSizeRemaining += findBufferRemaining (pCurrentTD);
-
-        // make sure this TD won't be added to any future buffer
-	// remaining calculations
-        pCurrentTD->currentBufferPtr = NULL;
-
-        if (pCurrentTD->uimFlags & kUIMFlagsLastTD)
-        {
-            IOUSBCompletion completion;
-	    
-	    if (transferStatus == kEHCIGTDConditionDataUnderrun)
-	    {
-                USBLog(5, "AppleUSBEHCI::doCallback- found callback TD, setting queuehead to  %p", pED->tdQueueHeadPtr & HostToUSBLong(~kEHCIHeadPointer_H));
-		pED->tdQueueHeadPtr = pED->tdQueueHeadPtr & HostToUSBLong(~kEHCIHeadPointer_H);
-                transferStatus = 0;
-	    }
-            // zero out callback first then call it
-            completion = pCurrentTD->command->GetUSLCompletion();
-            pCurrentTD->uimFlags &= ~kUIMFlagsLastTD;
-            DeallocateTD(pCurrentTD);
-            pED->flags &= ~HostToUSBWord(kEHCIEDControl_K);				// mark endpoint as not skipped
-            Complete(completion,
-                     TranslateStatusToUSBError(transferStatus),
-                     bufferSizeRemaining);
-            bufferSizeRemaining = 0;
-            return;
-        }
-
-        pTempTD = pCurrentTD->pLogicalNext;
-        DeallocateTD(pCurrentTD);
-        pCurrentTD = pTempTD;
-    }
-
-#endif
-
 }
 
 
@@ -956,7 +909,7 @@ IOReturn
 AppleUSBEHCI::UIMInitializeForPowerUp(void)
 {
     UInt32 	CapLength, USBCmd;
-    IOReturn	err = 0;
+    IOReturn	err = kIOReturnSuccess;
     UInt32	lvalue;
     int		i;
 
@@ -1084,56 +1037,63 @@ AppleUSBEHCI::UIMFinalizeForPowerDown(void)
 {
     int 	i;
     IOReturn	err;
-    
-    USBLog (3, "%s[%p]: @ %lx (%lx)(turning off HW)",getName(), this,
-            (long)_deviceBase->getVirtualAddress(),
-            _deviceBase->getPhysicalAddress());
 
+    if ( _deviceBase )
+        USBLog (3, "%s[%p]: @ %lx (%lx)(turning off HW)",getName(), this, (long)_deviceBase->getVirtualAddress(), _deviceBase->getPhysicalAddress());
+    
     // showRegisters("Before");
     
     // Disable the interrupt delivery
     //
-    _workLoop->disableAllInterrupts();
+    if ( _workLoop )
+        _workLoop->disableAllInterrupts();
 
-    // If we are NOT being terminated, then talk to the OHCI controller and
-    // set up all the registers to be off
+    // Wait for the interrupts to propagate
     //
-    // Disable All EHCI Interrupts
-    //
-    _pEHCIRegisters->USBIntr = 0x0;
-    IOSync();
+    IOSleep(2);
 
-    _savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
-    _savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
-
-    // reset the chip and make sure that all is well
-    _pEHCIRegisters->USBCMD = 0;  			// this sets r/s to stop
-    for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit); i++)
-        IOSleep(1);
-    if (i >= 100)
+    if ( _pEHCIRegisters && _device )
     {
-        USBError(1, "%s[%p]::UIMInitializeForPowerUp - could not get chip to halt within 100 ms", getName(), this);
-        err = kIOReturnInternalError;
-        goto ErrorExit;
+        // If we are NOT being terminated, then talk to the OHCI controller and
+        // set up all the registers to be off
+        //
+        // Disable All EHCI Interrupts
+        //
+        _pEHCIRegisters->USBIntr = 0x0;
+        IOSync();
+
+        _savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
+        _savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
+
+        // reset the chip and make sure that all is well
+        _pEHCIRegisters->USBCMD = 0;  			// this sets r/s to stop
+        for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit); i++)
+            IOSleep(1);
+        if (i >= 100)
+        {
+            USBError(1, "%s[%p]::UIMInitializeForPowerUp - could not get chip to halt within 100 ms", getName(), this);
+            err = kIOReturnInternalError;
+            goto ErrorExit;
+        }
+        _pEHCIRegisters->USBCMD = HostToUSBLong(kEHCICMDHCReset);		// set the reset bit
+        for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBCMD) & kEHCICMDHCReset); i++)
+            IOSleep(1);
+        if (i >= 100)
+        {
+            USBError(1, "%s[%p]::UIMInitializeForPowerUp - could not get chip to come out of reset within 100 ms", getName(), this);
+            err = kIOReturnInternalError;
+            goto ErrorExit;
+        }
+
+
+        // Take away the controllers ability be a bus master.
+        //
+        _device->configWrite32(cwCommand, cwCommandEnableMemorySpace);
+
+        _pEHCIRegisters->PeriodicListBase = 0;// no periodic list as yet
+            _pEHCIRegisters->AsyncListAddr = 0; // no async list as yet
+            IOSync();
     }
-    _pEHCIRegisters->USBCMD = HostToUSBLong(kEHCICMDHCReset);		// set the reset bit
-    for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBCMD) & kEHCICMDHCReset); i++)
-        IOSleep(1);
-    if (i >= 100)
-    {
-        USBError(1, "%s[%p]::UIMInitializeForPowerUp - could not get chip to come out of reset within 100 ms", getName(), this);
-        err = kIOReturnInternalError;
-        goto ErrorExit;
-    }
-
-
-    // Take away the controllers ability be a bus master.
-    //
-    _device->configWrite32(cwCommand, cwCommandEnableMemorySpace);
-
-    _pEHCIRegisters->PeriodicListBase = 0;// no periodic list as yet
-    _pEHCIRegisters->AsyncListAddr = 0; // no async list as yet
-    IOSync();
 
 ErrorExit:
         _uimInitialized = false;
@@ -1452,4 +1412,30 @@ AppleUSBEHCI::CreateIsochronousEndpoint(
 	_isochEPList = pEP;
     }
     return pEP;
+}
+
+IOReturn
+AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
+{
+    cs_event_t	pccardevent;
+
+    // Let our superclass decide handle this method
+    // messages
+    //
+    if ( type == kIOPCCardCSEventMessage)
+    {
+        pccardevent = (UInt32) argument;
+
+        if ( pccardevent == CS_EVENT_CARD_REMOVAL )
+        {
+            // Should return all transactions in any endpoints
+            //
+            USBLog(5,"%s[%p]: Received kIOPCCardCSEventMessage Need to return all transactions",getName(),this);
+            _pcCardEjected = true;
+        }
+    }
+
+    USBLog(6, "%s[%p]::message type: 0x%x, isInactive = %d", getName(), this, type, isInactive());
+    return super::message( type, provider, argument );
+
 }

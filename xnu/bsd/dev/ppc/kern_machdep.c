@@ -55,11 +55,18 @@ check_cpu_subtype(cpu_subtype_t cpu_subtype)
 	if (cpu_subtype == ms->cpu_subtype)
 		return (TRUE);
 
+	if (cpu_subtype == CPU_SUBTYPE_POWERPC_601)
+		return (FALSE);
+
 	switch (cpu_subtype) {
-		case CPU_SUBTYPE_POWERPC_970:
 		case CPU_SUBTYPE_POWERPC_7450:
 		case CPU_SUBTYPE_POWERPC_7400:
 		case CPU_SUBTYPE_POWERPC_750:
+		case CPU_SUBTYPE_POWERPC_604e:
+		case CPU_SUBTYPE_POWERPC_604:
+		case CPU_SUBTYPE_POWERPC_603ev:
+		case CPU_SUBTYPE_POWERPC_603e:
+		case CPU_SUBTYPE_POWERPC_603:
 		case CPU_SUBTYPE_POWERPC_ALL:
 			return (TRUE);
 	}
@@ -86,32 +93,43 @@ grade_cpu_subtype(cpu_subtype_t cpu_subtype)
 	 * cctools project.  As of 2/16/98 this is what has been agreed upon for
 	 * the PowerPC subtypes.  If an exact match is not found the subtype will
 	 * be picked from the following order:
-	 *		970, 7450, 7400, 750, ALL
+	 *		7400, 750, 604e, 604, 603ev, 603e, 603, ALL
 	 * Note the 601 is NOT in the list above.  It is only picked via an exact
 	 * match. For details see Radar 2213821.
 	 *
 	 * To implement this function to follow what was agreed upon above, we use
-	 * the fact there are currently 4 different subtypes.  Exact matches return
-	 * the value 6, and the values 5 thru 1 are returned for the
-	 * subtypes listed in the order above.
+	 * the fact there are currently 10 different subtypes.  Exact matches return
+	 * the value 10, the value 0 is returned for 601 that is not an exact match,
+	 * and the values 9 thru 1 are returned for the subtypes listed in the order
+	 * above.
 	 */
 	if (ms->cpu_subtype == cpu_subtype)
-		return 6;
+		return 10;
+	if (cpu_subtype == CPU_SUBTYPE_POWERPC_601)
+		return 0;
 	switch (cpu_subtype) {
-		case CPU_SUBTYPE_POWERPC_970:
-			return 5;
 		case CPU_SUBTYPE_POWERPC_7450:
-			return 4;
+			return 9;
 		case CPU_SUBTYPE_POWERPC_7400:
-			return 3;
+			return 8;
 		case CPU_SUBTYPE_POWERPC_750:
+			return 7;
+		case CPU_SUBTYPE_POWERPC_604e:
+			return 6;
+		case CPU_SUBTYPE_POWERPC_604:
+			return 5;
+		case CPU_SUBTYPE_POWERPC_603ev:
+			return 4;
+		case CPU_SUBTYPE_POWERPC_603e:
+			return 3;
+		case CPU_SUBTYPE_POWERPC_603:
 			return 2;
 		case CPU_SUBTYPE_POWERPC_ALL:
 			return 1;
 	}
 	/*
-	 * If we get here it is because it is a cpusubtype we don't support
-	 * or a new cpusubtype that was added since this code was written.  Both
+	 * If we get here it is because it is a cpusubtype we don't support (602 and
+	 * 620) or new cpusubtype that was added since this code was written.  Both
 	 * will be considered unacceptable.
 	 */
 	return 0;
@@ -126,7 +144,7 @@ kernacc(
 	off_t base;
 	off_t end;
     
-	base = trunc_page_64(start);
+	base = trunc_page(start);
 	end = start + len;
 	
 	while (base < end) {

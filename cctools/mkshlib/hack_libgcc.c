@@ -166,8 +166,7 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    int i;
-    unsigned long j, nfiles;
+    unsigned long i, j, nfiles;
     char *p, *filelist, *dirname, *addr;
     int fd;
     struct stat stat_buf;
@@ -354,19 +353,19 @@ char *envp[])
 	 * Once all the libgcc objects have been processed then all the other
 	 * objects are processed.
 	 */
-	for(j = 0; j < objects.nobjects; j++){
-	    if(objects.libgcc[j] == NEW_LIBGCC ||
-	       objects.libgcc[j] == OLD_LIBGCC)
-		process(objects.names[j], TRUE, objects.libgcc[j]);
+	for(i = 0; i < objects.nobjects; i++){
+	    if(objects.libgcc[i] == NEW_LIBGCC ||
+	       objects.libgcc[i] == OLD_LIBGCC)
+		process(objects.names[i], TRUE, objects.libgcc[i]);
 	}
-	for(j = 0; j < objects.nobjects; j++){
-	    if(objects.libgcc[j] == NEW_LIBGCC ||
-	       objects.libgcc[j] == OLD_LIBGCC)
-		process(objects.names[j], FALSE, objects.libgcc[j]);
+	for(i = 0; i < objects.nobjects; i++){
+	    if(objects.libgcc[i] == NEW_LIBGCC ||
+	       objects.libgcc[i] == OLD_LIBGCC)
+		process(objects.names[i], FALSE, objects.libgcc[i]);
 	}
-	for(j = 0; j < objects.nobjects; j++){
-	    if(objects.libgcc[j] == NOT_LIBGCC)
-		process(objects.names[j], FALSE, objects.libgcc[j]);
+	for(i = 0; i < objects.nobjects; i++){
+	    if(objects.libgcc[i] == NOT_LIBGCC)
+		process(objects.names[i], FALSE, objects.libgcc[i]);
 	}
 
 	if(errors)
@@ -614,7 +613,7 @@ enum libgcc libgcc)
 	    if(nlistp->n_type & N_EXT){
 		if(nlistp->n_un.n_strx){
 		    if(nlistp->n_un.n_strx > 0 &&
-		       (unsigned long)nlistp->n_un.n_strx < strings_size){
+		       nlistp->n_un.n_strx < strings_size){
 			if(libgcc == OLD_LIBGCC){
 			    p = lookup_old_symbol(strings + nlistp->n_un.n_strx,
 				    ((nlistp->n_type & N_TYPE) != N_UNDF));
@@ -658,8 +657,8 @@ enum libgcc libgcc)
 	    }
 	    else{
 		if(nlistp->n_un.n_strx){
-		    if(nlistp->n_un.n_strx > 0 &&
-		       (unsigned long)nlistp->n_un.n_strx < strings_size)
+		    if(nlistp->n_un.n_strx > 0 && nlistp->n_un.n_strx <
+								strings_size)
 			nlistp->n_un.n_strx = add_to_string_table(
 				strings + nlistp->n_un.n_strx);
 		    else

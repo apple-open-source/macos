@@ -30,13 +30,12 @@
 #define	VM_PRINT_H
 
 #include <vm/vm_map.h>
-#include <machine/db_machdep.h>
 
 extern void	vm_map_print(
-			db_addr_t	map);
+			vm_map_t	map);
 
 extern void	vm_map_copy_print(
-			db_addr_t	copy);
+			vm_map_copy_t	copy);
 
 #include <vm/vm_object.h>
 
@@ -65,6 +64,6 @@ extern void vm_external_print(
 extern void	db_vm(void);
 
 extern vm_size_t db_vm_map_total_size(
-			db_addr_t	map);
+			vm_map_t	map);
 
 #endif	/* VM_PRINT_H */

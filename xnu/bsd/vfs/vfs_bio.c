@@ -2033,7 +2033,7 @@ free_io_buf(bp)
 
 typedef long long blsize_t;
 
-blsize_t MAXNBUF; /* initialize to (sane_size / PAGE_SIZE) */
+blsize_t MAXNBUF; /* initialize to (mem_size / PAGE_SIZE) */
 /* Global tunable limits */
 blsize_t nbufh;			/* number of buffer headers */
 blsize_t nbuflow;		/* minimum number of buffer headers required */
@@ -2129,11 +2129,11 @@ bufq_balance_thread_init()
 	if (bufqscanwait++ == 0) {
 
 		/* Initalize globals */
-		MAXNBUF = (sane_size / PAGE_SIZE);
+		MAXNBUF = (mem_size / PAGE_SIZE);
 		nbufh = nbuf;
 		nbuflow = min(nbufh, 100);
 		nbufhigh = min(MAXNBUF, max(nbufh, 2048));
-		nbuftarget = (sane_size >> 5) / PAGE_SIZE;
+		nbuftarget = (mem_size >> 5) / PAGE_SIZE;
 		nbuftarget = max(nbuflow, nbuftarget);
 		nbuftarget = min(nbufhigh, nbuftarget);
 

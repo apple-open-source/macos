@@ -969,11 +969,7 @@ db_breakpoint_cmd(
 	      db_error("Invalid user space address\n");
 	    user_space = TRUE;
 	    db_printf("%#X is in user space\n", addr);
-#ifdef ppc
-	    db_printf("kernel is from %#X to %#x\n", VM_MIN_KERNEL_ADDRESS, vm_last_addr);
-#else
 	    db_printf("kernel is from %#X to %#x\n", VM_MIN_KERNEL_ADDRESS, VM_MAX_KERNEL_ADDRESS);
-#endif
 	}
 	if (db_option(modif, 't') || task_bpt) {
 	    for (n = 0; db_get_next_act(&thr_act, n); n++) {

@@ -101,7 +101,7 @@ OSString *OSString::withString(const OSString *aString)
     OSString *me = new OSString;
 
     if (me && !me->initWithString(aString)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -113,7 +113,7 @@ OSString *OSString::withCString(const char *cString)
     OSString *me = new OSString;
 
     if (me && !me->initWithCString(cString)) {
-        me->release();
+        me->free();
         return 0;
     }
 
@@ -125,7 +125,7 @@ OSString *OSString::withCStringNoCopy(const char *cString)
     OSString *me = new OSString;
 
     if (me && !me->initWithCStringNoCopy(cString)) {
-        me->release();
+        me->free();
         return 0;
     }
 

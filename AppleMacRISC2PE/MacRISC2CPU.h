@@ -66,6 +66,7 @@ private:
     IOPMrootDomain		*pmRootDomain;
 	bool				doSleep;
     bool				processorSpeedChange;
+    bool				ignoreSpeedChange;
     UInt32				currentProcessorSpeed;
     bool				needVSetting;
 	UInt32				topLevelPCIBridgeCount;

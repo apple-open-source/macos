@@ -101,7 +101,6 @@ enum bool no_error_if_missing)
         system_error("symLocForDylib(): Can't opendir %s", buf);
         return NULL;
     }
-    c = NULL;
 
     // read DylibProjects entries
     *buf = '\0';

@@ -275,9 +275,8 @@ void UniNEnet::startChip()
 
 	ELG( this, 0, 'SChp', "startChip" );
 
-	gemReg	= READ_REGISTER( TxConfiguration );				// Tx DMA enable
-	gemReg |= kTxConfiguration_Tx_DMA_Enable;
-	WRITE_REGISTER( TxConfiguration, gemReg );
+	fTxConfiguration |= kTxConfiguration_Tx_DMA_Enable;		// Tx DMA enable
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
 	gemReg	= READ_REGISTER( RxConfiguration );				// Rx DMA enable
 	gemReg |= kRxConfiguration_Rx_DMA_Enable;
@@ -311,9 +310,8 @@ void UniNEnet::stopChip()
 
 	ELG( READ_REGISTER( TxConfiguration ), READ_REGISTER( RxConfiguration ), 'HChp', "stopChip" );
 
-	gemReg	= READ_REGISTER( TxConfiguration );				// clear Tx DMA enable
-	gemReg &= ~kTxConfiguration_Tx_DMA_Enable;
-	WRITE_REGISTER( TxConfiguration, gemReg );
+	fTxConfiguration &= ~kTxConfiguration_Tx_DMA_Enable;	// clear Tx DMA enable
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
 	gemReg	= READ_REGISTER( RxConfiguration );				// clear Rx DMA enable
 	gemReg &= ~kRxConfiguration_Rx_DMA_Enable;
@@ -321,9 +319,8 @@ void UniNEnet::stopChip()
 
 	IOSleep( 1 );	// Give time for DMAs to finish what they're doing.
 
-	gemReg	= READ_REGISTER( TxMACConfiguration );			// clr Tx MAC enable
-	gemReg &= ~kTxMACConfiguration_TxMac_Enable;
-	WRITE_REGISTER( TxMACConfiguration, gemReg  );
+	fTxMACConfiguration &= ~kTxMACConfiguration_TxMac_Enable;
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration  );
 
     fRxMACConfiguration  = READ_REGISTER( RxMACConfiguration );	// clr Rx MAC enable
     fRxMACConfiguration &= ~kRxMACConfiguration_Rx_Mac_Enable;    
@@ -420,7 +417,21 @@ void UniNEnet::getPhyType()
 		miiWriteWord( phyWord, MII_1000BASETCONTROL );
 
 		IODelay( 100 );   
-					
+
+				// Clockwork was the 1st machine to have gigabit
+				// which came with the Broadcom 5400 PHY. That PHY
+				//	did not support 10 Mbps so Apple supplemented it
+				// with a Broadcom 5201 at 0x1F.
+			UInt8	temp = phyId;
+			phyId = 0x1F;
+
+		miiResetPHY();	// Reset the supplemental 5201 PH&
+
+		miiReadWord( &phyWord, MII_BCM5201_MULTIPHY );
+		phyWord |= MII_BCM5201_MULTIPHY_SERIALMODE;
+		miiWriteWord( phyWord, MII_BCM5201_MULTIPHY );
+
+			phyId = temp;
 		miiReadWord( &phyWord, MII_BCM5400_AUXCONTROL );
 		phyWord &= ~MII_BCM5400_AUXCONTROL_PWR10BASET;
 		miiWriteWord( phyWord, MII_BCM5400_AUXCONTROL );
@@ -723,11 +734,12 @@ bool UniNEnet::initChip()
 	WRITE_REGISTER( TxDescriptorBaseLow, fTxDescriptorRingPhys );
 	WRITE_REGISTER( TxDescriptorBaseHigh, 0 );
 
-	temp	= kTxConfiguration_TxFIFO_Threshold
-			| fTxRingLengthFactor << kTxConfiguration_Tx_Desc_Ring_Size_Shift;
-	WRITE_REGISTER( TxConfiguration, temp );
+	fTxConfiguration	= kTxConfiguration_TxFIFO_Threshold
+						| fTxRingLengthFactor << kTxConfiguration_Tx_Desc_Ring_Size_Shift;
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
 
-	WRITE_REGISTER( TxMACConfiguration, 0 );
+	fTxMACConfiguration = 0;
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration );
 	IOSleep( 4 );		/// Wait or poll for enable to clear.
 
     setDuplexMode( (phyId == 0xff) ? true : false );
@@ -802,73 +814,139 @@ bool UniNEnet::initChip()
 
 void UniNEnet::setDuplexMode( bool duplexMode )
 {
-	UInt32		txMacConfig;
+	isFullDuplex = duplexMode;
 
+	ELG( fTxMACConfiguration, duplexMode, 'DupM', "setDuplexMode" );
 
-	isFullDuplex	= duplexMode;
-	txMacConfig		= READ_REGISTER( TxMACConfiguration );
-
-	ELG( txMacConfig, duplexMode, 'DupM', "setDuplexMode" );
-
-	WRITE_REGISTER( TxMACConfiguration, txMacConfig & ~kTxMACConfiguration_TxMac_Enable );
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration & ~kTxMACConfiguration_TxMac_Enable );
     while ( READ_REGISTER( TxMACConfiguration ) & kTxMACConfiguration_TxMac_Enable )
       ;	/// Set time limit of a couple of milliseconds.
 
 
     if ( isFullDuplex )
     {
-		txMacConfig |= (kTxMACConfiguration_Ignore_Collisions | kTxMACConfiguration_Ignore_Carrier_Sense);
+		fTxMACConfiguration |= (kTxMACConfiguration_Ignore_Collisions | kTxMACConfiguration_Ignore_Carrier_Sense);
 		fXIFConfiguration &= ~kXIFConfiguration_Disable_Echo;
     }
     else
     {
-		txMacConfig &= ~(kTxMACConfiguration_Ignore_Collisions | kTxMACConfiguration_Ignore_Carrier_Sense);
+		fTxMACConfiguration &= ~(kTxMACConfiguration_Ignore_Collisions | kTxMACConfiguration_Ignore_Carrier_Sense);
 		fXIFConfiguration |= kXIFConfiguration_Disable_Echo;
 	}
 
-	WRITE_REGISTER( TxMACConfiguration,	txMacConfig );
+	WRITE_REGISTER( TxMACConfiguration,	fTxMACConfiguration );
 	WRITE_REGISTER( XIFConfiguration,	fXIFConfiguration );
 	return;
 }/* end setDuplexMode */
 
 
+void UniNEnet::restartTransmitter()
+{
+	UInt32		gemReg;
+
+
+    transmitQueue->stop();	/* keep other threads from calling outputPacket	*/
+
+	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "UniNEnet::restartTransmitter" );
+	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "UniNEnet::restartTransmitter" );
+	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "UniNEnet::restartTransmitter" );
+	ELG( READ_REGISTER( MIFStateMachine ), READ_REGISTER( TxConfiguration ), 'MiCf', "UniNEnet::restartTransmitter" );
+
+	ALRT( READ_REGISTER( TxStateMachine ), READ_REGISTER( StateMachine ), '-Tx-', "UniNEnet::restartTransmitter - transmitter appeared to be hung." );
+
+		/* Stop the Tx DMA engine:	*/
+
+	WRITE_REGISTER( TxConfiguration, 0 );
+	IOSleep( 1 );
+
+		/* Stop the Tx MAC engine:	*/
+
+	WRITE_REGISTER( TxMACConfiguration, 0 );	/* clear kTxMACConfiguration_TxMac_Enable	*/
+	IOSleep( 1 );
+
+		/* Reset the Tx MAC engine:	*/
+
+	WRITE_REGISTER( TxMACSoftwareResetCommand, kTxMACSoftwareResetCommand_Reset );
+	IOSleep( 1 );
+
+	WRITE_REGISTER( SoftwareReset, kSoftwareReset_TX );
+    do
+    {		/// ??? put a time limit here.
+		IOSleep( 1 );
+		gemReg = READ_REGISTER( SoftwareReset );
+    } 
+	while( gemReg & kSoftwareReset_TX );
+
+	initTxRing();					/* clear out any packets hanging about in the ring	*/
+
+		/* Start the Tx DMA engine:	*/
+
+	fTxConfiguration |= kTxConfiguration_Tx_DMA_Enable;
+	WRITE_REGISTER( TxConfiguration, fTxConfiguration );
+
+		/* Restore the flow control pause bits:	*/
+
+	WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );
+
+		/* Start the Tx MAC engine:	*/
+
+	WRITE_REGISTER( TxMACConfiguration, fTxMACConfiguration );
+
+	transmitQueue->start();		/* allow threads to resume outputPacket			*/
+//	transmitQueue->service();	/* Make sure the output queue is not stalled	*/
+	return;
+}/* end restartTransmitter */
+
+
 void UniNEnet::restartReceiver()
 {
-	UInt16		i;
-	UInt16		u16;
-	UInt32		x;
+	UInt16		i, u16;
+	UInt32		x, rxConfig;
 
 
 	ELG( 0, READ_REGISTER( StatusAlias ), 'StsA', "restartReceiver" );
-//	ELG( READ_REGISTER( TxKick ), READ_REGISTER( TxCompletion ), 'TxKC', "restartReceiver" );
-//	ELG( 0, READ_REGISTER( TxConfiguration ), 'TxCf', "restartReceiver" );
-//	ELG( READ_REGISTER( TxFIFOShadowReadPointer ), READ_REGISTER( TxFIFOReadPointer ), 'TxRp', "restartReceiver" );
-//	ELG( READ_REGISTER( TxFIFOSize ), READ_REGISTER( TxFIFOPacketCounter ), 'TxPc', "restartReceiver" );
-
 	ELG( READ_REGISTER( RxKick ), READ_REGISTER( RxCompletion ), 'RxKC', "restartReceiver" );
 	ELG( READ_REGISTER( RxConfiguration ), READ_REGISTER( RxFIFOReadPointer ), 'RxCR', "restartReceiver" );
 	ELG( READ_REGISTER( RxFIFOShadowWritePointer ), READ_REGISTER( RxFIFOWritePointer ), 'RxWp', "restartReceiver" );
 	ELG( 0, READ_REGISTER( RxFIFOPacketCounter ), 'RxPC', "restartReceiver" );
-	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( StateMachine ), '=SMs', "restartReceiver" );
+	ELG( READ_REGISTER( RxStateMachine ), READ_REGISTER( StateMachine ), '=SMs', "restartReceiver invoked." );
 
-		// Perform a software reset to the logic in the RX MAC.
+		// Perform software resets to the receiver.
 		// The MAC config register should be re-programmed following
 		// the reset. Everything else *should* be unaffected. Tain't so:
 		// the MACControlConfiguration, 0x6038, gets its Pause enable bit reset.
 
+
+	rxConfig	= READ_REGISTER( RxConfiguration );		/* Stop the DMA	*/
+	rxConfig   &= ~kRxConfiguration_Rx_DMA_Enable;
+	WRITE_REGISTER( RxConfiguration, rxConfig );
+	IOSleep( 1 );				/* let it finish any frame in progress	*/
+
+		/* Do a global Rx reset:	*/
+
+	WRITE_REGISTER( SoftwareReset, kSoftwareReset_RX );
+	for ( i = 1000; i; --i )
+	{	IODelay( 1 );
+		x = READ_REGISTER( SoftwareReset );
+		if ( (x & kSoftwareReset_RX) == 0 )
+			break;
+	}
+	if ( i == 0 )
+		ALRT( 0, x, '-SR-', "UniNEnet::stopPHY - timeout on SoftwareReset" );
+
+		/* Do a MAC Rx reset;  poll until the reset bit	*/
+		/* is cleared by the hardware:					*/
+
 	WRITE_REGISTER( RxMACSoftwareResetCommand, kRxMACSoftwareResetCommand_Reset );
-
-    // Poll until the reset bit is cleared by the hardware.
-
     for ( i = 0; i < 5000; i++ )
     {
-		if ( ( READ_REGISTER( RxMACSoftwareResetCommand )
-				& kRxMACSoftwareResetCommand_Reset ) == 0 )
+		if ( (READ_REGISTER( RxMACSoftwareResetCommand )
+				& kRxMACSoftwareResetCommand_Reset) == 0 )
         {
             break;	// 'i' is always 0 or 1
         }
         IODelay( 1 );
-    }
+    }/* end FOR */
 
 	    // Update the MAC Config register. Watch out for the programming
 	    // restrictions documented in the GEM specification!!!
@@ -879,31 +957,34 @@ void UniNEnet::restartReceiver()
 
     for ( i = 0; i < 5000; i++ )
     {
-		if ( ( READ_REGISTER( RxMACConfiguration )
-				& kRxMACConfiguration_Rx_Mac_Enable ) == 0 )
+		if ( (READ_REGISTER( RxMACConfiguration )
+				& kRxMACConfiguration_Rx_Mac_Enable) == 0 )
         {
             break;	// 'i' is always 0
         }
         IODelay( 1 );
-    }
+    }/* end FOR */
 
-		/* Ensure all elements in the Rx ring have my ownership:	*/
+		/* Ensure all Rx ring elements have xfer count and my ownership:	*/
 
-	u16 = OSSwapConstInt16( kGEMRxDescFrameSize_Own );
+	u16 = OSSwapHostToLittleConstInt16( NETWORK_BUFSIZE | kGEMRxDescFrameSize_Own );
 	for ( i = 0; i < fRxRingElements; ++i )
-		fRxDescriptorRing[ i ].frameDataSize |= u16;
+		fRxDescriptorRing[ i ].frameDataSize = u16;
 
-	x = READ_REGISTER( RxCompletion );
-    rxCommandHead = x;
-	x += (fRxRingElements - 4);
-	x &= ~3;
-	WRITE_REGISTER( RxKick, x );
+    rxCommandHead = 0;
+	WRITE_REGISTER( RxKick, fRxRingElements - 4 );
 
 	WRITE_REGISTER( MACControlConfiguration, fMACControlConfiguration );// Pause etc bits
 
 		// Restore (re-enable Rx MAC) MAC config register.
 
 	WRITE_REGISTER( RxMACConfiguration, fRxMACConfiguration );
+
+		/* Start the Rx DMA again:	*/
+
+	rxConfig |= kRxConfiguration_Rx_DMA_Enable;
+	WRITE_REGISTER( RxConfiguration, rxConfig );
+
 	return;
 }/* end restartReceiver */
 
@@ -1480,16 +1561,10 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
     }
 
     if ( fBuiltin && fCellClockEnabled == false )
-    {
-			/* Ethernet cell clock is disabled,				*/
+    {		/* Ethernet cell clock is disabled,				*/
 			/* temporarily enable it to get the phyStatus:	*/
-		ELG( 0, 0, '+Clk', "UniNEnet::monitorLinkStatus - turning on cell clock!!!" );
-	//	OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
-		OSSynchronizeIO();
-		IODelay( 3 );		// Allow the cell some clock cycles before using it.
-		fCellClockEnabled	= true;
-		clockWasOff			= true;
+		enableCellClock();
+		clockWasOff = true;
     }
 
     if ( !fBuiltin )
@@ -1506,14 +1581,9 @@ void UniNEnet::monitorLinkStatus( bool firstPoll )
             return;
     }
 
-    if ( clockWasOff )
-    {		// if it was off in the first place, turn it back off
-		ELG( 0, 0, '-Clk', "UniNEnet::monitorLinkStatus - turning off cell clock!!!" );
-		OSSynchronizeIO();
-		callPlatformFunction( "EnableUniNEthernetClock", true, (void*)false, (void*)nub, 0, 0 );
-		OSSynchronizeIO();
-		fCellClockEnabled = false;
-    }
+    if ( clockWasOff )			// if it was off in the first place,
+		disableCellClock();		//  turn it back off
+
 		// see if Link UP, autonegotiation complete bits changed:
 
 	if ( fLoopback )	// fake link UP if in loopback

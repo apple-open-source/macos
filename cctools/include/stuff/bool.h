@@ -29,9 +29,6 @@
 #ifndef ENUM_DYLD_BOOL
 #define ENUM_DYLD_BOOL
 
-#define _STDBOOL_H
-#undef bool
-
 #define DYLD_BOOL bool
 
 #undef FALSE

@@ -246,7 +246,7 @@ mmap(p, uap, retval)
 
 	/* Adjust size for rounding (on both ends). */
 	user_size += pageoff;			/* low end... */
-	user_size = (vm_size_t) round_page_32(user_size);	/* hi end */
+	user_size = (vm_size_t) round_page(user_size);	/* hi end */
 
 
 	/*
@@ -280,8 +280,8 @@ mmap(p, uap, retval)
 	 * There should really be a pmap call to determine a reasonable
 	 * location.
 	 */
-	else if (addr < round_page_32(p->p_vmspace->vm_daddr + MAXDSIZ))
-		addr = round_page_32(p->p_vmspace->vm_daddr + MAXDSIZ);
+	else if (addr < round_page(p->p_vmspace->vm_daddr + MAXDSIZ))
+		addr = round_page(p->p_vmspace->vm_daddr + MAXDSIZ);
 
 #endif
 
@@ -374,7 +374,7 @@ mmap(p, uap, retval)
 	 *	We bend a little - round the start and end addresses
 	 *	to the nearest page boundary.
 	 */
-	user_size = round_page_32(user_size);
+	user_size = round_page(user_size);
 
 	if (file_pos & PAGE_MASK_64)
 		return (EINVAL);
@@ -383,9 +383,9 @@ mmap(p, uap, retval)
 
 	if ((flags & MAP_FIXED) == 0) {
 		find_space = TRUE;
-		user_addr = round_page_32(user_addr); 
+		user_addr = round_page(user_addr); 
 	} else {
-		if (user_addr != trunc_page_32(user_addr))
+		if (user_addr != trunc_page(user_addr))
 			return (EINVAL);
 		find_space = FALSE;
 		(void) vm_deallocate(user_map, user_addr, user_size);
@@ -510,7 +510,7 @@ msync(p, uap, retval)
 	pageoff = (addr & PAGE_MASK);
 	addr -= pageoff;
 	size = uap->len;
-	size = (vm_size_t) round_page_32(size);
+	size = (vm_size_t) round_page(size);
 	flags = uap->flags;
 
 	if (addr + size < addr)
@@ -590,7 +590,7 @@ munmap(p, uap, retval)
 
 	user_addr -= pageoff;
 	user_size += pageoff;
-	user_size = round_page_32(user_size);
+	user_size = round_page(user_size);
 	if (user_addr + user_size < user_addr)
 		return(EINVAL);
 
@@ -654,7 +654,7 @@ mprotect(p, uap, retval)
 	pageoff = (user_addr & PAGE_MASK);
 	user_addr -= pageoff;
 	user_size += pageoff;
-	user_size = round_page_32(user_size);
+	user_size = round_page(user_size);
 	if (user_addr + user_size < user_addr)
 		return(EINVAL);
 
@@ -697,7 +697,7 @@ minherit(p, uap, retval)
 	pageoff = (addr & PAGE_MASK);
 	addr -= pageoff;
 	size += pageoff;
-	size = (vm_size_t) round_page_32(size);
+	size = (vm_size_t) round_page(size);
 	if (addr + size < addr)
 		return(EINVAL);
 
@@ -747,8 +747,8 @@ madvise(p, uap, retval)
 	 * Since this routine is only advisory, we default to conservative
 	 * behavior.
 	 */
-	start = trunc_page_32((vm_offset_t) uap->addr);
-	end = round_page_32((vm_offset_t) uap->addr + uap->len);
+	start = trunc_page((vm_offset_t) uap->addr);
+	end = round_page((vm_offset_t) uap->addr + uap->len);
 	
 	user_map = current_map();
 
@@ -812,8 +812,8 @@ mincore(p, uap, retval)
 	 * Make sure that the addresses presented are valid for user
 	 * mode.
 	 */
-	first_addr = addr = trunc_page_32((vm_offset_t) uap->addr);
-	end = addr + (vm_size_t)round_page_32(uap->len);
+	first_addr = addr = trunc_page((vm_offset_t) uap->addr);
+	end = addr + (vm_size_t)round_page(uap->len);
 
 	if (VM_MAX_ADDRESS > 0 && end > VM_MAX_ADDRESS)
 		return (EINVAL);
@@ -913,7 +913,7 @@ mlock(p, uap, retval)
 	pageoff = (addr & PAGE_MASK);
 	addr -= pageoff;
 	size += pageoff;
-	size = (vm_size_t) round_page_32(size);
+	size = (vm_size_t) round_page(size);
 
 	/* disable wrap around */
 	if (addr + size < addr)
@@ -962,7 +962,7 @@ munlock(p, uap, retval)
 	pageoff = (addr & PAGE_MASK);
 	addr -= pageoff;
 	size += pageoff;
-	size = (vm_size_t) round_page_32(size);
+	size = (vm_size_t) round_page(size);
 
 	/* disable wrap around */
 	if (addr + size < addr)
@@ -1102,7 +1102,7 @@ kern_return_t map_fd_funneled(
 		printf("map_fd: file offset not page aligned(%d : %s)\n",p->p_pid, p->p_comm);
 		return (KERN_INVALID_ARGUMENT);
 	}
-	map_size = round_page_32(size);
+	map_size = round_page(size);
 
 	/*
 	 * Allow user to map in a zero length file.
@@ -1135,7 +1135,7 @@ kern_return_t map_fd_funneled(
 		vm_map_copy_t	tmp;
 
 		if (copyin(va, &dst_addr, sizeof (dst_addr))	||
-					trunc_page_32(dst_addr) != dst_addr) {
+					trunc_page(dst_addr) != dst_addr) {
 			(void) vm_map_remove(
 					my_map,
 					map_addr, map_addr + map_size,

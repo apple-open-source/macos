@@ -460,18 +460,17 @@ void
 processor_doshutdown(
 	processor_t		processor)
 {
-	register thread_t	old_thread = current_thread();
-	register int		cpu = processor->slot_num;
+	register int	cpu = processor->slot_num;
 
 	timer_call_cancel(&processor->quantum_timer);
+	thread_dispatch(current_thread());
 	timer_switch(&kernel_timer[cpu]);
-	thread_machine_set_current(processor->idle_thread);
-	thread_dispatch(old_thread);
 
 	/*
 	 *	OK, now exit this cpu.
 	 */
 	PMAP_DEACTIVATE_KERNEL(cpu);
+	thread_machine_set_current(processor->idle_thread);
 	cpu_down(cpu);
 	cpu_sleep();
 	panic("zombie processor");

@@ -196,8 +196,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    int i;
-    unsigned long j;
+    unsigned long i, j;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
     enum bool all_archs;
@@ -302,8 +301,8 @@ char **envp)
 	    }
 	}
 
-	for(j = 0; j < cmd_flags.nfiles; j++)
-	    ofile_process(files[j], arch_flags, narch_flags, all_archs, FALSE,
+	for(i = 0; i < cmd_flags.nfiles; i++)
+	    ofile_process(files[i], arch_flags, narch_flags, all_archs, FALSE,
 			  FALSE, TRUE, nm, &cmd_flags);
 	if(cmd_flags.nfiles == 0)
 	    ofile_process("a.out",  arch_flags, narch_flags, all_archs, FALSE,
@@ -565,7 +564,7 @@ void *cookie)
 		if(symbols[i].n_un.n_strx == 0)
 		    symbols[i].n_un.n_name = "";
 		else if(symbols[i].n_un.n_strx < 0 ||
-			(unsigned long)symbols[i].n_un.n_strx > st->strsize)
+			symbols[i].n_un.n_strx > st->strsize)
 		    symbols[i].n_un.n_name = "bad string index";
 		else
 		    symbols[i].n_un.n_name = symbols[i].n_un.n_strx + strings;

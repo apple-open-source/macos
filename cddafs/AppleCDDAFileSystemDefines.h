@@ -70,7 +70,7 @@ enum cddaNodeType
 {
 	kAppleCDDADirectoryType 	= 1,
 	kAppleCDDATrackType			= 2,
-	kAppleCDDAXMLFileType 		= 3
+	kAppleCDDXMLFileType 		= 3
 };
 
 

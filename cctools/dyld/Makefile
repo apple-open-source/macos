@@ -50,7 +50,7 @@ ifeq "mwccppc" "$(notdir $(CC))"
 	 -I$(SRCROOT)/../include -I$(SRCROOT) -I$(OBJROOT) \
 	 -I$(NEXT_ROOT)$(PRIVATEHEADERS)
 else
-  CFLAGS = $(DEBUG) $(OFLAG) -dynamic -g -Wall -DDYLD_BUILD \
+  CFLAGS = $(DEBUG) $(OFLAG) -dynamic -g -Wall -Wno-precomp -DDYLD_BUILD \
 	 -I$(SRCROOT)/../include -I$(SRCROOT) -I$(OBJROOT) $(X_CFLAGS) \
 	 -I$(NEXT_ROOT)$(PRIVATEHEADERS)
   ASFLAGS = -force_cpusubtype_ALL
@@ -88,15 +88,7 @@ OBJROOT = .
 OFILE_DIR = $(OBJROOT)
 VPATH = $(OFILE_DIR)
 
-ifeq "macos" "$(RC_OS)"
- USRLIBDIR := $(shell if [ "$(RC_RELEASE)" = "Tachyon" ]; then \
- echo /System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/Resources ; \
- else echo /usr/lib; \
- fi; )
-else
-  USRLIBDIR = /usr/lib
-endif
-
+USRLIBDIR = /usr/lib
 DSTDIRS = $(DSTROOT)$(USRLIBDIR)
 
 CFILES1 = dyld_init.c images.c errors.c allocate.c symbols.c reloc.c \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,29 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-#define	__APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
-#undef	__APPLE_API_PRIVATE
- 
- // These functions have migrated to the comm page.
- 
-.text
-.globl _bcopy
-.globl _memcpy
-.globl _memmove
-
-        .align 	5
-_bcopy:								// void bcopy(const void *src, void *dst, size_t len)
-        ba		_COMM_PAGE_BCOPY
-        
-        .align 	5
-_memcpy:							// void* memcpy(void *dst, void *src, size_t len)
-_memmove:							// void* memmove(void *dst, const void *src, size_t len)
-        ba		_COMM_PAGE_MEMCPY
- 
- 
-#if 0
 /* =======================================
  * BCOPY, MEMCPY, and MEMMOVE for Mac OS X
  * =======================================
@@ -1183,4 +1160,3 @@ LTest32:
         bne		1b					// loop if so
         blr
         
-#endif	/* 0 */

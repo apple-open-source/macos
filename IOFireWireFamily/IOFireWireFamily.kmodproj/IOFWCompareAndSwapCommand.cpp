@@ -354,6 +354,7 @@ IOReturn IOFWCompareAndSwapCommand::execute()
 	{
         // Update nodeID and generation
         fDevice->getNodeIDGeneration(fGeneration, fNodeID);
+		fSpeed = fControl->FWSpeed( fNodeID ); 
     }
 
     // Do this when we're in execute, not before,

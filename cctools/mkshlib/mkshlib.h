@@ -64,7 +64,7 @@ extern char *ldname;		/* name of the link editior being used */
  * Array to hold ld(1) flags.
  */
 extern char **ldflags;
-extern unsigned long nldflags;
+extern long nldflags;
 
 extern void cleanup(
     int sig);
@@ -84,12 +84,9 @@ extern long round(
     long v,
     unsigned long r);
 
-/*
- * Initial illegal address for segments and an illegal address for symbols
- * without branch table entries.
- */
-#define	BAD_ADDRESS ((unsigned long)-1)
-
+#define	BAD_ADDRESS	 -1  /* initial illegal address for segments and an
+				illegal address for symbols without branch
+				table entries */
 /*
  * Globals declared in parse_spec.c
  */
@@ -97,11 +94,11 @@ extern long round(
  * These globals are set after parse_spec() returns with the values read from
  * the library shared library specification file.
  */
-extern char *target_name;		/* shared library target name */
-extern unsigned long minor_version;	/* shared library minor version number*/
-extern unsigned long image_version;	/* shared library image version number*/
-extern unsigned long text_addr;		/* shared library text segment addr */
-extern unsigned long data_addr;		/* shared library data segment addr */
+extern char *target_name;	/* shared library target name */
+extern long minor_version;	/* shared library minor version number */
+extern long image_version;	/* shared library image version number */
+extern long text_addr;		/* shared library text segment addr */
+extern long data_addr;		/* shared library data segment addr */
 
 /*
  * The names of the symbols in the #branch directive are stored in a
@@ -182,20 +179,20 @@ struct object {
     char *base_name;	   /* base name of object */
     struct init *inits;    /* a chain of init structs for this object */
     long init_only;	   /* object name only seen in an #init directive */
-    unsigned long ninit;   /* number of init structs for this object (set */
+    long ninit;    	   /* number of init structs for this object (set */
 			   /*  when building the host object) */
     long object_size;	   /* size of host object file */
-    unsigned long nsymbols;/* number of host symbols */
+    long nsymbols;	   /* number of host symbols */
     struct nlist *symbols; /* host symbol table */
-    unsigned long string_size;/* size of string table for host symbol table */
+    long string_size;	   /* size of string table for host symbol table */
     char *strings;	   /* string table for host symbol table */
     struct ref *refs;	   /* linked list of references to other files */
     char *filedef_name;	   /* name of file definition symbol */
     /* symbol and string tables for private undefined exterals */
-    unsigned long pu_nsymbols;/* number of private undefined symbols */
+    long pu_nsymbols;         /* number of private undefined symbols */
     struct nlist *pu_symbols; /* private undefined symbol table */
-    unsigned long pu_string_size;/* size of string table for above sym table */
-    char *pu_strings;/* string table for above symbol table */
+    long pu_string_size;      /* size of string table for above symbol table */
+    char *pu_strings;	      /* string table for above symbol table */
     enum libgcc libgcc_state; /* part of new_libgcc, old_libgcc or not */
     struct object *next;   /* next object in hash table chain */
 };
@@ -203,7 +200,7 @@ struct object {
 extern struct object **object_list;
 
 /* number of objects in object_list */
-extern unsigned long nobject_list;
+extern long nobject_list;
 
 /*
  * The the pairs of alias symbol names from the #alias directive are stored in

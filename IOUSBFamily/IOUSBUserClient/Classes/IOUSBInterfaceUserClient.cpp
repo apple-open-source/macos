@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -410,6 +411,9 @@ IOUSBInterfaceUserClient::initWithTask(task_t owningTask, void *security_id , UI
 bool 
 IOUSBInterfaceUserClient::start( IOService * provider )
 {
+    IOWorkLoop	*			workLoop = NULL;
+    IOCommandGate *			commandGate = NULL;
+
     USBLog(7, "+%s[%p]::start(%p)", getName(), this, provider);
     
     IncrementOutstandingIO();		// make sure we don't close until start is done
@@ -428,56 +432,63 @@ IOUSBInterfaceUserClient::start( IOService * provider )
         goto ErrorExit;
     }
 
-    fGate = IOCommandGate::commandGate(this);
+    commandGate = IOCommandGate::commandGate(this);
 
-    if(!fGate)
+    if (!commandGate)
     {
         USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
         goto ErrorExit;
     }
 
-    fWorkLoop = getWorkLoop();
-    if (!fWorkLoop)
+    workLoop = getWorkLoop();
+    if (!workLoop)
     {
         USBError(1, "%s[%p]::start - unable to find my workloop", getName(), this);
         goto ErrorExit;
     }
-    fWorkLoop->retain();
+    workLoop->retain();
     
-    if (fWorkLoop->addEventSource(fGate) != kIOReturnSuccess)
+    if (workLoop->addEventSource(commandGate) != kIOReturnSuccess)
     {
         USBError(1, "%s[%p]::start - unable to add gate to work loop", getName(), this);
         goto ErrorExit;
     }
 
-    fFreeUSBLowLatencyCommandPool = IOCommandPool::withWorkLoop(fWorkLoop);
+    fFreeUSBLowLatencyCommandPool = IOCommandPool::withWorkLoop(workLoop);
     if (!fFreeUSBLowLatencyCommandPool)
     {
         USBError(1,"%s[%p]::start - unable to create free command pool", getName(), this);
         
         // Remove the event source we added above
         //
-        fWorkLoop->removeEventSource(fGate);
+        workLoop->removeEventSource(commandGate);
         
         goto ErrorExit;
     }
 
+    // Now that we have succesfully added our gate to the workloop, set our member variables
+    //
+    fGate = commandGate;
+    fWorkLoop = workLoop;
+
     DecrementOutstandingIO();
+    
     USBLog(7, "-%s[%p]::start(%p)", getName(), this, provider);
+    
     return true;
     
 ErrorExit:
     
-    if ( fGate != NULL )
+    if ( commandGate != NULL )
     {
-        fGate->release();
-        fGate = NULL;
+        commandGate->release();
+        commandGate = NULL;
     }
         
-    if ( fWorkLoop != NULL )
+    if ( workLoop != NULL )
     {
-        fWorkLoop->release();
-        fWorkLoop = NULL;
+        workLoop->release();
+        workLoop = NULL;
     }
         
     DecrementOutstandingIO();
@@ -2557,11 +2568,13 @@ IOUSBInterfaceUserClient::didTerminate( IOService * provider, IOOptionBits optio
     // this method comes at the end of the termination sequence. Hopefully, all of our outstanding IO is complete
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
-    USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
+   USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
+
     if ( fOutstandingIO == 0 )
-	fOwner->close(this);
+        fOwner->close(this);
     else
-	fNeedToClose = true;
+        fNeedToClose = true;
+    
     return super::didTerminate(provider, options, defer);
 }
 

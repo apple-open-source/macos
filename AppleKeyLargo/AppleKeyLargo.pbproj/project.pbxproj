@@ -65,7 +65,6 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
-			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -108,7 +107,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.4.0d21;
+				MODULE_VERSION = 1.4.0d19;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -150,7 +149,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d21</string>
+	<string>1.4.0d19</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -183,6 +182,7 @@
 </dict>
 </plist>
 ";
+			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -326,7 +326,6 @@
 //733
 //734
 		73D52285FFE5D05111CA2A1B = {
-			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = KeyLargo.cpp;
@@ -335,13 +334,11 @@
 			usesTabs = 1;
 		};
 		73D52286FFE5D05111CA2A1B = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargo.h;
 			refType = 4;
 		};
 		73D52287FFE5D05111CA2A1B = {
-			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = USBKeyLargo.cpp;
@@ -350,7 +347,6 @@
 			usesTabs = 1;
 		};
 		73D52288FFE5D05111CA2A1B = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBKeyLargo.h;
 			refType = 4;
@@ -465,7 +461,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOKeyLargo;
-				MODULE_VERSION = 1.4.0d21;
+				MODULE_VERSION = 1.4.0d19;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -507,7 +503,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d21</string>
+	<string>1.4.0d19</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -524,6 +520,7 @@
 </dict>
 </plist>
 ";
+			shouldUseHeadermap = 0;
 		};
 		8C228A2B03B7B58104CE206E = {
 			isa = PBXBundleReference;
@@ -531,7 +528,6 @@
 			refType = 3;
 		};
 		8C228A2D03B7C0AC04CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleKeyLargo.cpp;
 			refType = 4;
@@ -543,7 +539,6 @@
 			};
 		};
 		8C228A2F03B7C0CE04CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleKeyLargo.h;
 			refType = 4;
@@ -616,6 +611,7 @@
 			isa = PBXAggregateTarget;
 			name = all;
 			productName = all;
+			shouldUseHeadermap = 0;
 		};
 		8C228A3C03B7CF0804CE206E = {
 			isa = PBXTargetDependency;
@@ -702,7 +698,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2Driver;
-				MODULE_VERSION = 1.4.0d21;
+				MODULE_VERSION = 1.4.0d19;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -743,7 +739,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d21</string>
+	<string>1.4.0d19</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2Driver</key>
@@ -772,11 +768,10 @@
 		<key>com.apple.kernel.mach</key>
 		<string>1.1</string>
 	</dict>
-	<key>OSBundleRequired</key>
-	<string>Safe Boot</string>
 </dict>
 </plist>
 ";
+			shouldUseHeadermap = 0;
 		};
 		8C28BA92043B779404CE206E = {
 			isa = PBXBundleReference;
@@ -810,7 +805,6 @@
 			};
 		};
 		8C489A210415330504CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformFunction.h;
 			refType = 4;
@@ -833,13 +827,11 @@
 			refType = 4;
 		};
 		8C50542F03AE4C0804CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2.cpp;
 			refType = 4;
 		};
 		8C50543003AE4C0804CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2.h;
 			refType = 4;
@@ -921,7 +913,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2;
-				MODULE_VERSION = 1.4.0d21;
+				MODULE_VERSION = 1.4.0d19;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -963,7 +955,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d21</string>
+	<string>1.4.0d19</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2</key>
@@ -1003,6 +995,7 @@
 </dict>
 </plist>
 ";
+			shouldUseHeadermap = 0;
 		};
 		8C50543A03AE4C3804CE206E = {
 			isa = PBXBundleReference;
@@ -1040,13 +1033,11 @@
 			};
 		};
 		8C9E0B0003D5F77504CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2Driver.cpp;
 			refType = 4;
 		};
 		8C9E0B0103D5F77504CE206E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2Driver.h;
 			refType = 4;
@@ -1062,19 +1053,16 @@
 //B03
 //B04
 		B03E150701778A6305CE0D9E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BusTimings.s;
 			refType = 4;
 		};
 		B05AB278018A0F5D05CE0D9E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.cpp;
 			refType = 4;
 		};
 		B05AB279018A0F5D05CE0D9E = {
-			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.h;
 			refType = 4;

@@ -210,7 +210,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.4.0d22;
+				MODULE_VERSION = 1.4.1d1;
 				OTHER_CFLAGS = "\U0001-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -240,7 +240,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.4.0, Copyright 2002-2003 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.4.1, Copyright 2002-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -252,11 +252,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d22</string>
+	<string>1.4.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -892,7 +892,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB6_1_PlatformMonitor;
-				MODULE_VERSION = 1.0.0d2;
+				MODULE_VERSION = 1.0.1d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -928,11 +928,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d2</string>
+	<string>1.0.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB6_1_PlatformMonitor</key>
@@ -996,7 +996,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.0.0d2;
+				MODULE_VERSION = 1.0.1d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1032,11 +1032,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d2</string>
+	<string>1.0.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB5_1_PlatformMonitor</key>
@@ -1188,7 +1188,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.0.0d11;
+				MODULE_VERSION = 1.0.1d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1224,11 +1224,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.0.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.0d11</string>
+	<string>1.0.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2003_PlatformMonitor</key>
@@ -1325,11 +1325,13 @@
 			target = 09E4E3FD043BA0B90BCE29CA;
 		};
 		09E4E408043BA0E90BCE29CA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Portable2003_PlatformMonitor.cpp;
 			refType = 4;
 		};
 		09E4E409043BA0E90BCE29CA = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Portable2003_PlatformMonitor.h;
 			refType = 4;
@@ -1438,11 +1440,13 @@
 //633
 //634
 		632003E303D342CB0FCE15D6 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PB5_1_PlatformMonitor.h;
 			refType = 4;
 		};
 		632003E403D342CB0FCE15D6 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = PB5_1_PlatformMonitor.cpp;
 			refType = 4;
@@ -1519,6 +1523,7 @@
 			refType = 3;
 		};
 		B00EEA900416BF3005CE0DA1 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PFParse.c;
 			path = IOPlatformFunction/PFParse.c;
@@ -1777,6 +1782,7 @@
 			};
 		};
 		B088C5C203E5E1C405CE0DA1 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOPlatformFunctionDriver.h;
 			path = IOPlatformFunction/IOPlatformFunctionDriver.h;
@@ -1789,6 +1795,7 @@
 			};
 		};
 		B088C5C403E5E1DE05CE0DA1 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = IOPlatformFunctionDriver.cpp;
 			path = IOPlatformFunction/IOPlatformFunctionDriver.cpp;

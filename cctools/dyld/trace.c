@@ -25,7 +25,6 @@
 #ifndef NO_DYLD_TRACING
 #include <stdio.h>
 #include <strings.h>
-#include "stuff/bool.h"
 #include "trace.h"
 
 /*
@@ -45,8 +44,8 @@ trace_with_string(
 int trace_type,
 char *name)
 {
-    unsigned int i, j, n;
-    unsigned int namelen;
+    int i, j, n;
+    int namelen;
     int save_namelen;
     long parms[NUMPARMS];
     char buf[4];

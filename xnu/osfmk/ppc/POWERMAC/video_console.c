@@ -114,11 +114,6 @@
 #include <kern/time_out.h>
 #include <kern/lock.h>
 #include <kern/debug.h>
-#include <mach/vm_param.h>
-#include <vm/vm_kern.h>
-#include <vm/vm_map.h>
-#include <vm/vm_page.h>
-#include <ppc/pmap.h>
 
 #include <kdp/kdp_udp.h>
 
@@ -2841,81 +2836,22 @@ static void vc_clear_screen( void )
     reversecursor();
 };
 
-
-unsigned int lastVideoPhys = 0;
-unsigned int lastVideoVirt = 0;
-unsigned int lastVideoSize = 0;
-
 void
 initialize_screen(Boot_Video * boot_vinfo, unsigned int op)
 {
-	
-	unsigned int fbsize;
-	unsigned int newVideoVirt;
-	ppnum_t fbppage;
-
 	if( boot_vinfo) {
             bcopy( (const void *) boot_vinfo,
                     (void *) &boot_video_info,
                     sizeof( boot_video_info));
-/* 
- *			First, check if we are changing the size and/or location of the framebuffer
- */
-
 
             vinfo.v_name[0] = 0;
             vinfo.v_width = boot_vinfo->v_width;
             vinfo.v_height = boot_vinfo->v_height;
             vinfo.v_depth = boot_vinfo->v_depth;
             vinfo.v_rowbytes = boot_vinfo->v_rowBytes;
-            vinfo.v_physaddr = boot_vinfo->v_baseAddr;		/* Get the physical address */
- 			
- 			kprintf("initialize_screen: b=%08X, w=%08X, h=%08X, r=%08X\n",				/* (BRINGUP) */
-				vinfo.v_physaddr, vinfo.v_width,  vinfo.v_height,  vinfo.v_rowbytes);	/* (BRINGUP) */
-
-			if(!vinfo.v_physaddr) {							/* Check to see if we have a framebuffer */
-				kprintf("initialize_screen: No video - forcing serial mode\n");		/* (BRINGUP) */
-				(void)switch_to_serial_console();			/* Switch into serial mode */
-				vc_graphics_mode = FALSE;					/* Say we are not in graphics mode */
-				disableConsoleOutput = FALSE;				/* Allow printfs to happen */
-				vc_acquired = TRUE;
-				return;										/* Nothing more to do here */
-			}
-
-
-/*			Note that for the first time only, boot_vinfo->v_baseAddr is physical */
-
-			if(kernel_map != VM_MAP_NULL) {					/* If VM is up, we are given a virtual address */
-				fbppage = pmap_find_phys(kernel_pmap, boot_vinfo->v_baseAddr);	/* Get the physical address of frame buffer */
-				if(!fbppage) {								/* Did we find it? */
-					panic("initialize_screen: Strange framebuffer - addr = %08X\n", boot_vinfo->v_baseAddr);
-				}
-				vinfo.v_physaddr = fbppage << 12;			/* Get the physical address */
-			}
-			
+            vinfo.v_physaddr = boot_vinfo->v_baseAddr;
+            vinfo.v_baseaddr = vinfo.v_physaddr;
             vinfo.v_type = 0;
-
-			fbsize = round_page_32(vinfo.v_height * vinfo.v_rowbytes);	/* Remember size */
-
-			if((lastVideoPhys != vinfo.v_physaddr) || (fbsize > lastVideoSize)) {	/* Did framebuffer change location or get bigger? */
-
-				newVideoVirt = io_map_spec((vm_offset_t)vinfo.v_physaddr, fbsize);	/* Allocate address space for framebuffer */
-
-				if(lastVideoVirt) {							/* Was the framebuffer mapped before? */
-					if(lastVideoVirt > vm_last_addr) {		/* Was this a special pre-VM mapping? */
-						pmap_remove(kernel_pmap, (addr64_t)lastVideoVirt, (addr64_t)(lastVideoVirt + lastVideoSize));	/* Toss mappings */
-					}
-					else {									/* This was not special boot-time allocation */
-						kmem_free(kernel_map, lastVideoVirt, lastVideoSize);	/* Toss kernel addresses */
-					}
-				}
-				
-				lastVideoPhys = vinfo.v_physaddr;			/* Remember the framebuffer address */
-				lastVideoSize = fbsize;						/* Remember the size */
-				lastVideoVirt = newVideoVirt;				/* Remember the virtual framebuffer address */
-			}
-           
-            vinfo.v_baseaddr = lastVideoVirt;				/* Set the new framebuffer address */
 
             vc_initialize();
 #if 0
@@ -2926,58 +2862,58 @@ initialize_screen(Boot_Video * boot_vinfo, unsigned int op)
 	switch( op ) {
 
 	    case kPEGraphicsMode:
-			vc_graphics_mode = TRUE;
-			disableConsoleOutput = TRUE;
-			vc_acquired = TRUE;
-			break;
+		vc_graphics_mode = TRUE;
+		disableConsoleOutput = TRUE;
+		vc_acquired = TRUE;
+		break;
 
 	    case kPETextMode:
-			vc_graphics_mode = FALSE;
-			disableConsoleOutput = FALSE;
-			vc_acquired = TRUE;
-			vc_clear_screen();
-			break;
+		vc_graphics_mode = FALSE;
+		disableConsoleOutput = FALSE;
+		vc_acquired = TRUE;
+		vc_clear_screen();
+		break;
 
 	    case kPETextScreen:
-			vc_progress_set( FALSE, 0 );
-			disableConsoleOutput = FALSE;
-			if( vc_need_clear) {
-				vc_need_clear = FALSE;
-				vc_clear_screen();
-			}
-			break;
+		vc_progress_set( FALSE, 0 );
+		disableConsoleOutput = FALSE;
+		if( vc_need_clear) {
+		    vc_need_clear = FALSE;
+                    vc_clear_screen();
+		}
+		break;
 
-		case kPEEnableScreen:
-			if( vc_acquired) {
-				if( vc_graphics_mode)
-				vc_progress_set( TRUE, vc_progress_tick );
-				else
-				vc_clear_screen();
-			}
-			break;
+            case kPEEnableScreen:
+		if( vc_acquired) {
+                    if( vc_graphics_mode)
+                        vc_progress_set( TRUE, vc_progress_tick );
+                    else
+                        vc_clear_screen();
+		}
+		break;
 
-		case kPEDisableScreen:
-			vc_progress_set( FALSE, 0 );
-			break;
+            case kPEDisableScreen:
+		vc_progress_set( FALSE, 0 );
+		break;
 
 	    case kPEAcquireScreen:
-			vc_need_clear = (FALSE == vc_acquired);
-			vc_acquired = TRUE;
-			vc_progress_set( vc_graphics_mode, vc_need_clear ? 2 * hz : 0 );
-			disableConsoleOutput = vc_graphics_mode;
-			if( vc_need_clear && !vc_graphics_mode) {
-				vc_need_clear = FALSE;
-				vc_clear_screen();
-			}
-			break;
+		vc_need_clear = (FALSE == vc_acquired);
+		vc_acquired = TRUE;
+		vc_progress_set( vc_graphics_mode, vc_need_clear ? 2 * hz : 0 );
+		disableConsoleOutput = vc_graphics_mode;
+		if( vc_need_clear && !vc_graphics_mode) {
+		    vc_need_clear = FALSE;
+                    vc_clear_screen();
+		}
+		break;
 
 	    case kPEReleaseScreen:
-			vc_acquired = FALSE;
-			vc_progress_set( FALSE, 0 );
-			vc_clut8 = NULL;
-			disableConsoleOutput = TRUE;
+		vc_acquired = FALSE;
+		vc_progress_set( FALSE, 0 );
+                vc_clut8 = NULL;
+		disableConsoleOutput = TRUE;
 #if 0
-			GratefulDebInit(0);						/* Stop grateful debugger */
+		GratefulDebInit(0);						/* Stop grateful debugger */
 #endif
 		break;
 	}

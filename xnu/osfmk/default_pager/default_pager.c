@@ -332,8 +332,8 @@ default_pager_info(
 
 	bs_global_info(&pages_total, &pages_free);
 
-	infop->dpi_total_space = ptoa_32(pages_total);
-	infop->dpi_free_space = ptoa_32(pages_free);
+	infop->dpi_total_space = ptoa(pages_total);
+	infop->dpi_free_space = ptoa(pages_free);
 	infop->dpi_page_size = vm_page_size;
 
 	return KERN_SUCCESS;

@@ -77,11 +77,12 @@
 
 	enum	/* request codes to send to the user client:	*/
 	{
-		kGMACUserCmd_GetLog		= 0x30,		// get entire GMAC ELG buffer
-		kGMACUserCmd_GetRegs	= 0x31,		// get GMAC registers
-		kGMACUserCmd_GetPHY		= 0x32,		// get PHY  registers
-		kGMACUserCmd_GetTxRing	= 0x33,		// get Tx DMA elements
-		kGMACUserCmd_GetRxRing	= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_GetLog			= 0x30,		// get entire GMAC ELG buffer
+		kGMACUserCmd_GetRegs		= 0x31,		// get all GMAC registers
+		kGMACUserCmd_GetOneReg		= 0x32,		// get one particular GMAC register
+		kGMACUserCmd_GetTxRing		= 0x33,		// get Tx DMA elements
+		kGMACUserCmd_GetRxRing		= 0x34,		// get Rx DMA elements
+		kGMACUserCmd_WriteOneReg	= 0x35,		// write one particular GMAC register
 
 		kGMACUserCmd_ReadAllMII	= 0x50,		// read MII registers 0 thru 31
 		kGMACUserCmd_ReadMII	= 0x51,		// read one MII register
