@@ -71,15 +71,15 @@
     Port 80
     ServerName server.domain.tld
 
-    NameVirtualHost *
+    NameVirtualHost *:80
 
-    &lt;VirtualHost *&gt;
+    &lt;VirtualHost *:80&gt;
     DocumentRoot /www/domain
     ServerName www.domain.tld
     ...
     &lt;/VirtualHost&gt;
     
-    &lt;VirtualHost *&gt;
+    &lt;VirtualHost *:80&gt;
     DocumentRoot /www/subdomain
     ServerName www.sub.domain.tld
     ...

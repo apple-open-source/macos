@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /*
@@ -122,6 +79,9 @@ int ap_main(int argc, char *argv[]);
 #endif
 #ifdef HAVE_BSTRING_H
 #include <bstring.h>		/* for IRIX, FD_SET calls bzero() */
+#endif
+#ifdef HAVE_SET_DUMPABLE /* certain levels of Linux */
+#include <sys/prctl.h>
 #endif
 
 #ifdef MULTITHREAD
@@ -257,6 +217,9 @@ API_VAR_EXPORT int ap_daemons_limit=0;
 API_VAR_EXPORT time_t ap_restart_time=0;
 API_VAR_EXPORT int ap_suexec_enabled = 0;
 API_VAR_EXPORT int ap_listenbacklog=0;
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+int ap_exception_hook_enabled=0;
+#endif
 
 struct accept_mutex_methods_s {
     void (*child_init)(pool *p);
@@ -310,6 +273,7 @@ static listen_rec *head_listener;
 API_VAR_EXPORT char ap_server_root[MAX_STRING_LEN]="";
 API_VAR_EXPORT char ap_server_confname[MAX_STRING_LEN]="";
 API_VAR_EXPORT char ap_coredump_dir[MAX_STRING_LEN]="";
+int ap_coredump_dir_configured=0;
 
 API_VAR_EXPORT array_header *ap_server_pre_read_config=NULL;
 API_VAR_EXPORT array_header *ap_server_post_read_config=NULL;
@@ -3106,12 +3070,63 @@ static void siglist_init(void)
 }
 #endif /* platform has sys_siglist[] */
 
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+typedef struct except_hook_t {
+    struct except_hook_t *next;
+    void (*fn)(ap_exception_info_t *);
+} except_hook_t;
+
+static except_hook_t *except_hooks;
+
+static void except_hook_cleanup(void *ignored)
+{
+    except_hooks = NULL;
+}
+
+API_EXPORT(int) ap_add_fatal_exception_hook(void (*fn)(ap_exception_info_t *))
+{
+    except_hook_t *new;
+
+    ap_assert(pconf);
+
+    if (!ap_exception_hook_enabled) {
+        return 1;
+    }
+
+    new = ap_palloc(pconf, sizeof(except_hook_t));
+    new->next = except_hooks;
+    new->fn = fn;
+    except_hooks = new;
+
+    return 0;
+}
+
+static void run_fatal_exception_hook(int sig)
+{
+    except_hook_t *cur_hook = except_hooks;
+    ap_exception_info_t ei = {0};
+
+    if (ap_exception_hook_enabled &&
+        geteuid() != 0) {
+        ei.sig = sig;
+        ei.pid = getpid();
+
+        while (cur_hook) {
+            cur_hook->fn(&ei);
+            cur_hook = cur_hook->next;
+        }
+    }
+}
+#endif /* AP_ENABLE_EXCEPTION_HOOK */
 
 /* handle all varieties of core dumping signals */
 static void sig_coredump(int sig)
 {
     chdir(ap_coredump_dir);
     signal(sig, SIG_DFL);
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+    run_fatal_exception_hook(sig);
+#endif
 #if !defined(WIN32) && !defined(NETWARE)
     kill(getpid(), sig);
 #else
@@ -3905,6 +3920,76 @@ static void close_unused_listeners(void)
     old_listeners = NULL;
 }
 
+#ifdef NONBLOCK_WHEN_MULTI_LISTEN
+/* retrieved from APR */
+static int soblock(int sd)
+{
+#ifdef NETWARE
+    u_long one = 0;
+
+    if (ioctlsocket(sd, FIONBIO, &one) == SOCKET_ERROR) {
+        return -1;
+    }
+#else
+#ifndef BEOS
+    int fd_flags;
+    
+    fd_flags = fcntl(sd, F_GETFL, 0);
+#if defined(O_NONBLOCK)
+    fd_flags &= ~O_NONBLOCK;
+#elif defined(O_NDELAY)
+    fd_flags &= ~O_NDELAY;
+#elif defined(FNDELAY)
+    fd_flags &= ~FNDELAY;
+#else
+#error Teach soblock() how to make a socket blocking on your platform.
+#endif
+    if (fcntl(sd, F_SETFL, fd_flags) == -1) {
+        return errno;
+    }
+#else
+    int on = 0;
+    if (setsockopt(sd, SOL_SOCKET, SO_NONBLOCK, &on, sizeof(int)) < 0)
+        return errno;
+#endif /* BEOS */
+#endif /* NETWARE */
+    return 0;
+}
+
+static int sononblock(int sd)
+{
+#ifdef NETWARE
+    u_long one = 1;
+
+    if (ioctlsocket(sd, FIONBIO, &one) == SOCKET_ERROR) {
+        return -1;
+    }
+#else
+#ifndef BEOS
+    int fd_flags;
+    
+    fd_flags = fcntl(sd, F_GETFL, 0);
+#if defined(O_NONBLOCK)
+    fd_flags |= O_NONBLOCK;
+#elif defined(O_NDELAY)
+    fd_flags |= O_NDELAY;
+#elif defined(FNDELAY)
+    fd_flags |= FNDELAY;
+#else
+#error Teach sononblock() how to make a socket non-blocking on your platform.
+#endif
+    if (fcntl(sd, F_SETFL, fd_flags) == -1) {
+        return errno;
+    }
+#else
+    int on = 1;
+    if (setsockopt(sd, SOL_SOCKET, SO_NONBLOCK, &on, sizeof(int)) < 0)
+        return errno;
+#endif /* BEOS */
+#endif /* NETWARE */
+    return 0;
+}
+#endif /* NONBLOCK_WHEN_MULTI_LISTEN */
 
 /* open sockets, and turn the listeners list into a singly linked ring */
 static void setup_listeners(pool *p)
@@ -3937,6 +4022,31 @@ static void setup_listeners(pool *p)
     head_listener = ap_listeners;
     close_unused_listeners();
 
+#ifdef NONBLOCK_WHEN_MULTI_LISTEN
+    if (ap_listeners->next != ap_listeners) {
+        lr = ap_listeners;
+        do {
+            if (sononblock(lr->fd) < 0) {
+                ap_log_error(APLOG_MARK, APLOG_CRIT, NULL,
+                             "A listening socket could not be made non-blocking.");
+                exit(APEXIT_INIT);
+            }
+            lr = lr->next;
+        } while (lr != ap_listeners);
+    }
+    else {
+        /* we could be restarting with a single remaining listening
+         * socket, still in non-blocking state from a previous
+         * generation which had more listening sockets
+         */
+        if (soblock(ap_listeners->fd) < 0) {
+            ap_log_error(APLOG_MARK, APLOG_CRIT, NULL,
+                         "A listening socket could not be made blocking.");
+            exit(APEXIT_INIT);
+        }
+    }
+#endif /* NONBLOCK_WHEN_MULTI_LISTEN */
+    
 #ifdef NO_SERIALIZED_ACCEPT
     /* warn them about the starvation problem if they're using multiple
      * sockets
@@ -4184,6 +4294,9 @@ static void common_init(void)
 
     pglobal = ap_init_alloc();
     pconf = ap_make_sub_pool(pglobal);
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+    ap_register_cleanup(pconf, NULL, except_hook_cleanup, ap_null_cleanup);
+#endif
     plog = ap_make_sub_pool(pglobal);
     ptrans = ap_make_sub_pool(pconf);
 
@@ -4282,6 +4395,18 @@ static void child_main(int child_num_arg)
 	ap_log_error(APLOG_MARK, APLOG_ALERT, server_conf,
 		    "setuid: unable to change to uid: %ld", (long) ap_user_id);
 	clean_child_exit(APEXIT_CHILDFATAL);
+    }
+#endif
+
+#ifdef HAVE_SET_DUMPABLE
+    if (ap_coredump_dir_configured) {
+        /* user set CoredumpDirectory, so they want to get core dumps
+         */
+        if (prctl(PR_SET_DUMPABLE, 1)) {
+            ap_log_error(APLOG_MARK, APLOG_ALERT, NULL,
+                         "set dumpable failed - this child will not coredump"
+                         " after software errors");
+        }
     }
 #endif
 
@@ -4472,6 +4597,19 @@ static void child_main(int child_num_arg)
 #ifdef ENETUNREACH
 		case ENETUNREACH:
 #endif
+                    /* EAGAIN/EWOULDBLOCK can be returned on BSD-derived
+                     * TCP stacks when the connection is aborted before
+                     * we call connect, but only because our listener
+                     * sockets are non-blocking (NONBLOCK_WHEN_MULTI_LISTEN)
+                     */
+#ifdef EAGAIN
+                case EAGAIN:
+#endif
+#ifdef EWOULDBLOCK
+#if !defined(EAGAIN) || EAGAIN != EWOULDBLOCK
+                case EWOULDBLOCK:
+#endif
+#endif
                     break;
 #ifdef ENETDOWN
 		case ENETDOWN:
@@ -4560,6 +4698,21 @@ static void child_main(int child_num_arg)
 	 * We now have a connection, so set it up with the appropriate
 	 * socket options, file descriptors, and read/write buffers.
 	 */
+
+#ifdef NONBLOCK_WHEN_MULTI_LISTEN
+        /* This assumes that on this platform the non-blocking setting of
+         * a listening socket is inherited.  If that isn't the case,
+         * this is wasted effort.
+         */
+        if (ap_listeners != ap_listeners->next) {
+            if (soblock(csd) != 0) {
+                ap_log_error(APLOG_MARK, APLOG_CRIT, NULL,
+                             "couldn't make socket descriptor (%d) blocking again",
+                             csd);
+                continue;
+            }
+        }
+#endif /* NONBLOCK_WHEN_MULTI_LISTEN */
 
 	clen = sizeof(sa_server);
 	if (getsockname(csd, &sa_server, &clen) < 0) {
@@ -5014,6 +5167,16 @@ static void process_child_status(int pid, ap_wait_t status)
 	WEXITSTATUS(status) == APEXIT_CHILDFATAL) {
         /* cleanup pid file -- it is useless after our exiting */
         const char *pidfile = NULL;
+#ifdef TPF
+        /* safer on TPF to go through normal shutdown process */
+	if (!shutdown_pending) {
+		ap_log_error(APLOG_MARK, APLOG_ALERT|APLOG_NOERRNO, server_conf,
+			"Child %d returned a Fatal error... \n"
+			"Apache is shutting down!", pid);
+		shutdown_pending = 1;
+	}
+        return;
+#endif
         pidfile = ap_server_root_relative (pconf, ap_pid_fname);
         if ( pidfile != NULL && unlink(pidfile) == 0)
             ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO,
@@ -5105,6 +5268,9 @@ static void standalone_main(int argc, char **argv)
 	}
 #endif
 	ap_clear_pool(pconf);
+#ifdef AP_ENABLE_EXCEPTION_HOOK
+        ap_register_cleanup(pconf, NULL, except_hook_cleanup, ap_null_cleanup);
+#endif
 	ptrans = ap_make_sub_pool(pconf);
 
 	ap_init_mutex_method(ap_default_mutex_method());
@@ -5495,7 +5661,7 @@ int REALMAIN(int argc, char *argv[])
         memcpy(tpf_server_name, input_parms.parent.servname,
                INETD_SERVNAME_LENGTH);
         tpf_server_name[INETD_SERVNAME_LENGTH + 1] = '\0';
-        sprintf(tpf_mutex_key, "%.*x", TPF_MUTEX_KEY_SIZE - 1, getpid());
+        sprintf(tpf_mutex_key, "%.*x", (int) TPF_MUTEX_KEY_SIZE - 1, getpid());
         tpf_parent_pid = getppid();
         ap_open_logs(server_conf, plog);
         ap_tpf_zinet_checks(ap_standalone, tpf_server_name, server_conf);
@@ -6332,15 +6498,22 @@ void worker_main(void)
             if (csd == INVALID_SOCKET) {
                 csd = -1;
             }
-        } while (csd < 0 && h_errno == EINTR);
+        } while (csd < 0 && h_errno == WSAEINTR);
 	
         if (csd == INVALID_SOCKET) {
-            if (h_errno != WSAECONNABORTED) {
+            if ((h_errno != WSAECONNABORTED) && (h_errno != WSAEWOULDBLOCK)) {
                 ap_log_error(APLOG_MARK, APLOG_ERR, server_conf,
                              "accept: (client socket) failed with errno = %d",h_errno);
             }
         }
         else {
+            u_long one = 0;
+
+            if (soblock(csd) != 0) {
+                ap_log_error(APLOG_MARK, APLOG_ERR, server_conf,
+                             "%d couldn't make socket descriptor (%d) blocking again.", h_errno, csd);
+                continue;
+            }
             add_job(csd);
         }
     }

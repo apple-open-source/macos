@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -492,17 +449,23 @@ static const char *cmd_rewritemap(cmd_parms *cmd, void *dconf, char *a1,
         new->type      = MAPTYPE_TXT;
         new->datafile  = a2+4;
         new->checkfile = a2+4;
+        new->cachename = ap_psprintf(cmd->pool, "%pp:%s",
+                                     (void *)cmd->server, a1);
     }
     else if (strncmp(a2, "rnd:", 4) == 0) {
         new->type      = MAPTYPE_RND;
         new->datafile  = a2+4;
         new->checkfile = a2+4;
+        new->cachename = ap_psprintf(cmd->pool, "%pp:%s",
+                                     (void *)cmd->server, a1);
     }
     else if (strncmp(a2, "dbm:", 4) == 0) {
 #ifndef NO_DBM_REWRITEMAP
         new->type      = MAPTYPE_DBM;
         new->datafile  = a2+4;
         new->checkfile = ap_pstrcat(cmd->pool, a2+4, NDBM_FILE_SUFFIX, NULL);
+        new->cachename = ap_psprintf(cmd->pool, "%pp:%s",
+                                     (void *)cmd->server, a1);
 #else
         return ap_pstrdup(cmd->pool, "RewriteMap: cannot use NDBM mapfile, "
                           "because no NDBM support is compiled in");
@@ -512,11 +475,13 @@ static const char *cmd_rewritemap(cmd_parms *cmd, void *dconf, char *a1,
         new->type = MAPTYPE_PRG;
         new->datafile = a2+4;
         new->checkfile = a2+4;
+        new->cachename = NULL;
     }
     else if (strncmp(a2, "int:", 4) == 0) {
         new->type      = MAPTYPE_INT;
         new->datafile  = NULL;
         new->checkfile = NULL;
+        new->cachename = NULL;
         if (strcmp(a2+4, "tolower") == 0) {
             new->func = rewrite_mapfunc_tolower;
         }
@@ -538,6 +503,8 @@ static const char *cmd_rewritemap(cmd_parms *cmd, void *dconf, char *a1,
         new->type      = MAPTYPE_TXT;
         new->datafile  = a2;
         new->checkfile = a2;
+        new->cachename = ap_psprintf(cmd->pool, "%pp:%s",
+                                     (void *)cmd->server, a1);
     }
     new->fpin  = -1;
     new->fpout = -1;
@@ -2880,7 +2847,7 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                                "see error log");
                     return NULL;
                 }
-                value = get_cache_string(cachep, s->name, CACHEMODE_TS,
+                value = get_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key);
                 if (value == NULL) {
                     rewritelog(r, 6, "cache lookup FAILED, forcing new "
@@ -2889,14 +2856,14 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                          lookup_map_txtfile(r, s->datafile, key)) != NULL) {
                         rewritelog(r, 5, "map lookup OK: map=%s key=%s[txt] "
                                    "-> val=%s", s->name, key, value);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, value);
                         return value;
                     }
                     else {
                         rewritelog(r, 5, "map lookup FAILED: map=%s[txt] "
                                    "key=%s", s->name, key);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, "");
                         return NULL;
                     }
@@ -2917,7 +2884,7 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                                "see error log");
                     return NULL;
                 }
-                value = get_cache_string(cachep, s->name, CACHEMODE_TS,
+                value = get_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key);
                 if (value == NULL) {
                     rewritelog(r, 6,
@@ -2926,14 +2893,14 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                          lookup_map_dbmfile(r, s->datafile, key)) != NULL) {
                         rewritelog(r, 5, "map lookup OK: map=%s[dbm] key=%s "
                                    "-> val=%s", s->name, key, value);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, value);
                         return value;
                     }
                     else {
                         rewritelog(r, 5, "map lookup FAILED: map=%s[dbm] "
                                    "key=%s", s->name, key);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, "");
                         return NULL;
                     }
@@ -2979,7 +2946,7 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                                "see error log");
                     return NULL;
                 }
-                value = get_cache_string(cachep, s->name, CACHEMODE_TS,
+                value = get_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key);
                 if (value == NULL) {
                     rewritelog(r, 6, "cache lookup FAILED, forcing new "
@@ -2988,13 +2955,13 @@ static char *lookup_map(request_rec *r, char *name, char *key)
                          lookup_map_txtfile(r, s->datafile, key)) != NULL) {
                         rewritelog(r, 5, "map lookup OK: map=%s key=%s[txt] "
                                    "-> val=%s", s->name, key, value);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, value);
                     }
                     else {
                         rewritelog(r, 5, "map lookup FAILED: map=%s[txt] "
                                    "key=%s", s->name, key);
-                        set_cache_string(cachep, s->name, CACHEMODE_TS,
+                        set_cache_string(cachep, s->cachename, CACHEMODE_TS,
                                          st.st_mtime, key, "");
                         return NULL;
                     }
@@ -3067,22 +3034,27 @@ static char *lookup_map_dbmfile(request_rec *r, char *file, char *key)
     DBM *dbmfp = NULL;
     datum dbmkey;
     datum dbmval;
-    char *value = NULL;
-    char buf[MAX_STRING_LEN];
+    char *value;
+
+    if (!(dbmfp = dbm_open(file, O_RDONLY, 0666))) {
+        return NULL;
+    }
 
     dbmkey.dptr  = key;
     dbmkey.dsize = strlen(key);
-    if ((dbmfp = dbm_open(file, O_RDONLY, 0666)) != NULL) {
-        dbmval = dbm_fetch(dbmfp, dbmkey);
-        if (dbmval.dptr != NULL) {
-            memcpy(buf, dbmval.dptr, 
-                   dbmval.dsize < sizeof(buf)-1 ? 
-                   dbmval.dsize : sizeof(buf)-1  );
-            buf[dbmval.dsize] = '\0';
-            value = ap_pstrdup(r->pool, buf);
-        }
-        dbm_close(dbmfp);
+
+    dbmval = dbm_fetch(dbmfp, dbmkey);
+    if (dbmval.dptr) {
+        value = ap_palloc(r->pool, dbmval.dsize + 1);
+        memcpy(value, dbmval.dptr, dbmval.dsize);
+        value[dbmval.dsize] = '\0';
     }
+    else {
+        value = NULL;
+    }
+
+    dbm_close(dbmfp);
+
     return value;
 }
 #endif
@@ -3100,11 +3072,16 @@ static char *lookup_map_program(request_rec *r, int fpin, int fpout, char *key)
      * context then the rewritemap-programs were not spawned.
      * In this case using such a map (usually in per-dir context)
      * is useless because it is not available.
+     *
+     * newlines in the key leave bytes in the pipe and cause
+     * bad things to happen (next map lookup will use the chars
+     * after the \n instead of the new key etc etc - in other words,
+     * the Rewritemap falls out of sync with the requests).
      */
-    if (fpin == -1 || fpout == -1) {
+    if (fpin == -1 || fpout == -1 || strchr(key, '\n')) {
         return NULL;
     }
-
+ 
     /* take the lock */
     rewritelock_alloc(r);
 
@@ -3611,8 +3588,8 @@ static int rewritemap_program_child(void *cmd, child_info *pinfo)
         si.hStdOutput  = pinfo->hPipeOutputWrite;
         si.hStdError   = pinfo->hPipeErrorWrite;
 
-        if (CreateProcess(NULL, pCommand, NULL, NULL, TRUE, 0,
-                          environ, NULL, &si, &pi)) {
+        if (CreateProcess(NULL, pCommand, NULL, NULL, TRUE, 0, 
+                          NULL, NULL, &si, &pi)) {
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
             child_pid = pi.dwProcessId;
@@ -3687,6 +3664,10 @@ static char *lookup_variable(request_rec *r, char *var)
     /* connection stuff */
     else if (strcasecmp(var, "REMOTE_ADDR") == 0) {
         result = r->connection->remote_ip;
+    }
+    else if (strcasecmp(var, "REMOTE_PORT") == 0) {
+        return ap_psprintf(r->pool, "%d",
+                           ntohs(r->connection->remote_addr.sin_port));
     }
     else if (strcasecmp(var, "REMOTE_HOST") == 0) {
         result = (char *)ap_get_remote_host(r->connection,
@@ -3963,7 +3944,7 @@ static char *get_cache_string(cache *c, char *res, int mode,
             return NULL;
         }
     }
-    return ap_pstrdup(c->pool, ce->value);
+    return ce->value;
 }
 
 static int cache_tlb_hash(char *key)
@@ -4117,47 +4098,49 @@ static cacheentry *retrieve_cache_string(cache *c, char *res, char *key)
 ** +-------------------------------------------------------+
 */
 
+/*
+ * substitute the prefix path 'match' in 'input' with 'subst'
+ * (think of RewriteBase which substitutes the physical path with
+ *  the virtual path)
+ */
+
 static char *subst_prefix_path(request_rec *r, char *input, char *match,
-                               char *subst)
+                               const char *subst)
 {
-    char matchbuf[LONG_STRING_LEN];
-    char substbuf[LONG_STRING_LEN];
-    char *output;
-    int l;
+    size_t len = strlen(match);
 
-    output = input;
-
-    /* first create a match string which always has a trailing slash */
-    l = ap_cpystrn(matchbuf, match, sizeof(matchbuf) - 1) - matchbuf;
-    if (!l || matchbuf[l-1] != '/') {
-       matchbuf[l] = '/';
-       matchbuf[l+1] = '\0';
-       l++;
+    if (len && match[len - 1] == '/') {
+        --len;
     }
-    /* now compare the prefix */
-    if (strncmp(input, matchbuf, l) == 0) {
-        rewritelog(r, 5, "strip matching prefix: %s -> %s", output, output+l);
-        output = ap_pstrdup(r->pool, output+l);
 
-        /* and now add the base-URL as replacement prefix */
-        l = ap_cpystrn(substbuf, subst, sizeof(substbuf) - 1) - substbuf;
-        if (!l || substbuf[l-1] != '/') {
-           substbuf[l] = '/';
-           substbuf[l+1] = '\0';
-           l++;
+    if (!strncmp(input, match, len) && input[len++] == '/') {
+        size_t slen, outlen;
+        char *output;
+
+        rewritelog(r, 5, "strip matching prefix: %s -> %s", input, input+len);
+
+        slen = strlen(subst);
+        if (slen && subst[slen - 1] != '/') {
+            ++slen;
         }
-        if (output[0] == '/') {
-            rewritelog(r, 4, "add subst prefix: %s -> %s%s",
-                       output, substbuf, output+1);
-            output = ap_pstrcat(r->pool, substbuf, output+1, NULL);
+
+        outlen = strlen(input) + slen - len;
+        output = ap_palloc(r->pool, outlen + 1); /* don't forget the \0 */
+
+        memcpy(output, subst, slen);
+        if (slen && !output[slen-1]) {
+            output[slen-1] = '/';
         }
-        else {
-            rewritelog(r, 4, "add subst prefix: %s -> %s%s",
-                       output, substbuf, output);
-            output = ap_pstrcat(r->pool, substbuf, output, NULL);
-        }
+        memcpy(output+slen, input+len, outlen - slen);
+        output[outlen] = '\0';
+
+        rewritelog(r, 4, "add subst prefix: %s -> %s", input+len, output);
+
+        return output;
     }
-    return output;
+
+    /* prefix didn't match */
+    return input;
 }
 
 

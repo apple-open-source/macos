@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /* User Tracking Module (Was mod_cookies.c)
@@ -96,7 +53,7 @@
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
-#if !defined(WIN32) && !defined(MPE) && !defined(TPF)
+#if !defined(WIN32) && !defined(MPE) && !defined(TPF41)
 #include <sys/time.h>
 #endif
 
@@ -279,16 +236,64 @@ static void make_cookie(request_rec *r)
         new_cookie = ap_pstrcat(r->pool, new_cookie, "; version=1", NULL);
     }
 
-    ap_table_setn(r->headers_out,
+    ap_table_addn(r->headers_out,
                   (dcfg->style == CT_COOKIE2 ? "Set-Cookie2" : "Set-Cookie"),
                   new_cookie);
     ap_table_setn(r->notes, "cookie", ap_pstrdup(r->pool, cookiebuf));   /* log first time */
     return;
 }
 
-/* dcfg->regexp is "^cookie_name=([^;]+)|;[ \t]+cookie_name=([^;]+)",
- * which has three subexpressions, $0..$2 */
+/*
+ * dcfg->regexp is "^cookie_name=([^;]+)|;[ \t]+cookie_name=([^;]+)",
+ * which has three subexpressions, $0..$2
+ */
 #define NUM_SUBS 3
+
+static void set_and_comp_regexp(cookie_dir_rec *dcfg, 
+                                pool *p,
+                                const char *cookie_name) 
+{
+    int danger_chars = 0;
+    const char *sp = cookie_name;
+
+    /*
+     * The goal is to end up with this regexp, 
+     * ^cookie_name=([^;]+)|;[\t]+cookie_name=([^;]+) 
+     * with cookie_name obviously substituted either
+     * with the real cookie name set by the user in httpd.conf,
+     * or with the default COOKIE_NAME.
+     */
+
+    /* Anyway, we need to escape the cookie_name before pasting it
+     * into the regex
+     */
+    while (*sp) {
+        if (!ap_isalnum(*sp)) {
+            ++danger_chars;
+        }
+        ++sp;
+    }
+
+    if (danger_chars) {
+        char *cp;
+        cp = ap_palloc(p, sp - cookie_name + danger_chars + 1); /* 1 == \0 */
+        sp = cookie_name;
+        cookie_name = cp;
+        while (*sp) {
+            if (!ap_isalnum(*sp)) {
+                *cp++ = '\\';
+            }
+            *cp++ = *sp++;
+        }
+        *cp = '\0';
+    }
+
+    dcfg->regexp_string = ap_pstrcat(p, "^", cookie_name,
+                                     "=([^;]+)|;[ \t]+", cookie_name,
+                                     "=([^;]+)", NULL);
+    dcfg->regexp = ap_pregcomp(p, dcfg->regexp_string, REG_EXTENDED);
+    ap_assert(dcfg->regexp != NULL);
+}
 
 static int spot_cookie(request_rec *r)
 {
@@ -296,16 +301,12 @@ static int spot_cookie(request_rec *r)
 						&usertrack_module);
     const char *cookie_header;
     regmatch_t regm[NUM_SUBS];
-    int i;
 
     if (!dcfg->enabled) {
         return DECLINED;
     }
 
-    if ((cookie_header = ap_table_get(r->headers_in,
-                                      (dcfg->style == CT_COOKIE2
-                                       ? "Cookie2"
-                                       : "Cookie")))) {
+    if ((cookie_header = ap_table_get(r->headers_in, "Cookie"))) {
 	if (!ap_regexec(dcfg->regexp, cookie_header, NUM_SUBS, regm, 0)) {
 	    char *cookieval = NULL;
 	    /* Our regexp,
@@ -353,6 +354,11 @@ static void *make_cookie_dir(pool *p, char *d)
     dcfg->style = CT_UNSET;
     dcfg->format = CF_NORMAL;
     dcfg->enabled = 0;
+    /*
+     * In case the user does not use the CookieName directive,
+     * we need to compile the regexp for the default cookie name.
+     */
+    set_and_comp_regexp(dcfg, p, COOKIE_NAME);
     return dcfg;
 }
 
@@ -437,18 +443,10 @@ static const char *set_cookie_name(cmd_parms *cmd, void *mconfig, char *name)
 {
     cookie_dir_rec *dcfg = (cookie_dir_rec *) mconfig;
 
-    /* The goal is to end up with this regexp, 
-     * ^cookie_name=([^;]+)|;[ \t]+cookie_name=([^;]+)
-     * with cookie_name
-     * obviously substituted with the real cookie name set by the
-     * user in httpd.conf. */
-    dcfg->regexp_string = ap_pstrcat(cmd->pool, "^", name, 
-                                     "=([^;]+)|;[ \t]+", name, 
-                                     "=([^;]+)", NULL);
-
     dcfg->cookie_name = ap_pstrdup(cmd->pool, name);
 
-    dcfg->regexp = ap_pregcomp(cmd->pool, dcfg->regexp_string, REG_EXTENDED);
+    set_and_comp_regexp(dcfg, cmd->pool, name);
+
     if (dcfg->regexp == NULL) {
 	return "Regular expression could not be compiled.";
     }

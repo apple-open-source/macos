@@ -7,7 +7,7 @@
     <title>Apache module mod_alias</title>
 
   </head>
-  <!-- English revision: 1.35 -->
+  <!-- English revision: 1.37 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -198,7 +198,7 @@
     ディレクティブと ScriptAlias ディレクティブよりも優先されます。
     また、.htaccess ファイルや &lt;Directory&gt;
     セクションの中で使われていたとしても、<em>URL-path</em>
-    は相対パスではなく、絶対パスでなければなりません。</p>
+    は相対パスではなく、完全な URL でなければなりません。</p>
 
     <p>もし <em>status</em> 引数が与えられていなければ、リダイレクトは
     "temporary" (HTTP ステータス 302) になります。これはクライアントに

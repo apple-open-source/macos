@@ -29,9 +29,9 @@
      <em>currency</em>   ]   [   -<strong>p</strong>   <em>POST   file</em>   ]  [  -<strong>A</strong>  <em>Authenticate</em>
      <em>username</em>:<em>password </em>   ]    [    -<strong>P  </strong>   <em>Proxy     Authenticate</em>
      <em>username</em>:<em>password</em>  ]  [  -<strong>H</strong>  <em>Custom  header</em>  ]  [  -<strong>C</strong> <em>Cookie</em>
-     <em>name</em>=<em>value</em> ] [ -<strong>T</strong> <em>content</em>-<em>type</em> ] [ -<strong>v</strong> <em>verbosity</em>  ]  ]  [  -<strong>w</strong>
-     <em>output HTML</em> ] ] [ -<strong>x</strong> &lt;<em>table</em>&gt; <em>attributes</em> ] ] [ -<strong>y</strong> &lt;<em>tr</em>&gt; <em>attri-</em>
-     <em>butes  </em>   ]     ]     [     -<strong>z  </strong>   &lt;<em>td</em>&gt;     <em>attributes  </em>   ]
+     <em>name</em>=<em>value</em> ] [ -<strong>T</strong> <em>content</em>-<em>type</em> ] [ -<strong>v</strong> <em>verbosity</em>  ]  [  -<strong>w</strong>
+     <em>output HTML</em> ] [ -<strong>x</strong> &lt;<em>table</em>&gt; <em>attributes</em> ] [ -<strong>X</strong> <em>proxy[:port]</em> ]
+     [ -<strong>y</strong> &lt;<em>tr</em>&gt; <em>attributes  </em>   ]   [     -<strong>z</strong>  &lt;<em>td</em>&gt;  <em>attributes  </em> ]
      [<em>http</em>://]<em>hostname</em>[:<em>port</em>]/<em>path</em>
 
      <strong>ab</strong> [ -<strong>V</strong> ] [ -<strong>h</strong> ]
@@ -71,7 +71,9 @@
      -<strong>p</strong> <em>POST file</em>
                  A file containing data  that  the  program  will
                  send  to  the  Apache  server  in  any HTTP POST
-                 requests.
+                 requests. The contents of the file  should  look
+                 like  <code>name=value&amp;something=other</code>,  with  special
+                 characters URL encoded.
 
      -<strong>A</strong> <em>Authorization username</em>:<em>password</em>
                  Supply Basic Authentication credentials  to  the
@@ -81,7 +83,7 @@
                  server needs it; that is, has sent a 401 Authen-
                  tication needed.
 
-     -<strong>p</strong> <em>Proxy</em>-<em>Authorization username</em>:<em>password</em>
+     -<strong>P</strong> <em>Proxy</em>-<em>Authorization username</em>:<em>password</em>
                  Supply Basic  Authentication  credentials  to  a
                  proxy  en-route.  The  username and password are
                  separated by a single ':', and sent as uuencoded
@@ -94,7 +96,7 @@
                  ment  is  typically  a  'name=value'  pair. This
                  option may be repeated.
 
-     -<strong>p</strong> <em>Header string</em>
+     -<strong>H</strong> <em>Header string</em>
                  Append extra headers to the request.  The  argu-
                  ment  is typically in the form of a valid header
                  line, usually  a  colon  separated  field  value
@@ -117,6 +119,10 @@
      -<strong>x</strong> <em>attributes</em>
                  The string to use  as  attributes  for  &lt;table&gt;.
                  Attributes are inserted &lt;table <strong>here</strong> &gt;
+
+     -<strong>X</strong> <em>proxy:port</em>
+                 Use the specified proxy server, running on the
+                 specified port.
 
      -<strong>y</strong> <em>attributes</em>
                  The string to use as attributes for &lt;tr&gt;.

@@ -173,7 +173,7 @@
 
     <blockquote>
 <pre>
-SetEnvIf User-Agent ^KnockKnock/2.0 let_me_in
+SetEnvIf User-Agent ^KnockKnock/2\.0 let_me_in
 &lt;Directory /docroot&gt;
     Order Deny,Allow
     Deny from all

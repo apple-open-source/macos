@@ -193,7 +193,7 @@
     <p><strong>Note:</strong> Redirect directives take precedence
     over Alias and ScriptAlias directives, irrespective of their
     ordering in the configuration file. Also, <em>URL-path</em>
-    must be an absolute path, not a relative path, even when used
+    must be a fully qualified URL, not a relative path, even when used
     with .htaccess files or inside of &lt;Directory&gt;
     sections.</p>
 

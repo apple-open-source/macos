@@ -7,7 +7,7 @@
 
     <title>Apache モジュール</title>
   </head>
-  <!-- English revision: 1.12 -->
+  <!-- English revision: 1.13 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
 
   <body bgcolor="#FFFFFF" text="#000000" link="#0000FF"
@@ -199,6 +199,10 @@
       <dt><a href="mod_log_config.html">mod_log_config</a></dt>
 
       <dd>mod_log_common の代わりとなるもので、ユーザが書式を設定できる</dd>
+
+      <dt><a href="mod_log_forensic.html">mod_log_forensic</a></dt>
+
+      <dd>サーバへのリクエストの forensic ログ収集</dd>
 
       <dt><a href="mod_log_agent.html">mod_log_agent</a></dt>
 

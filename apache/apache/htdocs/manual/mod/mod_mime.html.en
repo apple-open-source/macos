@@ -92,26 +92,24 @@
 
     <h2><a id="multipleext" name="multipleext">Files with Multiple
     Extensions</a></h2>
-    Files can have more than one extension, and the order of the
+    <p>Files can have more than one extension, and the order of the
     extensions is <em>normally</em> irrelevant. For example, if the
     file <code>welcome.html.fr</code> maps onto content type
-    text/html and language French then the file
-    <code>welcome.fr.html</code> will map onto exactly the same
-    information. The only exception to this is if an extension is
-    given which Apache does not know how to handle. In this case it
-    will "forget" about any information it obtained from extensions
-    to the left of the unknown extension. So, for example, if the
-    extensions fr and html are mapped to the appropriate language
-    and type but extension xxx is not assigned to anything, then
-    the file <code>welcome.fr.xxx.html</code> will be associated
-    with content-type text/html but <em>no</em> language. 
-
-    <p>If more than one extension is given which maps onto the same
+    <code>text/html</code> and language French then the file
+    <code>welcome.fr.html</code> will map onto exactly the same information.
+    If more than one extension is given which maps onto the same
     type of meta-information, then the one to the right will be
-    used. For example, if ".gif" maps to the MIME-type image/gif
-    and ".html" maps to the MIME-type text/html, then the file
-    <code>welcome.gif.html</code> will be associated with the
-    MIME-type "text/html".</p>
+    used, except for languages and content encodings. For example, if
+    <code>.gif</code> maps to the MIME-type <code>image/gif</code> and
+    <code>.html</code> maps to the MIME-type <code>text/html</code>, then the
+    file <code>welcome.gif.html</code> will be associated with the MIME-type
+    <code>text/html</code>.</p>
+
+    <p>Languages and content encodings are treated accumulative, because one
+    can assign more than one language or encoding to a particular resource.
+    For example, the file <code>welcome.html.en.de</code> will be delivered
+    with <code>Content-Language: en, de</code> and <code>Content-Type:
+    text/html</code>.</p>
 
     <p>Care should be taken when a file with multiple extensions
     gets associated with both a MIME-type and a handler. This will
@@ -314,7 +312,7 @@
     That is, for the case of:</p>
 <pre>
     AddLanguage en .en
-    AddLanguage en-uk .en
+    AddLanguage en-gb .en
     AddLanguage en-us .en
 </pre>
 

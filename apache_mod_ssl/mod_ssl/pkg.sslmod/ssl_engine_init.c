@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -348,14 +348,14 @@ void ssl_init_Engine(server_rec *s, pool *p)
 
     if (mc->szCryptoDevice != NULL) {
         if ((e = ENGINE_by_id(mc->szCryptoDevice)) == NULL) {
-            ssl_log(s, SSL_LOG_ERROR, "Init: Failed to load Crypto Device API `%s'",
+            ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR, "Init: Failed to load Crypto Device API `%s'",
                     mc->szCryptoDevice);
             ssl_die();
         }
         if (strEQ(mc->szCryptoDevice, "chil")) 
             ENGINE_ctrl(e, ENGINE_CTRL_CHIL_SET_FORKCHECK, 1, 0, 0);
         if (!ENGINE_set_default(e, ENGINE_METHOD_ALL)) {
-            ssl_log(s, SSL_LOG_ERROR, "Init: Failed to enable Crypto Device API `%s'",
+            ssl_log(s, SSL_LOG_ERROR|SSL_ADD_SSLERR, "Init: Failed to enable Crypto Device API `%s'",
                     mc->szCryptoDevice);
             ssl_die();
         }
@@ -601,6 +601,14 @@ void ssl_init_ConfigureServer(server_rec *s, pool *p, SSLSrvConfigRec *sc)
         SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
     else
         SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_SERVER);
+
+    /*
+     * Disallow a session from being resumed during a renegotiation,
+     * so that an acceptable cipher suite can be negotiated.
+     */
+#ifdef SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
+    SSL_CTX_set_options(ctx, SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION);
+#endif
 
     /*
      *  Configure callbacks for SSL context

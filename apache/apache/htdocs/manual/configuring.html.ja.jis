@@ -8,7 +8,7 @@
 
     <title>設定ファイル</title>
   </head>
-  <!-- English revision: 1.11 -->
+  <!-- English Revision: 1.12 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -251,7 +251,9 @@
     <p><code>.htaccess</code> ファイルに関する詳しい情報は
     <a href="http://apache-server.com/tutorials/ATusing-htaccess.html"
     >Using .htaccess Files with Apache</a> の Ken Coar's tutorial 
-    を参照してください。</p>
+    か Apache のドキュメンテーションにある <a
+    href="http://httpd.apache.org/docs/howto/htaccess.html">.htaccess
+    チュートリアル</a> を参照してください。</p>
         <hr />
 
     <h3 align="CENTER">Apache HTTP Server</h3>

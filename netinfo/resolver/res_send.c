@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_send.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_send.c,v 1.5 2003/05/20 23:04:49 majka Exp $";
+static const char rcsid[] = "$Id: res_send.c,v 1.5.134.1 2004/11/29 01:36:50 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /*
@@ -1034,7 +1034,7 @@ send_dg(res_state statp,
 	struct sockaddr_storage from;
 	ISC_SOCKLEN_T fromlen;
 #endif
-	int resplen, seconds, n, s;	
+	int resplen, seconds, ntry, n, s;	
 #ifdef MULTICAST
 	int multicast;
 #endif
@@ -1169,9 +1169,12 @@ send_dg(res_state statp,
 	 * Wait for reply.
 	 */
 #ifdef __APPLE__
-	seconds = BILLION / (statp->nscount * (statp->retry + 1));
-	seconds *= statp->retrans;
-	timeout = evConsTime(0, seconds);
+	ntry = statp->nscount * statp->retry;
+	seconds = statp->retrans / ntry;
+	timeout.tv_sec = seconds;
+	timeout.tv_nsec = ((statp->retrans - (seconds * ntry)) * 1000) / ntry;
+	timeout.tv_nsec *= 1000000;
+
 	now = evNowTime();
 	finish = evAddTime(now, timeout);
 #else

@@ -26,7 +26,7 @@
      server
 
 <strong>SYNOPSIS</strong>
-     <strong>rotatelogs</strong> <em>logfile rotationtime</em>
+     <strong>rotatelogs</strong> <em>logfile rotationtime</em> [ <em>offset</em> ]
 
 <strong>DESCRIPTION</strong>
      <strong>rotatelogs</strong> is a simple program for use in  conjunction  with
@@ -48,6 +48,12 @@
 
      <em>rotationtime</em>
           The rotation time in seconds.
+
+     <em>offset</em>
+          The number of minutes offset from UTC. If omitted, zero
+          is assumed and UTC is used.  For example, to use local
+          time in the zone UTC -5 hours, specify a value of -300
+          for this argument.
 
 <strong>SEE ALSO</strong>
      <strong>httpd(8)</strong>

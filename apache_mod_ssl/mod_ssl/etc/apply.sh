@@ -1,7 +1,7 @@
 #!/bin/sh
 ##
 ##  apply.sh -- Apply a patch
-##  Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2004 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
 #   parameters

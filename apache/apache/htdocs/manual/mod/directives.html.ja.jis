@@ -7,7 +7,7 @@
     <title>Apache ディレクティブ</title>
 
   </head>
-  <!-- English revision: 1.82 -->
+  <!-- English revision: 1.84 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -245,6 +245,8 @@
 
       <li><a href="core.html#ebcdickludge">EBCDICKludge</a></li>
 
+      <li><a href="core.html#enableexceptionhook">EnableExceptionHook</a></li>
+
       <li><a href="core.html#errordocument">ErrorDocument</a></li>
 
       <li><a href="mod_headers.html#errorheader">ErrorHeader</a></li>
@@ -276,6 +278,8 @@
       >&lt;FilesMatch&gt;</a></li>
 
       <li><a href="mod_mime.html#forcetype">ForceType</a></li>
+
+      <li><a href="mod_log_forensic.html#forensiclog">ForensicLog</a></li>
 
       <li><a href="core.html#group">Group</a></li>
 

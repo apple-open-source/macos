@@ -1,59 +1,16 @@
-/* ====================================================================
- * The Apache Software License, Version 1.1
+/* Copyright 1999-2004 The Apache Software Foundation
  *
- * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
- * reserved.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in
- *    the documentation and/or other materials provided with the
- *    distribution.
- *
- * 3. The end-user documentation included with the redistribution,
- *    if any, must include the following acknowledgment:
- *       "This product includes software developed by the
- *        Apache Software Foundation (http://www.apache.org/)."
- *    Alternately, this acknowledgment may appear in the software itself,
- *    if and wherever such third-party acknowledgments normally appear.
- *
- * 4. The names "Apache" and "Apache Software Foundation" must
- *    not be used to endorse or promote products derived from this
- *    software without prior written permission. For written
- *    permission, please contact apache@apache.org.
- *
- * 5. Products derived from this software may not be called "Apache",
- *    nor may "Apache" appear in their name, without prior written
- *    permission of the Apache Software Foundation.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED.  IN NO EVENT SHALL THE APACHE SOFTWARE FOUNDATION OR
- * ITS CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
- * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
- * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- * ====================================================================
- *
- * This software consists of voluntary contributions made by many
- * individuals on behalf of the Apache Software Foundation.  For more
- * information on the Apache Software Foundation, please see
- * <http://www.apache.org/>.
- *
- * Portions of this software are based upon public domain software
- * originally written at the National Center for Supercomputing Applications,
- * University of Illinois, Urbana-Champaign.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 /*
@@ -76,6 +33,7 @@
 #include "util_date.h"          /* For parseHTTPdate and BAD_DATE */
 #include <stdarg.h>
 #include "http_conf_globals.h"
+#include "util_md5.h"           /* For digestAuth */
 
 #define SET_BYTES_SENT(r) \
   do { if (r->sent_bodyct) \
@@ -303,7 +261,7 @@ API_EXPORT(int) ap_set_byterange(request_rec *r)
     if (!(range = ap_table_get(r->headers_in, "Range")))
         range = ap_table_get(r->headers_in, "Request-Range");
 
-    if (!range || strncasecmp(range, "bytes=", 6)) {
+    if (!range || strncasecmp(range, "bytes=", 6) || (r->status != HTTP_OK)) {
         return 0;
     }
     range += 6;
@@ -483,8 +441,20 @@ API_EXPORT(int) ap_set_keepalive(request_rec *r)
        ) {
         int left = r->server->keep_alive_max - r->connection->keepalives;
 
-        r->connection->keepalive = 1;
-        r->connection->keepalives++;
+	/*
+	 * ap_set_keepalive could be called multiple times (eg: in
+	 * ap_die() followed by ap_send_http_header()) during this
+	 * one single request. To ensure that we don't incorrectly
+	 * increment the keepalives counter for each call, we
+	 * assume that only here do we set keepalive. So if keepalive
+	 * is already set to 1, we must have already been here and
+	 * we should not increment the keepalives counter since we
+	 * already done so for this request.
+	 */
+        if (r->connection->keepalive != 1) {
+            r->connection->keepalive = 1;
+            r->connection->keepalives++;
+	}
 
         /* If they sent a Keep-Alive token, send one back */
         if (ka_sent) {
@@ -1019,7 +989,7 @@ static int read_request_line(request_rec *r)
      */
     ap_bsetflag(conn->client, B_SAFEREAD, 1);
     while ((len = ap_getline(l, sizeof(l), conn->client, 0)) <= 0) {
-        if ((len < 0) || ap_bgetflag(conn->client, B_EOF)) {
+        if ((len < 0) || ap_bgetflag(conn->client, B_EOF) || !conn->keepalives) {
             ap_bsetflag(conn->client, B_SAFEREAD, 0);
 	    /* this is a hack to make sure that request time is set,
 	     * it's not perfect, but it's better than nothing 
@@ -1391,11 +1361,25 @@ API_EXPORT(void) ap_note_basic_auth_failure(request_rec *r)
 
 API_EXPORT(void) ap_note_digest_auth_failure(request_rec *r)
 {
+    /* We need to create a nonce which:
+     * a) changes all the time (see r->request_time)
+     *    below and
+     * b) of which we can verify that it is our own
+     *    fairly easily when it comes to veryfing
+     *    the digest coming back in the response.
+     * c) and which as a whole should not
+     *    be unlikely to be in use anywhere else.
+     */
+    char * nonce_prefix = ap_md5(r->pool,
+           (unsigned char *)
+           ap_psprintf(r->pool, "%s%lu",
+                       ap_auth_nonce(r), r->request_time));
+
     ap_table_setn(r->err_headers_out,
 	    r->proxyreq == STD_PROXY ? "Proxy-Authenticate"
 		  : "WWW-Authenticate",
-	    ap_psprintf(r->pool, "Digest realm=\"%s\", nonce=\"%lu\"",
-		ap_auth_name(r), r->request_time));
+           ap_psprintf(r->pool, "Digest realm=\"%s\", nonce=\"%s%lu\"",
+               ap_auth_name(r), nonce_prefix, r->request_time));
 }
 
 API_EXPORT(int) ap_get_basic_auth_pw(request_rec *r, const char **pw)
@@ -2428,7 +2412,7 @@ API_EXPORT(long) ap_send_fb_length(BUFF *fb, request_rec *r, long length)
     long total_bytes_sent = 0;
     register int n, w, o, len, fd;
     fd_set fds;
-#ifdef TPF
+#ifdef TPF_HAVE_NONSOCKET_SELECT
     struct timeval tv;
 #endif 
 

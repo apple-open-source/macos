@@ -1,5 +1,20 @@
 #!/bin/sh
 #
+# Copyright 1999-2004 The Apache Software Foundation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
 # Simple OS/Platform guesser. Similar to config.guess but
 # much, much smaller. Since it was developed for use with
 # Apache, it follows under Apache's regular licensing
@@ -12,15 +27,10 @@
 # Be as similar to the output of config.guess/config.sub
 # as possible.
 
-# Handle TPF before handling other OSes.  This
-# is being done because TPF is sometimes compiled
-# on OS/390.  When that is the case, if we don't
-# handle TPF ahead of the other OSes, TPF will
-# fall into the OS/390 case and this script would
-# return an incorrect value for the platform.
-#
-# Apache is not compiled on the TPF platform
-# therefore an environment variable is used
+# Handle TPF before the other operating systems
+# since it's compiled on non-TPF platforms.
+# This keeps GuessOS from returning incorrect
+# uname values for TPF:
 if [ "x$TPF" = "xYES" ]; then
     echo "TPF"
     exit 0	

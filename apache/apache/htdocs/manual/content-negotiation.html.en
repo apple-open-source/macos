@@ -124,7 +124,10 @@
     Blank lines are illegal within an entry. It is conventional to
     begin a map file with an entry for the combined entity as a
     whole (although this is not required, and if present will be
-    ignored). An example map file is:</p>
+    ignored). An example map file is shown below. In this example, the
+    file would be named <code>foo.var</code> and would be placed in the
+    same directory with the various variants of the resource
+    <code>foo</code>.</p>
 <pre>
   URI: foo
 
@@ -508,7 +511,7 @@
     <ul>
       <li>foo.en.html, language en</li>
 
-      <li>foo.fr.html, language en</li>
+      <li>foo.fr.html, language fr</li>
 
       <li>foo.html, no language</li>
     </ul>

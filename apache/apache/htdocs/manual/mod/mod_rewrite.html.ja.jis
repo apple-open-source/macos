@@ -9,7 +9,7 @@
 
     <title>Apache module mod_rewrite</title>
   </head>
-  <!-- English revision: 1.64 -->
+  <!-- English revision: 1.65 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
 
   <body bgcolor="#FFFFFF" text="#000000" link="#0000FF"
@@ -1843,20 +1843,6 @@ RewriteRule  ^/$                 /homepage.std.html  [L]
           このフラグを指定する必要があります。</strong>典型的な例としては、
           <code>mod_alias</code> と <code>mod_rewrite</code>
           の同時使用です。</p>
-          <table width="70%" border="0" bgcolor="#E0E0F0"
-          cellspacing="0" cellpadding="10">
-            <tr>
-              <td><font size="-1"><strong>注意 - Apache ハッカーへ:
-            </strong><br />
-            現在の Apache API に URI-to-filename フックに加えて
-            filename-to-filename フックがあれば、
-            このフラグを使う必要はないのです! 
-            しかしこのようなフックがない現在、
-            このフラグが唯一の解決策となります。Apache
-            グループはこの問題について議論しており、Apache バージョン
-            2.0 にはそのようなフックが追加されることでしょう。</font> </td>
-            </tr>
-          </table>
         </li>
 
         <li>'<strong><code>skip|S</code></strong>=<em>num</em>'

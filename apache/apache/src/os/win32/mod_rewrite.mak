@@ -101,7 +101,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\mod_rewrite.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_rewrite.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_rewrite.so" /implib:"$(OUTDIR)\mod_rewrite.lib" /base:@"BaseAddr.ref",mod_rewrite /opt:ref 
+LINK32_FLAGS=kernel32.lib ws2_32.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_rewrite.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_rewrite.so" /implib:"$(OUTDIR)\mod_rewrite.lib" /base:@"BaseAddr.ref",mod_rewrite /opt:ref 
 LINK32_OBJS= \
 	"$(INTDIR)\mod_rewrite.obj" \
 	"$(INTDIR)\passwd.obj" \
@@ -188,7 +188,7 @@ BSC32_FLAGS=/nologo /o"$(OUTDIR)\mod_rewrite.bsc"
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=kernel32.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_rewrite.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_rewrite.so" /implib:"$(OUTDIR)\mod_rewrite.lib" /base:@"BaseAddr.ref",mod_rewrite 
+LINK32_FLAGS=kernel32.lib ws2_32.lib /nologo /subsystem:windows /dll /incremental:no /pdb:"$(OUTDIR)\mod_rewrite.pdb" /debug /machine:I386 /out:"$(OUTDIR)\mod_rewrite.so" /implib:"$(OUTDIR)\mod_rewrite.lib" /base:@"BaseAddr.ref",mod_rewrite 
 LINK32_OBJS= \
 	"$(INTDIR)\mod_rewrite.obj" \
 	"$(INTDIR)\passwd.obj" \
@@ -216,24 +216,24 @@ LINK32_OBJS= \
 !IF  "$(CFG)" == "mod_rewrite - Win32 Release"
 
 "ApacheCore - Win32 Release" : 
-   cd "..\../..\src"
+   cd ".\..\.."
    $(MAKE) /$(MAKEFLAGS) /F ".\ApacheCore.mak" CFG="ApacheCore - Win32 Release" 
    cd ".\os\win32"
 
 "ApacheCore - Win32 ReleaseCLEAN" : 
-   cd "..\../..\src"
+   cd ".\..\.."
    $(MAKE) /$(MAKEFLAGS) /F ".\ApacheCore.mak" CFG="ApacheCore - Win32 Release" RECURSE=1 CLEAN 
    cd ".\os\win32"
 
 !ELSEIF  "$(CFG)" == "mod_rewrite - Win32 Debug"
 
 "ApacheCore - Win32 Debug" : 
-   cd "..\../..\src"
+   cd ".\..\.."
    $(MAKE) /$(MAKEFLAGS) /F ".\ApacheCore.mak" CFG="ApacheCore - Win32 Debug" 
    cd ".\os\win32"
 
 "ApacheCore - Win32 DebugCLEAN" : 
-   cd "..\../..\src"
+   cd ".\..\.."
    $(MAKE) /$(MAKEFLAGS) /F ".\ApacheCore.mak" CFG="ApacheCore - Win32 Debug" RECURSE=1 CLEAN 
    cd ".\os\win32"
 

@@ -5,7 +5,7 @@
   <head>
     <title>Apache Content Negotiation</title>
   </head>
-  <!-- English revision: 1.29 -->
+  <!-- English Revision: 1.31 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -128,7 +128,9 @@
     マップファイルは全体のエンティティをくっつけた形で始めるのが
     習慣となっています
     (これは要求されているわけではなく、もしあった場合は無視されます)。
-    たとえば、マップファイルはこのようになります:</p>
+    たとえば、マップファイルは次のようになります。この例では、
+    ファイルの名前は <code>foo.var</code> で、リソース <code>foo</code>
+    のいろいろな variant があるディレクトリに配置されることになります。</p>
 <pre>
   URI: foo
 
@@ -508,7 +510,7 @@
     <ul>
     <li>foo.en.html, language en</li>
 
-    <li>foo.fr.html, language en</li>
+    <li>foo.fr.html, language fr</li>
 
     <li>foo.html, no language</li>
     </ul>

@@ -7,7 +7,7 @@
     <title>Apache module mod_setenvif</title>
 
   </head>
-  <!-- English revision: 1.19 -->
+  <!-- English revision: 1.20 -->
   <!-- Background white, links blue (unvisited), navy (visited), red (active) -->
   <body bgcolor="#ffffff" text="#000000" link="#0000ff"
   vlink="#000080" alink="#ff0000">
@@ -233,9 +233,6 @@
 
       <li><samp>Remote_Addr</samp> -
       リクエストを行なっているクライアントの IP アドレス</li>
-
-      <li><samp>Remote_User</samp> -
-      認証されたユーザ名 (もしあれば)</li>
 
       <li><samp>Request_Method</samp> -
       使用されているメソッド名 (<samp>GET</samp>, <samp>POST</samp>

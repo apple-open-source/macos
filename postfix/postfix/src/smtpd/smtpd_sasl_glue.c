@@ -87,6 +87,7 @@
 #include <syslog.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/time.h>   // for gettimeofday()
 
 /* Utility library. */
 
@@ -620,6 +621,58 @@ static	gss_cred_id_t	stCredentials;
 #include <sys/param.h>
 
 /* -----------------------------------------------------------------
+	- get_random_chars
+   ----------------------------------------------------------------- */
+
+void get_random_chars ( char *out_buf, int in_len )
+{
+    int					count = 0;
+    int					file;
+	unsigned long long	microseconds = 0ULL;
+	struct timeval		tv;
+	struct timezone		tz;
+    
+    memset( out_buf, 0, in_len );
+
+	/* try to open /dev/urandom */
+    file = open( "/dev/urandom", O_RDONLY, 0 );
+    if ( file == -1 )
+	{
+		syslog( LOG_ERR, "Cannot open /dev/urandom" );
+
+		/* try to open /dev/random */
+		file = open( "/dev/random", O_RDONLY, 0 );
+	}
+
+    if ( file == -1 )
+    {
+		syslog( LOG_ERR, "Cannot open /dev/random" );
+
+		gettimeofday( &tv, &tz );
+
+		microseconds = (unsigned long long)tv.tv_sec;
+		microseconds *= 1000000ULL;
+		microseconds += (unsigned long long)tv.tv_usec;
+
+		snprintf( out_buf, in_len, "%llu", microseconds );
+    }
+	else
+	{
+		/* make sure the chars are printable */
+		while ( count < (in_len - 1) )
+		{
+			read( file, &out_buf[ count ], 1 );
+			if ( isalnum( out_buf[ count ] ) )
+			{
+				count++;
+			}
+		}
+		close( file );
+	}
+} /* get_random_chars */
+
+
+/* -----------------------------------------------------------------
 	- smtpd_pw_server_authenticate
    ----------------------------------------------------------------- */
 
@@ -637,6 +690,7 @@ char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
 	char		passwd[ MAX_USER_BUF_SIZE ];
 	char		chal[ MAX_CHAL_BUF_SIZE ];
 	char		resp[ MAX_IO_BUF_SIZE ];
+	char		randbuf[ 17 ];
 
 	/*** Sanity check ***/
     if ( state->sasl_username || state->sasl_method )
@@ -764,7 +818,15 @@ char *smtpd_pw_server_authenticate (	SMTPD_STATE *state,
 
 		/* create the challenge */
 		host_name = (const char *)get_hostname();
-		sprintf( chal,"<%lu.%lu@%s>",(unsigned long) getpid(), (unsigned long)time(0), host_name );
+
+		/* get random data string */
+		get_random_chars( randbuf, 17 );
+
+		sprintf( chal,"<%lu.%s.%lu@%s>",
+				 (unsigned long) getpid(),
+				 randbuf,
+				 (unsigned long)time(0),
+				 host_name );
 
 		/* encode the challenge and send it */
 		sEncodeBase64( chal, strlen( chal ), resp, MAX_IO_BUF_SIZE );

@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -333,6 +333,12 @@ void ssl_hook_NewConnection(conn_rec *conn)
                 ap_set_callback_and_alarm(NULL, 0);
                 ap_ctx_set(ap_global_ctx, "ssl::handshake::timeout", (void *)FALSE);
                 return;
+            }
+            else if (   (SSL_get_error(ssl, rc) == SSL_ERROR_WANT_READ  && BIO_should_retry(SSL_get_rbio(ssl)))
+                     || (SSL_get_error(ssl, rc) == SSL_ERROR_WANT_WRITE && BIO_should_retry(SSL_get_wbio(ssl)))) {
+                ssl_log(srvr, SSL_LOG_TRACE, "SSL handshake I/O retry (server %s, client %s)",
+                        cpVHostID, conn->remote_ip != NULL ? conn->remote_ip : "unknown");
+                continue;
             }
             else {
                 /*
@@ -666,7 +672,7 @@ int ssl_hook_Access(request_rec *r)
     X509_STORE_CTX certstorectx;
     int depth;
     STACK_OF(SSL_CIPHER) *skCipherOld;
-    STACK_OF(SSL_CIPHER) *skCipher;
+    STACK_OF(SSL_CIPHER) *skCipher = NULL;
     SSL_CIPHER *pCipher;
     ap_ctx *apctx;
     int nVerifyOld;
@@ -1061,6 +1067,20 @@ int ssl_hook_Access(request_rec *r)
             if (cert != NULL)
                 X509_free(cert);
         }
+
+        /*
+         * Also check that SSLCipherSuite has been enforced as expected
+         */
+        if (skCipher != NULL) {
+            pCipher = SSL_get_current_cipher(ssl);
+            if (sk_SSL_CIPHER_find(skCipher, pCipher) < 0) {
+                ssl_log(r->server, SSL_LOG_ERROR,
+                        "SSL cipher suite not renegotiated: "
+                        "access to %s denied using cipher %s",
+                        r->filename, SSL_CIPHER_get_name(pCipher));
+                return FORBIDDEN;
+            }
+        }
     }
 
     /*
@@ -1139,7 +1159,6 @@ int ssl_hook_Auth(request_rec *r)
 {
     SSLSrvConfigRec *sc = mySrvConfig(r->server);
     SSLDirConfigRec *dc = myDirConfig(r);
-    char b1[MAX_STRING_LEN], b2[MAX_STRING_LEN];
     char *clientdn;
     const char *cpAL;
     const char *cpUN;
@@ -1200,12 +1219,11 @@ int ssl_hook_Auth(request_rec *r)
      * adding the string "xxj31ZMTZzkVA" as the password in the user file.
      * This is just the crypted variant of the word "password" ;-)
      */
-    ap_snprintf(b1, sizeof(b1), "%s:password", clientdn);
-    ssl_util_uuencode(b2, b1, FALSE);
-    ap_snprintf(b1, sizeof(b1), "Basic %s", b2);
-    ap_table_set(r->headers_in, "Authorization", b1);
+    cpAL = ap_pstrcat(r->pool, "Basic ", ap_pbase64encode(r->pool,
+        ap_pstrcat(r->pool, clientdn, ":password", NULL)), NULL);
+    ap_table_set(r->headers_in, "Authorization", cpAL);
     ssl_log(r->server, SSL_LOG_INFO,
-            "Faking HTTP Basic Auth header: \"Authorization: %s\"", b1);
+            "Faking HTTP Basic Auth header: \"Authorization: %s\"", cpAL);
 
     return DECLINED;
 }
@@ -1789,10 +1807,10 @@ int ssl_callback_NewSessionCacheEntry(SSL *ssl, SSL_SESSION *pNew)
      * Log this cache operation
      */
     ssl_log(s, SSL_LOG_TRACE, "Inter-Process Session Cache: "
-            "request=SET status=%s id=%s timeout=%ds (session caching)",
+            "request=SET status=%s id=%s timeout=%lds (session caching)",
             rc == TRUE ? "OK" : "BAD",
             SSL_SESSION_id2sz(pNew->session_id, pNew->session_id_length),
-            t-time(NULL));
+            (long)(t-time(NULL)));
 
     /*
      * return 0 which means to OpenSSL that the pNew is still

@@ -1,4 +1,4 @@
-# Mac OS X 10.3.6
+# Mac OS X 10.3.7
 Apple16X50Serial	16
 Apple3Com3C90x	7
 AppleADBButtons	250.0.1
@@ -48,11 +48,11 @@ AppleVIA	1.3
 BerkeleyDB	6
 BootCache	17.5.4
 BootX	59.1.1
-CF	299.32
+CF	299.33
 CMD646ATA	107.3.1
 CoreOSMakefiles	22
 Csu	46
-CyrusIMAP	125.5
+CyrusIMAP	125.6
 DSAgent	32.1
 DSNISPlugin	13
 DSNSLPlugins	79.5
@@ -80,7 +80,7 @@ IOKitUser	182
 IONetworkingFamily	15.3
 IOPCCardFamily	38
 IOPCIFamily	21
-IOSCSIArchitectureModelFamily	137.3.5
+IOSCSIArchitectureModelFamily	138.3.1
 IOSCSIParallelFamily	137.3.2
 IOSerialFamily	20
 IOStorageFamily	44.4
@@ -117,18 +117,18 @@ SmartCardServices	15.1
 SquirrelMail	12.1
 Startup	177.7
 UserNotification	15
-WebCore	125.8.10
+WebCore	125.8.12
 X11	0.30.4
 adv_cmds	63
 am_utils	8
-apache	671
-apache2	15
+apache	678
+apache2	17
 apache_mod_dav	9
 apache_mod_hfs_apple	5
 apache_mod_perl	5
 apache_mod_php	12
 apache_mod_rendezvous_apple	8
-apache_mod_ssl	15
+apache_mod_ssl	678
 architecture	237
 at_cmds	46
 autoconf	11
@@ -216,7 +216,7 @@ msdosfs	48
 ncurses	8.1
 net_snmp	10
 netcat	4
-netinfo	324.7
+netinfo	324.9
 network_cmds	176.3.5
 ntfs	8.1
 ntp	16
@@ -229,7 +229,7 @@ pb_makefiles	118
 pbx_jamfiles	237
 perl	25.2
 portmap	10
-postfix	132.1
+postfix	132.2
 ppp	144.3
 procmail	4
 project_makefiles	125
@@ -258,7 +258,7 @@ vim	10
 volfs	24
 webdavfs	148.5
 xinetd	26.4
-xnu	517.9.4
+xnu	517.9.5
 yacc	6
 zlib	12
 zsh	34

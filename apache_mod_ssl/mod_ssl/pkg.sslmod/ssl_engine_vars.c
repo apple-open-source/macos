@@ -9,7 +9,7 @@
 */
 
 /* ====================================================================
- * Copyright (c) 1998-2003 Ralf S. Engelschall. All rights reserved.
+ * Copyright (c) 1998-2004 Ralf S. Engelschall. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -300,8 +300,9 @@ static char *ssl_var_lookup_ssl(pool *p, conn_rec *c, char *var)
     }
     else if (ssl != NULL && strcEQ(var, "SESSION_ID")) {
         SSL_SESSION *pSession = SSL_get_session(ssl);
-        result = ap_pstrdup(p, SSL_SESSION_id2sz(pSession->session_id, 
-                                                 pSession->session_id_length));
+        if (pSession != NULL)
+            result = ap_pstrdup(p, SSL_SESSION_id2sz(pSession->session_id,
+                                                     pSession->session_id_length));
     }
     else if (ssl != NULL && strlen(var) >= 6 && strcEQn(var, "CIPHER", 6)) {
         result = ssl_var_lookup_ssl_cipher(p, c, var+6);

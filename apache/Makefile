@@ -14,6 +14,58 @@ GnuAfterInstall = install-local
 # Well, not really but we can make it work.
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 1.3.33
+AEP_ProjVers   = $(AEP_Project)_$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = NLS_current_apache.patch
+
+#mod_ssl
+mod_ssl_Project = apache_mod_ssl
+AEP_mod_ssl_Project = mod_ssl
+AEP_mod_ssl_Version = 2.8.22
+AEP_mod_ssl_ProjVers   = $(AEP_mod_ssl_Project)-$(AEP_mod_ssl_Version)-$(AEP_Version)
+AEP_mod_ssl_Filename   = $(AEP_mod_ssl_ProjVers).tar.gz
+AEP_mod_ssl_ExtractDir = $(AEP_mod_ssl_ProjVers)
+AEP_mod_ssl_Patches    = NLS_mod_ssl_curent.patch
+
+
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	
+	#apache stage	
+
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(AEP_Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+	done
+
+	#mod_ssl stage
+
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(mod_ssl_Project)/$(AEP_mod_ssl_Filename)
+	$(RMDIR) $(SRCROOT)/$(AEP_mod_ssl_Project)
+	$(MV) $(SRCROOT)/$(AEP_mod_ssl_ExtractDir) $(SRCROOT)/$(AEP_mod_ssl_Project)
+	for patchfile in $(AEP_mod_ssl_Patches); do \
+		cd $(SRCROOT)/$(AEP_mod_ssl_Project) && patch -p0 < $(SRCROOT)/$(mod_ssl_Project)/$(AEP_mod_ssl_Project)_patches/$$patchfile; \
+	done
+	$(RMDIR) $(SRCROOT)/$(mod_ssl_Project)
+	
+endif
+
+
 # Ignore RC_CFLAGS
 Extra_CC_Flags = -DHARD_SERVER_LIMIT=2048
 
@@ -125,6 +177,7 @@ External_Modules = dav:libdav	\
 # - Edit the configuration defaults as needed.
 # - Remove -arch foo flags from apxs since module writers may not build
 #   for the same architectures(s) as we do.
+# - Install manpage for checkgid(1).
 ##
 
 APXS_DST = $(DSTROOT)$(USRSBINDIR)/apxs
@@ -220,3 +273,5 @@ install-local:
 	$(_v) perl -i -pe 's|/var/log/httpd/httpd.pid|/var/run/httpd.pid|'			$(DSTROOT)/usr/share/man/man8/httpd.8
 	$(_v) rm $(DSTROOT)/Library/WebServer/CGI-Executables/printenv
 	$(_v) rm $(DSTROOT)/Library/WebServer/CGI-Executables/test-cgi
+	$(_v) $(INSTALL_FILE) $(SRCROOT)/checkgid.1 \
+		$(DSTROOT)/usr/share/man/man1

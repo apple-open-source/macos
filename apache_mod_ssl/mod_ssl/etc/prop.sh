@@ -1,7 +1,7 @@
 #!/bin/sh
 ##
 ##  prop.sh -- process indication though a propeller
-##  Copyright (c) 1998 Ralf S. Engelschall, All Rights Reserved. 
+##  Copyright (c) 1998-2004 Ralf S. Engelschall, All Rights Reserved. 
 ##
 
 line="$*"
