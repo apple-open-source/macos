@@ -357,6 +357,8 @@ linklocal_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      goto stop;
 	  }
 	  linklocal->allocate = TRUE;
+	  /* ARP probes count as collisions for link-local address allocation */
+	  arp_client_set_probes_are_collisions(linklocal->arp, TRUE);
 	  if (ipcfg != NULL && ipcfg->reserved_0 == TRUE) {
 	      /* don't allocate an IP address, just set the subnet */
 	      linklocal->allocate = FALSE;

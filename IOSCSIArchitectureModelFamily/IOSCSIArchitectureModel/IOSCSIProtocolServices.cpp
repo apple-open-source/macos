@@ -29,6 +29,7 @@
 // Libkern includes
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
+#include <libkern/c++/OSDictionary.h>
 
 // General IOKit includes
 #include <IOKit/IOWorkLoop.h>
@@ -36,11 +37,13 @@
 
 // SCSI Architecture Model Family includes
 #include "IOSCSIProtocolServices.h"
-#include <IOKit/scsi/IOSCSITargetDevice.h>
+#include "IOSCSITargetDevice.h"
 
 #include "SCSITaskDefinition.h"
 
-#define fSemaphore	fIOSCSIProtocolServicesReserved->fSemaphore
+#define fSemaphore						fIOSCSIProtocolServicesReserved->fSemaphore
+#define fRequiresAutosenseDescriptor	fIOSCSIProtocolServicesReserved->fRequiresAutosenseDescriptor
+#define fCompletionRoutine				fIOSCSIProtocolServicesReserved->fCompletionRoutine
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -156,10 +159,26 @@ IOSCSIProtocolServices::start ( IOService * provider )
 		OSDictionary *	protocolDict 	= NULL;
 		
 		protocolDict = OSDictionary::withDictionary ( dict );
+		
+		// See if this object has a protocol dictionary already. If so, merge those properties
+		// with this one and set the new dictionary in the registry.
+		dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+		if ( dict != NULL )
+		{
+			protocolDict->merge ( dict );
+		}
+		
 		setProperty ( kIOPropertyProtocolCharacteristicsKey, protocolDict );
 		protocolDict->release ( );
 		
 	}	
+	
+	// If the protocol layer driver always reports autosense, no need to allocate
+	// memory descriptor for it in the SCSITask object. This saves us a lot of
+	// cycles and improves I/Os per second.
+	fRequiresAutosenseDescriptor = !IsProtocolServiceSupported (
+										kSCSIProtocolFeature_ProtocolAlwaysReportsAutosenseData,
+										NULL );
 	
 	result = true;
 	
@@ -856,6 +875,23 @@ IOSCSIProtocolServices::GetTaskExecutionMode ( SCSITaskIdentifier request )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ EnsureAutosenseDescriptorExists - Ensures autosense descriptor is allocated
+// for this task on the data path.									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolServices::EnsureAutosenseDescriptorExists ( SCSITaskIdentifier request )
+{
+	
+	SCSITask *		scsiRequest;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	return scsiRequest->EnsureAutosenseDescriptorExists ( );
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ SCSI Task Queue Management
@@ -937,10 +973,13 @@ IOSCSIProtocolServices::AddSCSITaskToHeadOfQueue ( SCSITask * request )
 	// this task to the queue head.
 	if ( fSCSITaskQueueHead == NULL )
 	{
+		
 		// Make sure that the new request does not have a following task.
 		request->EnqueueFollowingSCSITask ( fSCSITaskQueueHead );
 		fSCSITaskQueueHead = request;
+		
 	}
+	
 	// Ensure autosense gets to the very front of the queue, even if there
 	// are other tasks which are marked HEAD_OF_QUEUE. Also, if there aren't
 	// any autosense commands at the front of the queue, just enqueue it
@@ -954,6 +993,7 @@ IOSCSIProtocolServices::AddSCSITaskToHeadOfQueue ( SCSITask * request )
 		fSCSITaskQueueHead = request;
 		
 	}
+	
 	else
 	{
 		
@@ -1260,8 +1300,25 @@ IOSCSIProtocolServices::ProcessCompletedTask (
 	// The command is complete, release the retain for this command.
 	release ( );	
 	
-	// The task has completed, execute the callback.
-	scsiRequest->TaskCompletedNotification ( );
+	// The task has completed, execute the callback. If a particular driver
+	// has registered a callback routine (e.g. IOSCSITargetDevice), completion
+	// chain to it so it can do its thing. It is responsible for completing
+	// the I/O request completely.
+	if ( fCompletionRoutine != NULL )
+	{
+		
+		// Call the completion routine.
+		fCompletionRoutine ( scsiRequest );
+		
+	}
+	
+	else
+	{
+		
+		// Call the internal completion routine for the task.
+		scsiRequest->TaskCompletedNotification ( );
+		
+	}
 	
 }
 
@@ -1288,7 +1345,26 @@ IOSCSIProtocolServices::RejectTask ( SCSITaskIdentifier request )
 	
 	// The command is complete, release the retain for this command.
 	release ( );
-	scsiRequest->TaskCompletedNotification ( );
+	
+	// The task has completed, execute the callback. If a particular driver
+	// has registered a callback routine (e.g. IOSCSITargetDevice), completion
+	// chain to it so it can do its thing. It is responsible for completing
+	// the I/O request completely.
+	if ( fCompletionRoutine != NULL )
+	{
+		
+		// Call the completion routine.
+		fCompletionRoutine ( scsiRequest );
+		
+	}
+	
+	else
+	{
+		
+		// Call the internal completion routine for the task.
+		scsiRequest->TaskCompletedNotification ( );
+		
+	}
 	
 }
 
@@ -1298,6 +1374,22 @@ IOSCSIProtocolServices::RejectTask ( SCSITaskIdentifier request )
 #pragma mark ¥ Provided Services to the SCSI Protocol Layer Subclasses
 #pragma mark -
 #endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RegisterSCSITaskCompletionRoutine - Registers a completion routine to
+//										  be called instead of task's completion
+//										  routine.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIProtocolServices::RegisterSCSITaskCompletionRoutine (
+									SCSITaskCompletion completion )
+{
+	
+	fCompletionRoutine = completion;
+	
+}
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -1343,55 +1435,7 @@ IOSCSIProtocolServices::CommandCompleted ( 	SCSITaskIdentifier 	request,
 bool
 IOSCSIProtocolServices::CreateSCSITargetDevice ( void )
 {
-	
-	IOSCSITargetDevice *	newDevice = NULL;
-	
-	// Create the IOSCSIParallelInterfaceDevice object
-	newDevice = OSTypeAlloc ( IOSCSITargetDevice );
-	if ( newDevice == NULL )
-	{
-		
-		// The device could not be created, let the caller know.
-		return false;
-		
-	}
-	
-	// Attach the device
-	if ( newDevice->init ( 0 ) == false )
-	{
-		goto ATTACH_FAILED_EXIT;
-	}
-	
-	if ( newDevice->attach ( this ) == false )
-	{
-		goto ATTACH_FAILED_EXIT;
-	}
-	
-	if ( newDevice->start ( this ) == false )
-	{
-		goto START_FAILED_EXIT;
-	}
-	
-	newDevice->release ( );
-	
-	// The SCSI Target Device was successfully created.
-	return true;
-	
-	
-START_FAILED_EXIT:
-	
-	
-	// Detach the target device
-	newDevice->detach ( this );
-	
-	
-ATTACH_FAILED_EXIT:	
-	
-	// The device can now be destroyed.
-	newDevice->release ( );
-	
-	return false;
-	
+	return IOSCSITargetDevice::Create ( this );
 }
 
 
@@ -1434,6 +1478,12 @@ IOSCSIProtocolServices::ExecuteCommand ( SCSITaskIdentifier request )
 	
 	// Set the execution mode to indicate standard command execution.
 	SetTaskExecutionMode ( request, kSCSITaskMode_CommandExecution );
+	
+	// Set whether autosense buffer should be allocated or not.
+	if ( fRequiresAutosenseDescriptor == true )
+	{
+		EnsureAutosenseDescriptorExists ( request );
+	}
 	
 	// Add the new request to the queue
 	AddSCSITaskToQueue ( request );

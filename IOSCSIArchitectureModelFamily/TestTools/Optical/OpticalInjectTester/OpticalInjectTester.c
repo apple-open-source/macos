@@ -39,7 +39,6 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #include <stdio.h>
-#include <mach/mach_error.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOReturn.h>
@@ -50,7 +49,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG 0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "OpticalInjectTester"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -92,6 +94,8 @@ DebugAssert ( const char *	componentNameString,
 		printf ( "	 error: %d\n", errorCode );
 	
 }
+
+#endif	/* DEBUG */
 
 #include <AssertMacros.h>
 
@@ -139,7 +143,6 @@ main ( int argc, const char * argv[] )
 		
 		else
 		{
-			printf ( "%s", mach_error_string ( err ) );
 			printf ( "Error = 0x%08x occurred\n", err );
 		}
 		

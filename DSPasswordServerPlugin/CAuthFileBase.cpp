@@ -998,12 +998,12 @@ CAuthFileBase::expandDatabase( unsigned long inNumSlots, long *outSlot )
 			}
 			
 			writeCount = fwrite( &pwFileHeader, sizeof(PWFileHeader), 1, pwFile );
-			if ( writeCount != 1 )
-			{
+			if ( writeCount == 1 )
+				fflush( pwFile );
+			else
 				err = -1;
 			}
 		}
-	}
 	
 	pwSignal();
 	
@@ -1470,7 +1470,9 @@ CAuthFileBase::setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfus
                 if ( obfuscate )
 					fUtils.DESDecode(kFixedDESKey, passwordRec->passwordStr, encodeLen);
 				
-                if ( writeCount != 1 )
+                if ( writeCount == 1 )
+					fflush( pwFile );
+				else
                     err = -1;
             }
             

@@ -90,6 +90,7 @@ private:
 	typedef volatile MPICTimers *MPICTimersPtr;
 
 	struct KeyLargoMPICState {
+        UInt32			mpicGlobal0;
 		UInt32 			mpicIPI[kKeyLargoMPICIPICount];
 		UInt32 			mpicSpuriousVector;
 		UInt32 			mpicTimerFrequencyReporting;

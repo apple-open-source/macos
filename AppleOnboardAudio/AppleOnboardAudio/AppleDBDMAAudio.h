@@ -34,7 +34,7 @@ class IOFilterInterruptEventSource;
 // minimum safety offset, 16 when no iSub, and 45 when iSub is attached
 //#define kMinimumLatency			16
 #define kMinimumLatency			45
-#define kMinimumLatencyiSub		45
+#define kMinimumLatencyiSub		97
 
 #define kChannels				"Channels"
 #define kBitDepth				"BitDepth"
@@ -53,9 +53,20 @@ typedef enum {
 	kGetDMAInputChannelCommands,
 	kGetDMAOutputChannelCommands,
 	kGetInputChannelRegisters,
-	kGetOutputChannelRegisters
+	kGetOutputChannelRegisters,
+	kSetInputChannelRegisters,
+	kSetOutputChannelRegisters,
+	kGetDMAInputCommands_0,
+	kGetDMAInputCommands_1,
+	kGetDMAOutputCommands_0,
+	kGetDMAOutputCommands_1,
+	kSetDMAStateAndFormat
 } DMA_STATE_SELECTOR;
 
+
+enum {
+	kDMA_FLAG_useSoftwareOutputVolume			=   0			//  bit address of field set to '1' if driver uses software volume controls
+};
 
 typedef struct DBDMAUserClientState_t {
 	UInt32		dmaRunState;									// is DMA running flag
@@ -77,18 +88,18 @@ typedef struct DBDMAUserClientState_t {
 	UInt32		dmaInterruptCount;
 	UInt32		dmaFrozenInterruptCount;
 	UInt32		dmaRecoveryInProcess;
-	UInt32		reserved_19;
-	UInt32		reserved_20;
-	UInt32		reserved_21;
-	UInt32		reserved_22;
-	UInt32		reserved_23;
-	UInt32		reserved_24;
-	UInt32		reserved_25;
-	UInt32		reserved_26;
-	UInt32		reserved_27;
-	UInt32		reserved_28;
-	UInt32		reserved_29;
-	UInt32		reserved_30;
+	UInt32		dmaStalledCount;
+	UInt32		dmaHwDiedCount;
+	UInt32		interruptActionCount;
+	UInt32		hasInput;
+	UInt32		hasOutput;
+	float		inputGainL;
+	float		inputGainR;
+	UInt32		dmaFlags;
+	float		softwareOutputLeftVolume;
+	float		softwareOutputRightVolume;
+	SInt32		softwareOutputMinimumVolume;
+	SInt32		softwareOutputMaximumVolume;
 	UInt32		reserved_31;
 } DBDMAUserClientStruct, *DBDMAUserClientStructPtr;
 
@@ -100,6 +111,7 @@ typedef struct UCIODBDMAChannelCommands UCIODBDMAChannelCommands;
 typedef UCIODBDMAChannelCommands * UCIODBDMAChannelCommandsPtr;
 
 class AppleiSubEngine;
+class AudioHardwareObjectInterface;
 
 class AppleDBDMAAudio : public IOAudioEngine
 {
@@ -172,13 +184,17 @@ public:
 	void				updateDSPForSampleRate (UInt32 inSampleRate);
 	
 	IOReturn			copyDMAStateAndFormat (DBDMAUserClientStructPtr outState);
+	IOReturn			setDMAStateAndFormat ( DBDMAUserClientStructPtr inState );
 	IOReturn			copyInputChannelCommands ( void * inputChannelCommands );
 	IOReturn			copyOutputChannelCommands ( void * outputChannelCommands );
 	IOReturn			copyInputChannelRegisters (void * outState);
 	IOReturn			copyOutputChannelRegisters (void * outState);
+	IOReturn			setInputChannelRegisters (void * inState);
+	IOReturn			setOutputChannelRegisters (void * inState);
+
 
 #ifdef _TIME_CLIP_ROUTINE
-	UInt64				getTotalNanos () { return mTotalNanos; }
+	UInt64				getTotalNanos () { return mCurrentTotalNanos; }
 #endif	
     static const int 	kDBDMADeviceIndex;
     static const int 	kDBDMAOutputIndex;
@@ -219,6 +235,9 @@ protected:
 	UInt32							mLastDmaInterruptCount;
 	UInt32							mNumberOfFrozenDmaInterruptCounts;
 	Boolean							mDmaRecoveryInProcess;
+	UInt32							mDmaStalledCount;						//	[3514709]	for user client
+	UInt32							mDmaHwDiedCount;						//	[3514709]	for user client
+	UInt32							mInterruptActionCount;					//	[3514709]	for user client
 	//	} end	[3305011]
 
 	Boolean							mNeedToRestartDMA;
@@ -266,6 +285,7 @@ protected:
     float *							mInputGainLPtr;				
     float *							mInputGainRPtr;				
 	bool							fNeedsRightChanDelayInput;// [3173869]
+
 	
 	bool							dmaRunState;			//	rbm 7.12.02 added for user client support
 	IOAudioStreamFormat				mDBDMAOutputFormat;		//	rbm 7.15.02 added for user client support
@@ -309,9 +329,13 @@ protected:
 	
 #ifdef _TIME_CLIP_ROUTINE
 	UInt32 							mCallCount;	
-	AbsoluteTime					mPreviousUptime;
-	AbsoluteTime					mLastuptime;
-	UInt64							mTotalNanos;
+	AbsoluteTime					mStartIOProcUptime;
+	AbsoluteTime					mEndProcessingUptime;
+	UInt64							mCurrentTotalNanos;
+	UInt64							mTotalIOProcNanos;
+	UInt64							mTotalProcessingNanos;
+	float							mCurrentCPUUsagePercent;
+	float							mAverageCPUUsagePercent;
 #endif
 
 #pragma mark ---------------------------------------- 

@@ -70,8 +70,6 @@ void	PlatformInterface::threadedRegisterInterrupts (PlatformInterface *self, IOS
 void	PlatformInterface::threadedMemberRegisterInterrupts (IOService * device) {
 	IOReturn	err;
 	
-	debugIOLog (3,  "+ PlatformInterface[%ld]::registerInterrupts ( %p )", mInstanceIndex, device );
-
 	FailIf (NULL == device, Exit );
 	FailIf ( NULL == mProvider, Exit );
 	
@@ -79,90 +77,90 @@ void	PlatformInterface::threadedMemberRegisterInterrupts (IOService * device) {
 		if ( kGPIO_Unknown != getComboInJackTypeConnected() ) {
 			err = registerInterruptHandler ( device, (void*)comboInDetectInterruptHandler, kComboInDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "comboInDetectInterruptHandler has been registered!!!" );
+				mGpioMessageFlag |= ( 1 << gpioMessage_ComboInJackType_bitAddress );
 			} else {
-				debugIOLog (3,  "comboInDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_ComboInJackType_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getComboInJackTypeConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getComboInJackTypeConnected()");
 		}
 		
 		if ( kGPIO_Unknown != getComboOutJackTypeConnected() ) {
-			debugIOLog (3,  "Attempting to register comboOutDetectInterruptHandler..." );
+			debugIOLog (3,  "  Attempting to register comboOutDetectInterruptHandler..." );
 			err = registerInterruptHandler ( device, (void*)comboOutDetectInterruptHandler, kComboOutDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "comboOutDetectInterruptHandler has been registered!!!" );
+				mGpioMessageFlag |= ( 1 << gpioMessage_ComboOutJackType_bitAddress );
 			} else {
-				debugIOLog (3,  "comboOutDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_ComboOutJackType_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getComboOutJackTypeConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getComboOutJackTypeConnected()");
 		}
 		
 		if ( kGPIO_Unknown != getHeadphoneConnected() ) {
 			err = registerInterruptHandler ( device, (void*)headphoneDetectInterruptHandler, kHeadphoneDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "headphoneDetectInterruptHandler has been registered!!!" );
-				headphoneDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_HeadphoneDetect_bitAddress );
+				debugIOLog (3,  "  headphoneDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "headphoneDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_HeadphoneDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getHeadphoneConnected()");
 		}
 		
 		if ( kGPIO_Unknown != getSpeakerConnected() ) {
 			err = registerInterruptHandler ( device, (void*)speakerDetectInterruptHandler, kSpeakerDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "speakerDetectInterruptHandler has been registered!!!" );
-				speakerDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_SpeakerDetect_bitAddress );
+				debugIOLog (3,  "  speakerDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "speakerDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_SpeakerDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getSpeakerConnected()");
 		}
-	#if 0	
+
 		if ( kGPIO_Unknown != getLineInConnected() ) {
 			err = registerInterruptHandler ( device, (void*)lineInDetectInterruptHandler, kLineInputDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "lineInDetectInterruptHandler has been registered!!!" );
-				lineInDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_LineInDetect_bitAddress );
+				debugIOLog (3,  "  lineInDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "lineInDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_LineInDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getLineInConnected()");
 		}
-	#endif	
+
 		if ( kGPIO_Unknown != getLineOutConnected() ) {
 			err = registerInterruptHandler ( device, (void*)lineOutDetectInterruptHandler, kLineOutputDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "lineOutDetectInterruptHandler has been registered!!!" );
-				lineOutDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_LineOutDetect_bitAddress );
+				debugIOLog (3,  "  lineOutDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "lineOutDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_LineOutDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getLineOutConnected()");
 		}
 		
 		if ( kGPIO_Unknown != getDigitalInConnected() && kGPIO_Unknown == getComboInJackTypeConnected() ) {
@@ -170,16 +168,16 @@ void	PlatformInterface::threadedMemberRegisterInterrupts (IOService * device) {
 			//				that is already being supported by the line input handler.
 			err = registerInterruptHandler ( device, (void*)digitalInDetectInterruptHandler, kDigitalInDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "digitalInDetectInterruptHandler has been registered!!!" );
-				digitalInDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_DigitalInDetect_bitAddress );
+				debugIOLog (3,  "  digitalInDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "digitalInDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_DigitalInDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalInConnected()");
 		}
 		
 		if ( kGPIO_Unknown != getDigitalOutConnected() && kGPIO_Unknown == getComboOutJackTypeConnected() ) {
@@ -187,53 +185,79 @@ void	PlatformInterface::threadedMemberRegisterInterrupts (IOService * device) {
 			//				that is already being supported by the headphone handler.
 			err = registerInterruptHandler ( device, (void*)digitalOutDetectInterruptHandler, kDigitalOutDetectInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "digitalOutDetectInterruptHandler has been registered!!!" );
-				digitalOutDetectInterruptHandler ( device, NULL, 0, 0 );
+				mGpioMessageFlag |= ( 1 << gpioMessage_DigitalOutDetect_bitAddress );
+				debugIOLog (3,  "  digitalOutDetectInterruptHandler has been registered!!!" );
 			} else {
-				debugIOLog (3,  "digitalOutDetectInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_DigitalOutDetect_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getDigitalOutConnected()");
 		}
-	
+
 		if ( kGPIO_Unknown != getCodecInterrupt() ) {
 			err = registerInterruptHandler ( device, (void*)codecInterruptHandler, kCodecInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "codecInterruptHandler has been registered!!!" );
+				mGpioMessageFlag |= ( 1 << gpioMessage_CodecInterrupt_bitAddress );
 				codecInterruptHandler ( device, NULL, 0, 0 );
 			} else {
-				debugIOLog (3,  "codecInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_CodecInterrupt_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecInterrupt()");
 		}
-		
+
 		if ( kGPIO_Unknown != getCodecErrorInterrupt() ) {
 			err = registerInterruptHandler ( device, (void*)codecErrorInterruptHandler, kCodecErrorInterrupt );
 			if ( kIOReturnSuccess == err ) {
-				debugIOLog (3,  "codecErrorInterruptHandler has been registered!!!" );
+				mGpioMessageFlag |= ( 1 << gpioMessage_CodecErrorInterrupt_bitAddress );
+				debugIOLog (3,  "  codecErrorInterruptHandler has been registered!!!" );
 				codecErrorInterruptHandler ( device, NULL, 0, 0 );
 			} else {
-				debugIOLog (3,  "codecErrorInterruptHandler exists but has NOT been registered!!!" );
+				mGpioMessageFlag &= (~( 1 << gpioMessage_CodecErrorInterrupt_bitAddress ));
 				FailMessage ( TRUE );
 			}
 		}
 		else
 		{
-			debugIOLog (3, "PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()");
+			debugIOLog (3, "  PlatformInterface::registerInterrupts kGPIO_Unknown == getCodecErrorInterrupt()");
 		}
 
 		mInterruptsHaveBeenRegistered = TRUE;
+		checkDetectStatus ( device );
 	}
 
 Exit:
 	return;
+}
+
+//	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void	PlatformInterface::checkDetectStatus ( IOService * device ) {
+	debugIOLog (3, "± PlatformInterface::checkDetectStatus");
+
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_HeadphoneDetect_bitAddress ) ) {
+		headphoneDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_SpeakerDetect_bitAddress ) ) {
+		speakerDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_LineInDetect_bitAddress ) ) {
+		lineInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_LineOutDetect_bitAddress ) ) {
+		lineOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_DigitalInDetect_bitAddress ) ) {
+		digitalInDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
+	if ( mGpioMessageFlag & ( 1 << gpioMessage_DigitalOutDetect_bitAddress ) ) {
+		digitalOutDetectInterruptHandler ( device, NULL, 0, 0 );
+	}
 }
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,7 +281,6 @@ Exit:
 	debugIOLog (3,  "- PlatformInterface[%ld]::registerInterrupts ( %p )", mInstanceIndex, device );
 	return result;
 }
-
 
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	PlatformInterface::unregisterInterrupts ( void ) {
@@ -332,7 +355,6 @@ GPIOSelector PlatformInterface::getComboOutAssociation ( void ) {
 //	[3453799]
 void PlatformInterface::setAssociateComboOutTo ( GPIOSelector theDetectInterruptGpio ) {
 	if (( kGPIO_Selector_LineOutDetect == theDetectInterruptGpio ) || ( kGPIO_Selector_HeadphoneDetect == theDetectInterruptGpio ) || ( kGPIO_Selector_SpeakerDetect == theDetectInterruptGpio )) {
-		debugIOLog (3,  "combo out associated with %d", theDetectInterruptGpio);
 		mComboOutAssociation = theDetectInterruptGpio;
 	}
 }
@@ -455,7 +477,7 @@ void PlatformInterface::headphoneDetectInterruptHandler ( OSObject *owner, IOInt
 	IOCommandGate *			cg;
 	GpioAttributes			theAnalogJackState;
 
-	debugIOLog (5,  "headphoneDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+	debugIOLog (5,  "± PlatformInterface::headphoneDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
 
 	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
@@ -558,7 +580,7 @@ void PlatformInterface::lineOutDetectInterruptHandler ( OSObject *owner, IOInter
 	IOCommandGate *			cg;
 	GpioAttributes			theAnalogJackState;
 	
-	debugIOLog (5,  "PlatformInterface::lineOutDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
+	debugIOLog (5,  "+ PlatformInterface::lineOutDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
 
 	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
@@ -579,6 +601,8 @@ void PlatformInterface::lineOutDetectInterruptHandler ( OSObject *owner, IOInter
 		}
 	}
 Exit:
+
+	debugIOLog (5,  "- PlatformInterface::lineOutDetectInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
 	return;
 }
 
@@ -626,8 +650,6 @@ void PlatformInterface::codecInterruptHandler ( OSObject *owner, IOInterruptEven
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 
-	debugIOLog (5,  "codecInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
-
 	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
@@ -645,8 +667,6 @@ void PlatformInterface::codecErrorInterruptHandler ( OSObject *owner, IOInterrup
 	PlatformInterface * 	platformInterface;
 	IOCommandGate *		cg;
 	
-	debugIOLog (5,  "codecErrorInterruptHandler ( %p, %p, %ld, %p )", owner, source, count, arg4 );
-
 	platformInterface = OSDynamicCast (PlatformInterface, owner );
 	FailIf (NULL == platformInterface, Exit);
 	FailIf ( NULL == platformInterface->mProvider, Exit );
@@ -676,12 +696,14 @@ Exit:
 //
 void PlatformInterface::RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType ) {
 	
-	debugIOLog (5,  "+ RunComboStateMachine ( %p, %p, %ld, %ld, %ld )", cg, platformInterface, detectState, typeSenseState, analogJackType );
+	debugIOLog (5,  "+ RunComboStateMachine ( %p, %p, %ld, %ld, %ld ), power state = %d", cg, platformInterface, detectState, typeSenseState, analogJackType, platformInterface->mProvider->getPowerState () );
 
 	FailIf ( NULL == cg, Exit );
 	FailIf ( NULL == platformInterface, Exit );
 	FailIf ( NULL == platformInterface->mProvider, Exit );
-	
+
+	if (platformInterface->mProvider->getPowerState () == kIOAudioDeviceSleep) goto Exit;		// don't advance the state machine if we are asleep (we'll run this code on wake)
+
 	switch ( mComboStateMachine[analogJackType] ) {
 		case kComboStateMachine_handle_jack_insert:
 			//	When no jack is inserted then the only events that can occur is insertion of metal or plastic jacks.
@@ -703,6 +725,7 @@ void PlatformInterface::RunComboStateMachine ( IOCommandGate * cg, PlatformInter
 					}
 					mComboStateMachine[analogJackType] = kComboStateMachine_handle_metal_change;
 				} else {
+					debugIOLog (5,  "kGPIO_TypeIsAnalog != typeSenseState");
 					if ( testIsInputJack( analogJackType ) ) {
 						debugIOLog (5,  "  RunComboStateMachine 'Handle Jack Insert' posting DIGITAL INPUT INSERT" );
 						cg->runAction ( platformInterface->mProvider->interruptEventHandlerAction, (void *)kDigitalInInsertStatus, (void *)kGPIO_Connected, (void *)0 );
@@ -818,6 +841,7 @@ bool PlatformInterface::testIsInputJack ( UInt32 analogJackType ) {
 //	~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	[3514762]
 void PlatformInterface::enableAmplifierMuteRelease ( void ) {
+	debugIOLog (3, "enabling amplifier mutes");
 	mEnableAmplifierMuteRelease = TRUE;
 }
 

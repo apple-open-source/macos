@@ -460,17 +460,19 @@ enum CS8420_C_OR_U_BIT_BUFFER {					//	NOTE:  The channel / user status buffer s
 													( bvCS8420_maskRxError << baCS8420_CCRCM ) | \
 													( bvCS8420_maskRxError << baCS8420_UNLOCKM ) | \
 													( bvCS8420_maskRxError << baCS8420_VALIDM ) | \
-													( bvCS8420_enRxError << baCS8420_CONFM ) | \
-													( bvCS8420_enRxError << baCS8420_BIPM ) | \
+													( bvCS8420_maskRxError << baCS8420_CONFM ) | \
+													( bvCS8420_maskRxError << baCS8420_BIPM ) | \
 													( bvCS8420_maskRxError << baCS8420_PARITYM ) )
 													
 #define	kCS8420_RX_ERROR_MASK_ENABLE_RERR		(	( bvCS8420_maskRxError << baCS8420_QCRCM ) | \
 													( bvCS8420_maskRxError << baCS8420_CCRCM ) | \
 													( bvCS8420_enRxError << baCS8420_UNLOCKM ) | \
 													( bvCS8420_maskRxError << baCS8420_VALIDM ) | \
-													( bvCS8420_enRxError << baCS8420_CONFM ) | \
-													( bvCS8420_enRxError << baCS8420_BIPM ) | \
+													( bvCS8420_maskRxError << baCS8420_CONFM ) | \
+													( bvCS8420_maskRxError << baCS8420_BIPM ) | \
 													( bvCS8420_maskRxError << baCS8420_PARITYM ) )
+
+#define	kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT		3
 
 class AppleTopazPluginCS8420 : public AppleTopazPlugin {
     OSDeclareDefaultStructors ( AppleTopazPluginCS8420 );
@@ -494,9 +496,6 @@ public:
 	virtual UInt8			setStopMode ( void );
 	virtual UInt32			getClockLock ( void ) { return 1; }
 	virtual IOReturn		getCodecErrorStatus ( UInt32 * dataPtr );
-	virtual bool			phaseLocked ( void );
-	virtual bool			confidenceError ( void );
-	virtual bool			biphaseError ( void );
 	virtual void			disableReceiverError ( void );
 
 	virtual void			useExternalCLK ( void );
@@ -512,10 +511,22 @@ public:
 	virtual IOReturn		getPluginState ( HardwarePluginDescriptorPtr outState );
 	virtual IOReturn		setPluginState ( HardwarePluginDescriptorPtr inState );
 
+	virtual void			poll ( void );
+	virtual void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue );
+	
 	virtual bool			supportsDigitalInput ( void ) { return TRUE; }
 	virtual bool			supportsDigitalOutput ( void ) { return TRUE; }
 
+	virtual UInt32			getClockLockTerminalCount () { return kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT; }
+
 protected:
+
+	UInt32					mUnlockErrorCount;
+	UInt32					mLockErrorCount;
+	bool					mLockStatus;
+
+
+	ChanStatusStruct		mChanStatusStruct;			//  [3669626]
 
 private:
 

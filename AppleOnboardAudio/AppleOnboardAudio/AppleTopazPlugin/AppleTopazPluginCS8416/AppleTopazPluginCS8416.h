@@ -255,16 +255,20 @@ enum CS8416_ID_Version {
 		bvCS8416_Version_C					=	3
 };
 
-#define	kControl_0_INIT					(	( bvForceOMCKonRMCK << baFSWCLK ) | ( bvIncomingNotTruncated << baTRUNC )	)
+#define	kControl_0_INIT					(	( bvOMCKonRMCKwhenSWCLK << baFSWCLK ) | ( bvIncomingNotTruncated << baTRUNC )	)
 
-#define	kControl_1_INIT					(	( bvEnableAutoClockSwitching << baSWCLK ) | \
+#define	kControl_1_INIT					(	( bvDisableAutoClockSwitching << baSWCLK ) | \
 											( bvSDOUTnotMuted << baMUTSAO ) | \
 											( bvIntActiveLow << baINT ) | \
-											( bvNoChangeOnRxError << baHOLD ) | \
+											( bvMuteOnRxError << baHOLD ) | \
 											( bvRMCKis256fs << baRMCKF ) | \
 											( bvChannelStatusFromA << baCHR ) )
 											
-#define	kControl_2_INIT					(	( bvEnableDtoEtransfer << baDETCI ) | ( bvDeEmphaisisOFF << baEMPH_CN ) | ( bvGPO_FixedLowLevel << baGPO0_SEL )	)
+#if 1
+#define	kControl_2_INIT					(	( bvEnableDtoEtransfer << baDETCI ) | ( bvDeEmphaisisOFF << baEMPH_CN ) | ( bvGPO_FixedHighLevel << baGPO0_SEL )	)
+#else
+#define	kControl_2_INIT					(	( bvEnableDtoEtransfer << baDETCI ) | ( bvDeEmphaisisOFF << baEMPH_CN ) | ( bvGPO_RsError << baGPO0_SEL )	)
+#endif
 											
 #define	kControl_3_INIT					(	( bvGPO_FixedLowLevel << baGPO1_SEL ) | ( bvGPO_FixedLowLevel << baGPO2_SEL )	)
 											
@@ -292,7 +296,7 @@ enum CS8416_ID_Version {
 											( bvInterruptEnabled << baUNLOCK ) | \
 											( bvInterruptDisabled << baINVALID ) | \
 											( bvInterruptDisabled << baCONF ) | \
-											( bvInterruptEnabled << baBIP ) | \
+											( bvInterruptDisabled << baBIP ) | \
 											( bvInterruptDisabled << baPAR )	)
 
 #define kInterruptMask_INIT				(	( bvInterruptDisabled << baPCCH ) | \
@@ -318,6 +322,34 @@ enum CS8416_ID_Version {
 											( bvInterruptDisabled << baRERR ) | \
 											( bvInterruptDisabled << baQCH ) | \
 											( bvInterruptDisabled << baFCH )	)
+											
+											
+//  Low pass filter the clock unlock status here as it may require quite a
+//  bit of time before the clock lock status is valid.  Polls occur every 0.5
+//  seconds.  Dan Freeman expresses concern that the PLL may not lock for up
+//  to 4 seconds.  The kClockLockFilterCountSeed is set to ( 4 seconds / 0.5 seconds)
+//  to address Dan's concern.  See AppleTopazPluginCS8416::poll for more info.
+#define kNumberOfLockPollsPerSecond		2
+#define kTenthSecondsToPLLLock			15
+#define kTenthSecondsToPLLUnlock		10
+#define kClockLockFilterCountSeed		(( kNumberOfLockPollsPerSecond * kTenthSecondsToPLLLock ) / 10 )
+#define kClockUnlockFilterCountSeed		(( kNumberOfLockPollsPerSecond * kTenthSecondsToPLLUnlock ) / 10 )
+
+//  3678605 NOTE:   The following constants are not derived from any specification of the CS8416 but
+//					are based on observation of actual operation of the CS8416 and tuning of timing 
+//					to produce reliable recovery at the expense of perceived performance as observed
+//					in user interface elements.  Do not reduce the values of these constants without
+//					performing extensive stress testing!  The counter is seeded to kPollsToDelayReportingAfterWake
+//					and counts down resulting in restoration of RUN prior to checking the RATIO.
+#if 1
+#define kPollsToDelayReportingAfterWake  6												/*  [3678605]   */
+#else
+#define kPollsToDelayReportingAfterWake  16												/*  [3678605]   */
+#define kPollsToRestoreRunAfterWake		 ( kPollsToDelayReportingAfterWake - 4 )		/*  [3678605]   */
+#define kPollsToCheckRatioAfterWake		 ( kPollsToRestoreRunAfterWake - 2 )			/*  [3678605]   */
+#endif
+
+#define kUnlockFilterCounterSeed		 4												/*  [3678605]   */
 
 class AppleTopazPluginCS8416 : public AppleTopazPlugin {
     OSDeclareDefaultStructors ( AppleTopazPluginCS8416 );
@@ -339,11 +371,8 @@ public:
 	virtual IOReturn		makeClockSelectPostLock ( UInt32 clockSource );
 	virtual void			setRunMode ( UInt8 mode );
 	virtual UInt8			setStopMode ( void );
-	virtual UInt32			getClockLock ( void ) { return 1; }
+	virtual UInt32			getClockLock ( void );
 	virtual IOReturn		getCodecErrorStatus ( UInt32 * dataPtr );
-	virtual bool			phaseLocked ( void );
-	virtual bool			confidenceError ( void );
-	virtual bool			biphaseError ( void );
 	virtual void			disableReceiverError ( void );
 
 	virtual void			useExternalCLK ( void );
@@ -363,10 +392,19 @@ public:
 	virtual bool			supportsDigitalOutput ( void ) { return FALSE; }
 
 	virtual void			poll ( void );
-protected:
+	virtual void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue );
+	virtual UInt32			getClockLockTerminalCount ();
+	virtual bool			canOnlyMasterTheClock () { return TRUE; }
 
+protected:
+	bool					mCodecHasLocked;
+	
 private:
 
+	UInt32					mDelayPollAfterWakeCounter;			//  [3674345]
+	bool					mTopazCS8416isSLEEP;				//  [3678605]
+	UInt32					mUnlockFilterCounter;				//  [3678605]
+	UInt8					mRatioEnteringSleep;				//  [3678605]
 };
 
 

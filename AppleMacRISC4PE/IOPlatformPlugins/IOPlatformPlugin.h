@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -56,7 +53,7 @@ __END_DECLS
 #endif
 
 // Uncomment for debug info
-// #define PLUGIN_DEBUG 1
+//#define PLUGIN_DEBUG 1
 
 #ifdef PLUGIN_DEBUG
 #define DLOG(fmt, args...)  kprintf(fmt, ## args)
@@ -66,6 +63,13 @@ __END_DECLS
 
 // compile in the PlatformConsole accessor in setProperties()
 #define IMPLEMENT_SETPROPERTIES 1
+
+/* internal power state */
+enum {
+	kIOPPluginSleeping,
+	kIOPPluginRunning,
+	kIOPPluginNumPowerStates
+};
 
 /*!
     @class IOPlatformPlugin
@@ -83,12 +87,14 @@ protected:
 	are keyed off the event type. */
 typedef struct IOPPluginEventData
 {
-	UInt32 eventType;
-	void * param1;
-	void * param2;
-	void * param3;
-	void * param4;
+	UInt32				eventType;
+	void*				param1;
+	void*				param2;
+	void*				param3;
+	void*				param4;
 };
+
+typedef IOReturn ( *IOPPluginSyncHandler )( void * p1, void * p2, void * p3 );
 
 /* Event types */
 enum {
@@ -99,7 +105,8 @@ enum {
 	IOPPluginEventPlatformFunction	= 4,	// params match callPlatformFunction() params
 	IOPPluginEventSetProperties		= 5,	// param1 = OSObject * properties
 	IOPPluginEventTimer				= 6,	// no params used
-	IOPPluginEventSystemRestarting	= 7		// params all NULL
+	IOPPluginEventSystemRestarting	= 7,	// params all NULL
+	IOPPluginEventMisc				= 8		// param1, param2, param3 are parameters to (IOPPluginSyncHandler *) param4
 };
 
 /* message types */
@@ -113,12 +120,6 @@ enum {
 	kIOPPluginMessagePowerMonitor		= 7,
 	kIOPPluginMessageError				= 8,
 	kIOPPluginMessageGetPlatformID		= 9
-};
-
-/* internal power state */
-enum {
-	kIOPPluginSleeping,
-	kIOPPluginRunning
 };
 
 	/* This lock protects _ALL_ of the internal state and instance data within the plugin and provides serialization for all entry points */
@@ -234,6 +235,16 @@ enum {
 	virtual bool initCtrlLoops( const OSArray * ctrlLoopDicts );
 	virtual bool validOnConfig( const OSArray * validConfigs );
 
+/*!
+	@function registerChassisSwitchNotifier
+	@abstract Register for clamshell notifications */
+	virtual void registerChassisSwitchNotifier( void );
+
+/*!
+	@function pollChassisSwitch
+	@abstract Poll the clamshell switch */
+	virtual OSBoolean *pollChassisSwitch( void );
+
 public:
 
 	virtual UInt8 getConfig( void );
@@ -274,14 +285,18 @@ public:
 	virtual OSObject	*getEnv(const OSString *aKey) const;
 	virtual OSObject	*getEnv(const OSSymbol *aKey) const;
 
+/*!
+	@function matchPlatformFlags
+	@abstract Perform a logical AND of the supplied flagsBits with the PlatformFlags (defined in the Thermal Profile). Return the result as a boolean. Bits are defined in IOPlatformPluginDefs.h (see IOPPluginEvnPlatformFlags) */
+	virtual	bool		matchPlatformFlags( UInt32 flagsBits );
+
 	virtual bool 		start(IOService *nub);
 	virtual void		stop(IOService *nub);
 	virtual IOService *	probe(IOService *nub, SInt32 *score);
 	virtual bool		init(OSDictionary *dict);
 	virtual void		free(void);
 
-	virtual IOReturn	powerStateWillChangeTo (IOPMPowerFlags, unsigned long, IOService*);
-	virtual IOReturn	powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*);
+	virtual IOReturn	setPowerState(unsigned long whatState, IOService *policyMaker);
 	static	IOReturn	sysPowerDownHandler(void *, void *, UInt32, IOService *, void *, vm_size_t);
     virtual IOReturn	message( UInt32 type, IOService * provider, void * argument = 0 );
     virtual IOReturn	setAggressiveness(unsigned long selector, unsigned long newLevel);
@@ -295,5 +310,22 @@ public:
 	virtual void		sleepSystem( void );
 
 };
+
+
+class IOPlatformPluginThermalProfile : public IOService
+{
+	OSDeclareDefaultStructors( IOPlatformPluginThermalProfile );
+
+protected:
+
+						IOPlatformPlugin*			platformPlugin;
+
+public:
+
+		virtual			bool						start( IOService* nub );
+		virtual			void						adjustThermalProfile( void );
+		virtual			UInt8						getThermalConfig( void );
+};
+
 
 #endif // _IOPLATFORMPLUGIN_H

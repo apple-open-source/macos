@@ -79,9 +79,6 @@ public:
 	virtual void		initPlugin (PlatformInterface* inPlatformObject);
 
     // IO activation functions
-    virtual UInt32		getActiveOutput (void);
-    virtual IOReturn	setActiveOutput (UInt32 outputPort);
-    virtual UInt32		getActiveInput (void);
     virtual IOReturn	setActiveInput (UInt32 input);
    
     // control function
@@ -97,6 +94,7 @@ public:
 	virtual	UInt32		getMaximumGain (void);
 	virtual	UInt32		getMinimumGain (void);
 	virtual	UInt32		getDefaultInputGain (void);
+	virtual	UInt32		getDefaultOutputVolume (void);
 
     virtual bool		setCodecVolume (UInt32 leftVolume, UInt32 rightVolume);		//	[3435307]	rbm
 
@@ -172,6 +170,7 @@ private:
 	};
 
 	EQPrefsElement		mEQPref;
+
 };
 
 #endif /* _APPLETAS3004AUDIO_H */

@@ -84,6 +84,7 @@ using namespace std;
 #define kXMLServerMappingsFlagKey			"Server Mappings"
 #define kXMLIsSSLFlagKey					"SSL"
 #define kXMLMapSearchBase					"Map Search Base"
+#define kXMLReferralFlagKey					"LDAP Referrals"
 //kXMLMakeDefLDAPFlagKey => indicates the server config is a Default LDAP Node
 //kXMLServerMappingsFlagKey => indicates the server config comes directly from the LDAP
 //                                server itself and can only be written with authentication
@@ -144,6 +145,7 @@ typedef struct sLDAPConfigData {
 											//   LDAP nodes in the search policy
 	bool				bServerMappings;	//whether mappings are ldap server provided or not
 	bool				bIsSSL;				//if SSL connections used this is set
+	bool				bReferrals;			//if set (on by default), referrals are followed
     char			   *fMapSearchBase;		
 	bool				bGetServerMappings;	//set to indicate whether server mappings need to be retrieved
 	CFMutableArrayRef   fSASLmethods;
@@ -187,6 +189,7 @@ public:
 												int inPortNumber,
 												bool inIsSSL,
 												bool inMakeDefLDAP,
+												bool inReferrals,
 												LDAP *inServerHost = nil );
     sInt32				MakeServerBasedMappingsLDAPConfig
                                             (	char *inServer,
@@ -197,7 +200,8 @@ public:
 												int inSearchTO,
 												int inPortNumber,
                                                 bool inIsSSL,
-                                                bool inMakeDefLDAP );
+                                                bool inMakeDefLDAP,
+												bool inReferrals );
 	sInt32				WriteServerMappings (	char* userName,
 												char* password,
 												CFDataRef inMappings );
@@ -215,6 +219,7 @@ protected:
 												char *inMapSearchBase,
 												int inPortNumber,
 												bool inIsSSL,
+												bool inReferrals,
 												LDAP *inServerHost = nil );
 	CFDictionaryRef		CheckForServerMappings
 											(	CFDictionaryRef ldapDict );
@@ -242,6 +247,7 @@ protected:
 												bool inServerMappings,
 												bool inIsSSL,
                                                 char *inMapSearchBase,
+												bool inReferrals,
 												sLDAPConfigData *inLDAPConfigData = nil );
 	sInt32				ConfigLDAPServers	(	void );
 	sInt32				AddLDAPServer		( CFDataRef inXMLData );

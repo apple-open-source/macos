@@ -617,7 +617,7 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 	    {
 			
 	    	// The command was successfully built, now send it
-	    	serviceResponse = SendCommand ( request, 0 );
+	    	serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 	    	
 		}
 		
@@ -637,7 +637,7 @@ IOSCSIBlockCommandsDevice::VerifyMediumPresence ( void )
 				    {
 				    	
 				    	// The command was successfully built, now send it
-				    	serviceResponse = SendCommand ( request, 0 );
+				    	serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 				    	
 					}
 					

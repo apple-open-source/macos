@@ -357,6 +357,8 @@ lock_request(LOCKD_MSG *msg)
 		    msg->lm_fl.l_type == F_WRLCK ? "write" : "read",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
 
+	monitor_lock_host_by_addr((struct sockaddr *)&msg->lm_addr);
+
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
 		arg4.cookie.n_bytes = (char *)&msg->lm_xid;
 		arg4.cookie.n_len = sizeof(msg->lm_xid);

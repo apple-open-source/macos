@@ -17,20 +17,10 @@
 typedef	float	Float32;
 typedef double	Float64;
 
-float gOldSample 									= 0.0f;
-#ifdef USE_DYNAMIC_DOWNSAMPLING
-UInt32 gDRCDownsampleFactor							= 4;
-#endif
-
-static float zeroGaindBConvTable[] = {
-    0.0631f,  0.0708f,  0.0794f,  0.0891f,  0.1000f,  0.1122f,  0.1259f, 
-    0.1413f,  0.1585f,  0.1778f,  0.1995f,  0.2239f,  0.2512f,  0.2818f,
-    0.3162f,  0.3548f,  0.3981f,  0.4467f,  0.5012f,  0.5623f,  0.6310f, 
-    0.7079f,  0.7943f,  0.8913f,  1.0000f,  1.1220f,  1.2589f,  1.4125f, 
-    1.5849f,  1.7783f,  1.9953f,  2.2387f,  2.5119f,  2.8184f,  3.1623f, 
-    3.5481f,  3.9811f,  4.4668f,  5.0119f,  5.6234f,  6.3096f,  7.0795f, 
-    7.9433f,  8.9125f,  10.0000f, 11.2202f, 12.5893f, 14.1254f, 15.8489f
-};
+static const double kPI 							= 3.141592653589793116e+00;
+static const float 	kFourDotTwentyScaleFactor	 	= 1048576.0f;
+static const float 	kMixingToMonoScale 				= 0.5f;
+static const float  kiSubCrossoverFrequency			= 240.0f;
 
 // -12 dB to +12 dB in 0.5 dB steps
 const UInt16 kInputGaindBConvTableOffset = 24;
@@ -50,203 +40,10 @@ static float inputGaindBConvTable[] = {
 	3.981072f
 };
 
-static float aoa_log2table[] = {
-	-9.96578428f,	-4.95455703f,	-3.97709960f,	-3.39973025f,
-	-2.98850436f,	-2.66886808f,	-2.40736357f,	-2.18606493f,
-	-1.99424073f,	-1.82495451f,	-1.67346265f,	-1.53637754f,
-	-1.41119543f,	-1.29601340f,	-1.18935125f,	-1.09003493f,
-	-0.99711749f,	-0.90982405f,	-0.82751248f,	-0.74964473f,
-	-0.67576544f,	-0.60548586f,	-0.53847144f,	-0.47443221f,
-	-0.41311519f,	-0.35429834f,	-0.29778575f,	-0.24340365f,
-	-0.19099723f,	-0.14042794f,	-0.09157135f,	-0.04431522f,
-	0.00144197f,	0.04579242f,	0.08882003f,	0.13060145f,
-	0.17120683f,	0.21070056f,	0.24914190f,	0.28658548f,
-	0.32308179f,	0.35867757f,	0.39341620f,	0.42733799f,
-	0.46048047f,	0.49287865f,	0.52456522f,	0.55557078f,
-	0.58592398f,	0.61565170f,	0.64477922f,	0.67333028f,
-	0.70132726f,	0.72879125f,	0.75574218f,	0.78219886f,
-	0.80817908f,	0.83369972f,	0.85877675f,	0.88342532f,
-	0.90765983f,	0.93149396f,	0.95494074f,	0.97801253f,
-	1.00072117f,	1.02307789f,	1.04509344f,	1.06677807f,
-	1.08814160f,	1.10919338f,	1.12994238f,	1.15039720f,
-	1.17056606f,	1.19045683f,	1.21007710f,	1.22943411f,
-	1.24853484f,	1.26738598f,	1.28599397f,	1.30436501f,
-	1.32250506f,	1.34041984f,	1.35811490f,	1.37559554f,
-	1.39286692f,	1.40993397f,	1.42680147f,	1.44347404f,
-	1.45995614f,	1.47625206f,	1.49236596f,	1.50830187f,
-	1.52406368f,	1.53965514f,	1.55507990f,	1.57034149f,
-	1.58544332f,	1.60038870f,	1.61518085f,	1.62982287f,
-	1.64431778f,	1.65866850f,	1.67287788f,	1.68694867f,
-	1.70088356f,	1.71468513f,	1.72835592f,	1.74189838f,
-	1.75531490f,	1.76860781f,	1.78177935f,	1.79483172f,
-	1.80776706f,	1.82058746f,	1.83329492f,	1.84589144f,
-	1.85837893f,	1.87075925f,	1.88303424f,	1.89520566f,
-	1.90727526f,	1.91924473f,	1.93111570f,	1.94288979f,
-	1.95456857f,	1.96615357f,	1.97764628f,	1.98904815f
-};
-
-static float aoa_antilog2table[] = {
-	0.994599423f, 0.912051693f, 0.836355090f, 0.766940999f,
-	0.703287997f, 0.644917937f, 0.591392355f, 0.542309181f,
-	0.497299712f, 0.456025846f, 0.418177545f, 0.383470499f,
-	0.351643998f, 0.322458968f, 0.295696178f, 0.271154591f,
-	0.248649856f, 0.228012923f, 0.209088772f, 0.191735250f,
-	0.175821999f, 0.161229484f, 0.147848089f, 0.135577295f,
-	0.124324928f, 0.114006462f, 0.104544386f, 0.095867625f,
-	0.087911000f, 0.080614742f, 0.073924044f, 0.067788648f,
-	0.062162464f, 0.057003231f, 0.052272193f, 0.047933812f,
-	0.043955500f, 0.040307371f, 0.036962022f, 0.033894324f,
-	0.031081232f, 0.028501615f, 0.026136097f, 0.023966906f,
-	0.021977750f, 0.020153686f, 0.018481011f, 0.016947162f,
-	0.015540616f, 0.014250808f, 0.013068048f, 0.011983453f,
-	0.010988875f, 0.010076843f, 0.009240506f, 0.008473581f,
-	0.007770308f, 0.007125404f, 0.006534024f, 0.005991727f,
-	0.005494437f, 0.005038421f, 0.004620253f, 0.004236790f,
-	0.003885154f, 0.003562702f, 0.003267012f, 0.002995863f,
-	0.002747219f, 0.002519211f, 0.002310126f, 0.002118395f,
-	0.001942577f, 0.001781351f, 0.001633506f, 0.001497932f,
-	0.001373609f, 0.001259605f, 0.001155063f, 0.001059198f,
-	0.000971288f, 0.000890675f, 0.000816753f, 0.000748966f,
-	0.000686805f, 0.000629803f, 0.000577532f, 0.000529599f,
-	0.000485644f, 0.000445338f, 0.000408377f, 0.000374483f,
-	0.000343402f, 0.000314901f, 0.000288766f, 0.000264799f,
-	0.000242822f, 0.000222669f, 0.000204188f, 0.000187241f,
-	0.000171701f, 0.000157451f, 0.000144383f, 0.000132400f,
-	0.000121411f, 0.000111334f, 0.000102094f, 0.000093621f,
-	0.000085851f, 0.000078725f, 0.000072191f, 0.000066200f,
-	0.000060706f, 0.000055667f, 0.000051047f, 0.000046810f,
-	0.000042925f, 0.000039363f, 0.000036096f, 0.000033100f,
-	0.000030353f, 0.000027834f, 0.000025524f, 0.000023405f,
-	0.000021463f, 0.000019681f, 0.000018048f, 0.000016550f
-};
-
-static float aoa_antilog2table_expand[] = {	// handles input signals at threshold and down to -60 below
-	1.000000,	1.055645,	1.114387,	1.176397,
-	1.241858,	1.310961,	1.383910,	1.460918,
-	1.542211,	1.628027,	1.718619,	1.814252,
-	1.915207,	2.021779,	2.134281,	2.253043,
-	2.378414,	2.510762,	2.650473,	2.797959,
-	2.953652,	3.118009,	3.291511,	3.474668,
-	3.668016,	3.872124,	4.087589,	4.315043,
-	4.555155,	4.808627,	5.076204,	5.358670,
-	5.656854,	5.971631,	6.303923,	6.654706,
-	7.025009,	7.415917,	7.828576,	8.264199,
-	8.724062,	9.209514,	9.721979,	10.262960,
-	10.834044,	11.436907,	12.073315,	12.745137,
-	13.454343,	14.203012,	14.993341,	15.827648,
-	16.708381,	17.638121,	18.619598,	19.655689,
-	20.749433,	21.904039,	23.122893,	24.409570,
-	25.767845,	27.201702,	28.715345,	30.313216,
-	32.000000,	33.780646,	35.660376,	37.644704,
-	39.739450,	41.950759,	44.285116,	46.749369,
-	49.350746,	52.096877,	54.995818,	58.056070,
-	61.286610,	64.696914,	68.296986,	72.097384,
-	76.109255,	80.344368,	84.815145,	89.534699,
-	94.516873,	99.776282,	105.328351,	111.189365,
-	117.376518,	123.907955,	130.802835,	138.081382,
-	145.764945,	153.876062,	162.438523,	171.477443,
-	181.019336,	191.092189,	201.725548,	212.950602,
-	224.800277,	237.309328,	250.514448,	264.454369,
-	279.169980,	294.704443,	311.103324,	328.414724,
-	346.689420,	365.981015,	386.346093,	407.844391,
-	430.538965,	454.496382,	479.786914,	506.484743,
-	534.668177,	564.419883,	595.827128,	628.982034,
-	663.981852,	700.929241,	739.932573,	781.106253,
-	824.571050,	870.454453,	918.891046,	970.022903
-};
-const static UInt16 kAOAAntiLog2TableRatioExpand		= 12.800256081f;
-
 
 #pragma mark ------------------------ 
 #pragma mark ••• Processing Routines
 #pragma mark ------------------------ 
-
-// ------------------------------------------------------------------------
-// Delay right or left channel
-// ------------------------------------------------------------------------
-void delayLR(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples, DelayStructPtr inDelay) 
-{
-	register UInt32 i, writeIndex, bufferMaxIndex, delayTimeInt, numFrames;
-    register float* inPtr;
-    register float* outPtr;
-	register float* delayBuffer;
-	register float delayFrac, temp, inL, inR;
-	register SInt32 delayIndexInt;
-	
-	inPtr = inFloatBufferPtr;
-	outPtr = outFloatBufferPtr;
-	
-	delayBuffer = inDelay->buffer;
-	delayTimeInt = inDelay->delayTimeInt;
-	delayFrac = inDelay->delayFrac;
-	writeIndex = inDelay->writeIndex;
-	bufferMaxIndex = kNumDelayBufferSamples - 1;
-	
-	numFrames = numSamples >> 1;
-
-	delayIndexInt = (SInt32)writeIndex - (SInt32)delayTimeInt;			
-	if (delayIndexInt < 0) {
-		delayIndexInt += kNumDelayBufferSamples;
-	}
-
-	if (0 == inDelay->channel) {
-		for (i = 0; i < numFrames; i++ ) {
-			delayBuffer[writeIndex] = *(inPtr++);
-			inR = *(inPtr++);
-
-			inL = delayBuffer[delayIndexInt];
-			if (delayIndexInt == 0) {
-				temp = delayBuffer[bufferMaxIndex];
-			} else {
-				temp = delayBuffer[delayIndexInt - 1];
-			}
-			temp -= inL;
-			temp *= delayFrac;
-			inL += temp;
-
-			*(outPtr++) = inL;
-			*(outPtr++) = inR;		
-
-			writeIndex++;
-			if (writeIndex > bufferMaxIndex) {
-				writeIndex = 0;
-			}
-			delayIndexInt++;
-			if (delayIndexInt > bufferMaxIndex) {
-				delayIndexInt = 0;
-			}
-		}
-	} else if (1 == inDelay->channel) {
-		for (i = 0; i < numFrames; i++ ) {
-			inL = *(inPtr++);
-			delayBuffer[writeIndex] = *(inPtr++);
-
-			inR = delayBuffer[delayIndexInt];
-			if (delayIndexInt == 0) {
-				temp = delayBuffer[bufferMaxIndex];
-			} else {
-				temp = delayBuffer[delayIndexInt - 1];
-			}
-			temp -= inR;
-			temp *= delayFrac;
-			inR += temp;
-
-			*(outPtr++) = inL;
-			*(outPtr++) = inR;		
-
-			writeIndex++;
-			if (writeIndex > bufferMaxIndex) {
-				writeIndex = 0;
-			}
-			delayIndexInt++;
-			if (delayIndexInt > bufferMaxIndex) {
-				delayIndexInt = 0;
-			}
-		}
-	}
-	inDelay->writeIndex = writeIndex;
-	inDelay->delayIndexInt = delayIndexInt;
-}		
 
 void volume (float* inFloatBufferPtr, UInt32 numSamples, float* inLeftVolume, float* inRightVolume, float* inPreviousLeftVolume, float* inPreviousRightVolume)
 {
@@ -378,87 +175,6 @@ void volume (float* inFloatBufferPtr, UInt32 numSamples, float* inLeftVolume, fl
 	*inPreviousRightVolume = oldRightGain;
 }
 
-// ------------------------------------------------------------------------
-// Apply stereo gain, needed on machines like Q27 to compensate for
-// different speaker output due to enclosure differences.
-// ------------------------------------------------------------------------
-void balanceAdjust(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples, GainStructPtr inGain) 
-{
-	register UInt32 i;
-	register UInt32 numFrames;
-	register UInt32 leftOver;
-    register float* inPtr;
-    register float* outPtr;
-	register float leftGain;
-	register float rightGain;
-	register float inL0;
-	register float inR0;
-	register float inL1;
-	register float inR1;
-	register float inL2;
-	register float inR2;
-	register float inL3;
-	register float inR3;
-	
-	inPtr = inFloatBufferPtr;
-	outPtr = outFloatBufferPtr;  
-	
-	leftGain = inGain->leftSoftVolume;
-	rightGain = inGain->rightSoftVolume;
-	
-	numFrames = numSamples >> 1;
-	leftOver = numFrames % 4;
-	numSamples = numFrames >> 2;
-	
-    for (i = 0; i < numSamples; i++ ) 
-    {
-		inL0 = *(inPtr++);					
-
-		inR0 = *(inPtr++);			
-
-		inL1 = *(inPtr++);			
-		inL0 *= leftGain;
-
-		inR1 = *(inPtr++);		
-		inR0 *= rightGain;
-
-		inL2 = *(inPtr++);					
-		inL1 *= leftGain;
-		*(outPtr++) = inL0;			
-
-		inR2 = *(inPtr++);			
-		inR1 *= rightGain;
-		*(outPtr++) = inR0;		
-
-		inL3 = *(inPtr++);			
-		inL2 *= leftGain;
-		*(outPtr++) = inL1;		
-
-		inR3 = *(inPtr++);		
-		inR2 *= rightGain;
-		*(outPtr++) = inR1;		
-
-		inL3 *= leftGain;
-		*(outPtr++) = inL2;			
-
-		inR3 *= rightGain;
-		*(outPtr++) = inR2;				
-
-		*(outPtr++) = inL3;
-
-		*(outPtr++) = inR3;		
-	}
-
-    for (i = 0; i < leftOver; i ++ ) 
-    {
-		inL0 = *(inPtr++);
-		inR0 = *(inPtr++);
-		inL0 *= leftGain;
-		inR0 *= rightGain;
-		*(outPtr++) = inL0;			
-		*(outPtr++) = inR0;		
-	}
-}
 
 // ------------------------------------------------------------------------
 // Mix left and right channels together, and mute the right channel
@@ -527,6 +243,7 @@ void mixAndMuteRightChannel(float* inFloatBufferPtr, float* outFloatBufferPtr, U
 		*(outPtr++) = 0.0f;
 	}
 }
+
 
 #pragma mark ------------------------ 
 #pragma mark ••• iSub Processing Routines
@@ -617,124 +334,25 @@ void iSubDownSampleLinearAndConvert( float* inData, float* srcPhase, float* srcS
 }
 
 // fourth order coefficient setting functions
-Boolean Set4thOrderCoefficients (Float32 *b0, Float32 *b1, Float32 *b2, Float32 *a1, Float32 *a2, UInt32 samplingRate)
+Boolean Set4thOrderCoefficients (iSubCoefficients* coefficients, UInt32 inSampleRate)
 {
-    Boolean 	success = TRUE;
-
-    switch ( samplingRate )
-    {
-        case 8000:  *b0 =  0.00782020803350;
-                    *b1 =  0.01564041606699;
-                    *b2 =  0.00782020803350;
-                    *a1 = -1.73472576880928;
-                    *a2 =  0.76600660094326;
-                    break;
-       case 11025:  *b0 =  0.00425905333005;
-                    *b1 =  0.00851810666010;
-                    *b2 =  0.00425905333005;
-                    *a1 = -1.80709136077571;
-                    *a2 =  0.82412757409590;
-                    break;
-       case 22050:  *b0 =  0.00111491512001;
-                    *b1 =  0.00222983024003;
-                    *b2 =  0.00111491512001;
-                    *a1 = -1.90335434048751;
-                    *a2 =  0.90781400096756;
-                    break;
-       case 32000:  *b0 =  0.00053716977481;
-                    *b1 =  0.00107433954962;
-                    *b2 =  0.00053716977481;
-                    *a1 = -1.93338022587993;
-                    *a2 =  0.93552890497918;
-                    break;
-	   case 44100: 	*b0 =  0.00028538351548666;
-                    *b1 =  0.00057076703097332;
-                    *b2 =  0.00028538351548666;
-                    *a1 = -1.95165117996464;
-                    *a2 =  0.95279271402659;
-                    break;
-       case 48000:  *b0 =  0.00024135904904198;
-                    *b1 =  0.00048271809808396;
-                    *b2 =  0.00024135904904198;
-                    *a1 = -1.95557824031504;
-                    *a2 =  0.95654367651120;
-                    break;
-        case 96000: *b0 =  0.00006100617875806425;
-                    *b1 =  0.0001220123575161285;
-                    *b2 =  0.00006100617875806425;
-                    *a1 = -1.977786483776763;
-                    *a2 =  0.9780305084917958;
-                    break;
-        default:    // debugIOLog (3, "\nNot a registered frequency...");
-                    success = FALSE;
-                    break;
-    }
-
-    return(success);
-}
-
-// this function sets the parameters of a second order all-pass filter that is used to compensate for the phase
-// shift of the 4th order lowpass IIR filter used in the iSub crossover.  Note that a0 and b2 are both 1.0.
-Boolean Set4thOrderPhaseCompCoefficients (Float32 *b0, Float32 *b1, Float32 *a1, Float32 *a2, UInt32 samplingRate)
-{
-    Boolean 	success = TRUE;
-
-    switch ( samplingRate )
-    {
-        case 8000:  *a1 = -1.734725768809275;
-                    *a2 =  0.7660066009432638;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 11025: *a1 = -1.807091360775707;
-                    *a2 =  0.8241275740958973;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 22050: *a1 = -1.903354340487510;
-                    *a2 =  0.9078140009675627;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 32000: *a1 = -1.93338022587993;
-                    *a2 =  0.93552890497918;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 44100: *a1 = -1.951651179964643;
-                    *a2 =  0.9527927140265903;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 48000: *a1 = -1.955578240315035;
-                    *a2 =  0.9565436765112033;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        case 96000: *a1 = -1.977786483776763;
-                    *a2 =  0.9780305084917958;
-                    *b0 =  *a2;
-                    *b1 =  *a1;
-                    break;
-        default:    
-                    success = FALSE;
-                    break;
-    }
-
-    return(success);
+	coefficients->b0 = 1.0f;
+	coefficients->b1 = 0.0f;
+	coefficients->b2 = 0.0f;
+	coefficients->a1 = 0.0f;
+	coefficients->a2 = 0.0f;
+    return(TRUE);
 }
 
 // stereo 4th order LR crossover
 // this needs lots of optimization!
-void StereoCrossover4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high, UInt32 frames, UInt32 SamplingRate, PreviousValues *section1State, PreviousValues *section2State, PreviousValues *phaseCompState)
+void StereoCrossover4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high, UInt32 frames, UInt32 SamplingRate, iSubCoefficients* coefficients, PreviousValues *section1State, PreviousValues *section2State, PreviousValues *phaseCompState)
 {
     UInt32	i;
     Float32	inL, inR, outL1, outR1, outL, outR, inPhaseCompL, inPhaseCompR;
 
     // shared coefficients for second order sections
     Float32	b0, b1, b2, a1, a2;
-    // coefficients for phase compensator
-    Float32	bp0, bp1, ap1, ap2;
     // taps for second order section 1
     Float32	inLTap1, inLTap2, inRTap1, inRTap2;
     Float32	outLTap1, outLTap2, outRTap1, outRTap2;
@@ -779,11 +397,11 @@ void StereoCrossover4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high,
     outRTap1_p = phaseCompState->yr_1;
     outRTap2_p = phaseCompState->yr_2;
  
-    // set all coefficients
-    if (Set4thOrderCoefficients (&b0, &b1, &b2, &a1, &a2, SamplingRate) == FALSE)
-        return;
-    if (Set4thOrderPhaseCompCoefficients (&bp0, &bp1, &ap1, &ap2, SamplingRate) == FALSE)
-        return;
+	b0 = coefficients->b0;
+	b1 = coefficients->b1;
+	b2 = coefficients->b2;
+	a1 = coefficients->a1;
+	a2 = coefficients->a2;
 
     // need to unroll this loop to get rid of stalls!
     for ( i = 0 ; i < frames ; i ++ )
@@ -819,9 +437,9 @@ void StereoCrossover4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high,
         outLTap1_2 = outL;
         outRTap1_2 = outR;
 
-        // phase compensate the input, note that b2 is 1.0
-        inPhaseCompL = bp0*inL + bp1*inLTap1_p + inLTap2_p - ap1*outLTap1_p - ap2*outLTap2_p;
-        inPhaseCompR = bp0*inR + bp1*inRTap1_p + inRTap2_p - ap1*outRTap1_p - ap2*outRTap2_p;
+        // phase compensate the input
+        inPhaseCompL = a2*inL + a1*inLTap1_p + inLTap2_p - a1*outLTap1_p - a2*outLTap2_p;
+        inPhaseCompR = a2*inR + a1*inRTap1_p + inRTap2_p - a1*outRTap1_p - a2*outRTap2_p;
         
         // update phase compensate filter taps
         inLTap2_p = inLTap1_p;
@@ -880,7 +498,7 @@ void StereoCrossover4thOrderPhaseComp (Float32 *in, Float32 *low, Float32 *high,
 
 // stereo 4th order LR crossover
 // this needs lots of optimization!
-void StereoLowPass4thOrder (Float32 *in, Float32 *low, UInt32 frames, UInt32 SamplingRate, PreviousValues *section1State, PreviousValues *section2State)
+void StereoLowPass4thOrder (Float32 *in, Float32 *low, UInt32 frames, UInt32 SamplingRate, iSubCoefficients* coefficients, PreviousValues *section1State, PreviousValues *section2State)
 {
     UInt32	i;
     Float32	inL, inR, outL1, outR1, outL, outR;
@@ -917,10 +535,12 @@ void StereoLowPass4thOrder (Float32 *in, Float32 *low, UInt32 frames, UInt32 Sam
     outRTap1_2 = section2State->yr_1;
     outRTap2_2 = section2State->yr_2;
  
-    // set all coefficients
-    if (Set4thOrderCoefficients (&b0, &b1, &b2, &a1, &a2, SamplingRate) == FALSE)
-        return;
-
+	b0 = coefficients->b0;
+	b1 = coefficients->b1;
+	b2 = coefficients->b2;
+	a1 = coefficients->a1;
+	a2 = coefficients->a2;
+ 
     // need to unroll this loop to get rid of stalls!
     for ( i = 0 ; i < frames ; i ++ )
     {
@@ -4060,45 +3680,6 @@ void Float32ToNativeInt32( float *src, signed long *dst, unsigned int count )
 #pragma mark ••• Utility Routines
 #pragma mark ------------------------ 
 
-UInt32 CalculateOffset (UInt64 nanoseconds, UInt32 sampleRate) {
-	return (UInt32)((double)sampleRate * kOneOver1000000000) * nanoseconds;
-}
-
-void dBfixed2float(UInt32 indBfixed, float* ioGainPtr) {
-    float out, temp, frac;
-    // get integer part
-    int index = (SInt16)(indBfixed >> 16);		
-    // if we're out of bounds, saturate both integer and fraction		
-    if (index >= kMaxZeroGain) {
-        index = kMaxZeroGain;
-        indBfixed = 0;
-    } else if (index <= -kMinZeroGain) {
-        index = -kMinZeroGain;
-        indBfixed = 0;
-    }    
-
-    // get fractional part
-    frac = ((float)((UInt32)(indBfixed & 0x0000FFFF)))*kOneOver65535;		
-
-    // get the base dB converted value
-    out = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset];
-    // if we have a fractional part, do linear interpolation on our table
-    // this is accurate to about 2 decimal places, which is okay but not great
-    if (frac > 0.0f) {
-        if (index >= 0) {
-            temp = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset + 1];
-            out = out + frac*(temp - out);			
-        } else {
-            temp = zeroGaindBConvTable[index + kZeroGaindBConvTableOffset - 1];
-            out = out + frac*(temp - out);
-        }
-    }
-
-    *ioGainPtr = out;
-    
-    return;
-}
-
 void inputGainConverter(UInt32 inGainIndex, float* ioGainPtr) {
     float out = 1.0f;
     // check bounds		
@@ -4138,3 +3719,31 @@ void convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr)
 	
     return;
 }
+
+void volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB, float* outVolume)
+{
+	float slope, offset, volumedB, maxdB, mindB;
+	
+	// convert from 16.16 to float
+	maxdB = (float)(inMaxdB >> 16);						// integer
+	maxdB += (float)(inMaxdB & 0x0000FFFF)/65536.0f;	// fraction
+
+	mindB = (float)(inMindB >> 16);						// integer
+	mindB += (float)(inMindB & 0x0000FFFF)/65536.0f;	// fraction
+	
+	// convert linear gain value to dB value, then pass out new linear gain
+	slope = (maxdB - mindB)/((float)(inMaxLinear - inMinLinear));
+	offset = slope*inMinLinear - mindB;
+	volumedB = slope*inVolume - offset;
+	
+	*outVolume = pow (10.0f, volumedB*0.05f);
+	
+#ifdef TESTING_VOLUME_CONVERSION
+	*t1 = mindB;
+	*t2 = maxdB;
+	*t3 = slope;
+	*t4 = offset;
+	*t5 = volumedB;
+#endif	
+}
+

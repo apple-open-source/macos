@@ -99,9 +99,9 @@
 //093
 //094
 		09AB6884FE841BABC02AAC07 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
@@ -163,7 +163,7 @@
 				PRODUCT_NAME = CDTOC;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -221,7 +221,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		8DD76F7E0486A8DE00D96B5E = {
-			expectedFileType = "compiled.mach-o.executable";
+			explicitFileType = "compiled.mach-o.executable";
 			includeInIndex = 0;
 			isa = PBXFileReference;
 			path = CDTOC;
@@ -239,9 +239,9 @@
 //AC3
 //AC4
 		ACBD639904AB81E700F90689 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = CDTOC.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -253,8 +253,8 @@
 			};
 		};
 		ACBD63BC04ABCC2800F90689 = {
-			expectedFileType = wrapper.framework;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;

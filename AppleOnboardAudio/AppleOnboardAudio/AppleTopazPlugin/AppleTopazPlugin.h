@@ -185,29 +185,30 @@ enum PRO_CHANNEL_STATUS_BYTE_0 {
 
 enum CONSUMER_CHANNEL_STATUS_BYTE_3 {
 	baConsumerSampleFrequency		=	0x00,
+	cSampleFrequency_24Khz			=	0x60,
+	cSampleFrequency_32Khz			=	0xC0,
 	cSampleFrequency_44Khz			=	0x00,
 	cSampleFrequency_48Khz			=	0x40,
-	cSampleFrequency_32Khz			=	0xC0
+	cSampleFrequency_88Khz			=	0x10,
+	cSampleFrequency_96Khz			=	0x50,
+	cSampleFrequency_176Khz			=	0x30,
+	cSampleFrequency_192Khz			=	0x70,
+	cSampleFrequency_NotIndicated   =   0x01
 };
 
 enum CONSUMER_CHANNEL_STATUS_BYTE_4 {
-	cWordLength_24Max_notIndicated	=	0x01,
-	cWordLength_24Max_24bits		=	0x0B,
-	cWordLength_24Max_23bits		=	0x03,
-	cWordLength_24Max_22bits		=	0x05,
-	cWordLength_24Max_21bits		=	0x07,
-	cWordLength_24Max_20bits		=	0x09,
-	cWordLength_20Max_notIndicated	=	0x00,
-	cWordLength_20Max_20bits		=	0x0A,
-	cWordLength_20Max_19bits		=	0x02,
-	cWordLength_20Max_18bits		=	0x04,
-	cWordLength_20Max_17bits		=	0x06,
-	cWordLength_20Max_16bits		=	0x08
+	cWordLength_24Max_24bits		=	0xD0,
+	cWordLength_20Max_16bits		=	0x40	//  [3619664]
 };
 
 enum PRO_CHANNEL_STATUS_BYTE_2 {
 	baUseOfAuxSampleBits			=	0,
 	baSourceWordLength				=	3
+};
+
+enum {
+	kIEC60958_CategoryCode_CD		=   0x80,		//  [8......15]
+	kIEC60958_CategoryCode_DVD		=   0x98		//  [8......15]
 };
 
 #define	kBANonAudio				1
@@ -232,6 +233,7 @@ public:
     virtual void			free ( void );
 	
 	void					initPlugin ( PlatformInterface* inPlatformObject );
+	void					initPlugin ( PlatformInterface* inPlatformObject, IOService * provider, UInt8 i2cAddress, TOPAZ_CODEC_TYPES codecID );
 	virtual bool			preDMAEngineInit ( void ) { return false; }
 	
 	virtual IOReturn		initCodecRegisterCache ( void ) { return kIOReturnError; }
@@ -251,10 +253,6 @@ public:
 	virtual void			useExternalCLK ( void ) { return; }
 	virtual void			useInternalCLK ( void ) { return; }
 	
-	virtual bool			phaseLocked ( void ) { return false; }
-	virtual bool			confidenceError ( void ) { return false; }
-	virtual bool			biphaseError ( void ) { return false; }
-	
 	virtual UInt8			CODEC_GetDataMask ( UInt8 regAddr ) { return 0; }
 	virtual IOReturn		CODEC_GetRegSize ( UInt8 regAddr, UInt32 * codecRegSizePtr ) { return kIOReturnError; }
 	virtual IOReturn 		CODEC_IsControlRegister ( UInt8 regAddr ) { return kIOReturnError; }
@@ -267,7 +265,10 @@ public:
 	virtual bool			supportsDigitalOutput ( void ) { return false; }
 
 	virtual void			poll ( void ) { return; }
-
+	virtual void			notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) { return; }
+	virtual UInt32			getClockLockTerminalCount () { return 10; }
+	virtual bool			canOnlyMasterTheClock () { return FALSE; }
+	
 	//	IMPORTANT:		The following methods exist ONLY within the base class:
 	
 	IOReturn 				CODEC_ReadRegister ( UInt8 regAddr, UInt8 * registerData, UInt32 size );	//	in base class only
@@ -277,6 +278,8 @@ public:
 	
 protected:
 
+	TOPAZ_CODEC_TYPES		mCodecID;
+	UInt8					mTopaz_I2C_Address; //  [3648867]
 	bool					mRecoveryInProcess;
 	bool					mMuteState;
 	AppleOnboardAudio *		mAudioDeviceProvider;

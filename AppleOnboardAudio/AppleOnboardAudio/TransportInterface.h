@@ -26,7 +26,8 @@ typedef enum {
 	kTransportInterfaceType_I2S,
 	kTransportInterfaceType_DAV,
 	kTransportInterfaceType_AC97,
-	kTransportInterfaceType_I2S_Slave_Only
+	kTransportInterfaceType_I2S_Slave_Only,
+	kTransportInterfaceType_I2S_Opaque_Slave_Only
 } TransportInterfaceType;
 
 typedef struct {
@@ -75,6 +76,8 @@ public:
 	virtual bool			init (PlatformInterface * inPlatformInterface);
 	virtual void			free ( void );
 
+	virtual IOReturn		restartTransport ( void ) = 0;		//  [3683602]
+
 	virtual IOReturn		transportSetSampleRate ( UInt32 sampleRate );
 	virtual IOReturn		transportSetSampleWidth ( UInt32 sampleDepth, UInt32 dmaWidth );
 	virtual IOReturn		transportBreakClockSelect ( UInt32 clockSource );
@@ -82,6 +85,7 @@ public:
 	
 	virtual IOReturn		performTransportSleep ( void ) = 0;
 	virtual IOReturn		performTransportWake ( void ) = 0;
+	virtual IOReturn		performTransportPostWake ( void ) = 0;
 
 	virtual bool			transportCanClockSelect ( UInt32 clockSource ) {return false;}
 	
@@ -92,10 +96,12 @@ public:
 	
 	virtual void			poll ( void ) { return; }
 	
+	UInt32					transportGetTransportInterfaceType ( void ) { return mTransportState.transportInterfaceType; }
 	void					transportSetTransportInterfaceType ( UInt32 transportType );
 	
 	virtual IOReturn		transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) { return kIOReturnError; }
 	virtual UInt32			transportGetPeakLevel ( UInt32 channelTarget ) { return 0; }
+	
 
 	//	------------------------------
 	//	USER CLIENT

@@ -6,6 +6,8 @@
 	<false/>
 	<key>DHCPInitRebootRetryCount</key>
 	<integer>2</integer>
+	<key>DHCPSelectRetryCount</key>
+	<integer>3</integer>
 	<key>DHCPAllocateLinkLocalAtRetryCount</key>
 	<integer>2</integer>
 	<key>DHCPFailureConfiguresLinkLocal</key>

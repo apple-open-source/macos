@@ -3,25 +3,36 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#if 0
+#warning **LOGS**
+#define RLOG 1
+#define DEBG(cref, fmt, args...)  			\
+if (cref->logfile) { 					\
+    fprintf(cref->logfile, "%s: ", __FUNCTION__);	\
+    fprintf(cref->logfile, fmt, ## args);		\
+    fflush(cref->logfile);				\
+}
+
+#else
+#define DEBG(cref, fmt, args...)  {}
+#endif
 
 enum {
     kDisplayAppleVendorID	= 0x610
@@ -66,7 +77,13 @@ enum {
     kIOFBStdMode		= 0x00000004,
     kIOFBDriverMode		= 0x00000008,
     kIOFBScaledMode		= 0x00000010,
-    kIOFBGTFMode		= 0x00000020
+    kIOFBGTFMode		= 0x00000020,
+    kIOFBCVTEstMode		= 0x00000040
+};
+
+enum {
+    kResSpecNeedInterlace = 0x00000001,
+    kResSpecReducedBlank  = 0x00000002
 };
 
 struct IOFBResolutionSpec {
@@ -74,7 +91,7 @@ struct IOFBResolutionSpec {
     UInt32		width;
     UInt32		height;
     float		refreshRate;
-    Boolean		needInterlace;
+    UInt32		flags;
 };
 typedef struct IOFBResolutionSpec IOFBResolutionSpec;
 
@@ -140,6 +157,8 @@ struct EDID {
 };
 typedef struct EDID EDID;
 
+#define featureSupport	displayParams[4]
+
 struct GTFTimingCurve
 {
     UInt32 startHFrequency;
@@ -150,6 +169,118 @@ struct GTFTimingCurve
 };
 typedef struct GTFTimingCurve GTFTimingCurve;
 
+enum {
+    kExtTagCEA	= 0x02,
+    kExtTagVTB	= 0x10,
+    kExtTagDI	= 0x40
+};
+
+
+struct DIEXT {
+    UInt8	header;
+    UInt8	version;
+
+    // digital only
+    UInt8	standardSupported;
+    UInt8	standardVersion[4];
+    UInt8	dataFormatDesc;
+    UInt8	dataFormats;
+    UInt8	minPixelClockPerLink;
+    UInt8	maxPixelClockPerLink[2];
+    UInt8	crossoverFreq[2];
+
+    // analogue/digital
+    UInt8	subPixelLayout;
+    UInt8	subPixelConfig;
+    UInt8	subPixelShape;
+    UInt8	horizontalPitch;
+    UInt8	verticalPitch;
+    UInt8	majorCapabilities;
+    UInt8	miscCapabilities;
+    UInt8	frameRateConversion;
+    UInt8	convertedVerticalFreq[2];
+    UInt8	convertedHorizontalFreq[2];
+    UInt8	displayScanOrientation;
+
+    UInt8	colorLuminanceDefault;
+    UInt8	colorLuminancePreferred;
+    UInt8	colorLuminanceCapabilities[2];
+
+    UInt8	colorDepthFlags;
+    UInt8	rgbBitsPerColor[3];
+    UInt8	yuvBitsPerColor[3];
+
+    UInt8	aspectRatioConversionModes;
+
+    UInt8	packetizedDigitalVideo[16];
+    UInt8	reserved[17];
+    UInt8	audio[9];
+    UInt8	gamma[46];
+
+    UInt8	checksum;
+};
+typedef struct DIEXT DIEXT;
+
+struct VTBEXT {
+    UInt8	header;
+    UInt8	version;
+    UInt8	numDetailedTimings;
+    UInt8	numCVTTimings;
+    UInt8	numStandardTimings;
+    UInt8	data[122];
+    UInt8	checksum;
+};
+typedef struct VTBEXT VTBEXT;
+
+struct VTBCVTTimingDesc {
+    UInt8	verticalSize;
+    UInt8	verticalSizeHigh;
+    UInt8	refreshRates;
+};
+typedef struct VTBCVTTimingDesc VTBCVTTimingDesc;
+
+// VTBCVTTimingDesc.verticalSizeHigh
+enum {
+    kVTBCVTAspectRatioMask	= 0x0c,
+    kVTBCVTAspectRatio4By3	= 0x00,
+    kVTBCVTAspectRatio16By9	= 0x04,
+    kVTBCVTAspectRatio16By10	= 0x08,
+};
+
+// VTBCVTTimingDesc.refreshRates
+enum {
+    kVTBCVTPreferredRefreshMask	= 0x60,
+    kVTBCVTPreferredRefresh50	= 0x00,
+    kVTBCVTPreferredRefresh60	= 0x20,
+    kVTBCVTPreferredRefresh75	= 0x40,
+    kVTBCVTPreferredRefresh85	= 0x60,
+
+    kVTBCVTRefresh50		= 0x10,
+    kVTBCVTRefresh60		= 0x08,
+    kVTBCVTRefresh75		= 0x04,
+    kVTBCVTRefresh85		= 0x02,
+    kVTBCVTRefresh60RBlank	= 0x01
+};
+
+struct CEA861EXT {
+    UInt8	header;
+    UInt8	version;
+    UInt8	detailedTimingsOffset;
+    UInt8	flags;
+    UInt8	data[123];
+    UInt8	checksum;
+};
+typedef struct CEA861EXT CEA861EXT;
+
+// CEA861EXT.flags (v2)
+enum {
+    kDTVSupportsUnderscan	= 0x80,
+    kDTVSupportsBasicAudio	= 0x40,
+    kDTVSupportsYUV444		= 0x20,
+    kDTVSupportsYUV422		= 0x10,
+    kDTVNumNativeTimings	= 0x0f
+};
+
 struct IOFBConnect
 {
     io_service_t		framebuffer;
@@ -159,6 +290,9 @@ struct IOFBConnect
     SInt64			dependentID;
     SInt32			dependentIndex;
     CFMutableDictionaryRef	iographicsProperties;
+#if RLOG
+    FILE *			logfile;
+#endif
     CFMutableDictionaryRef	kernelInfo;
     CFMutableDictionaryRef	modes;
     CFMutableArrayRef		modesArray;
@@ -181,9 +315,19 @@ struct IOFBConnect
     UInt32			defaultHeight;
     UInt32			defaultImageWidth;
     UInt32			defaultImageHeight;
-    IODisplayTimingRange *	fbRange;
+    UInt64			dualLinkCrossover;
+    UInt32			maxDisplayLinks;
+    float			nativeAspect;
+    IODisplayTimingRange *	 fbRange;	// only during IODisplayInstallTimings()
+    IODisplayScalerInformation * scalerInfo;	// only during IOFBBuildModeList()
     GTFTimingCurve		gtfCurves[2];
     UInt32			numGTFCurves;
+    Boolean			gtfDisplay;
+    Boolean			cvtDisplay;
+    Boolean			supportsReducedBlank;
+    Boolean			hasCEAExt;
+    Boolean			hasDIEXT;
+    Boolean			hasInterlaced;
     Boolean			suppressRefresh;
     Boolean			detailedRefresh;
     Boolean			trimToDependent;
@@ -222,8 +366,15 @@ _IODisplayCreateInfoDictionary(
 
 __private_extern__ IOReturn
 IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
-			  const IOTimingInformation * timing,
+			  IOTimingInformation * timing,
 			  IOOptionBits modeGenFlags );
+
+__private_extern__ kern_return_t
+IOFBDriverPreflight(IOFBConnectRef connectRef, IOTimingInformation * timingInfo);
+__private_extern__ Boolean
+ValidateTimingInformation( const IOTimingInformation * timingInfo );
+__private_extern__ Boolean
+IOFBTimingSanity(IOTimingInformation * timingInfo);
 
 __private_extern__ IOReturn
 readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize);
@@ -233,3 +384,12 @@ ratioOver( float a, float b );
 
 __private_extern__ CFMutableDictionaryRef
 readPlist( const char * path, UInt32 key );
+
+__private_extern__ Boolean
+writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key );
+
+__private_extern__ void
+IOFBLogTiming(IOFBConnectRef connectRef, const IOTimingInformation * timing);
+__private_extern__ void
+IOFBLogRange(IOFBConnectRef connectRef, const IODisplayTimingRange * range);
+

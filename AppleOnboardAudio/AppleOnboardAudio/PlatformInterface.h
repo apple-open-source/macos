@@ -26,7 +26,7 @@ typedef enum {
 	kI2S_49MHz					= 2
 } I2SClockFrequency;
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum GpioAttributes {
 	kGPIO_Disconnected			= 0,
 	kGPIO_Connected,
@@ -47,7 +47,7 @@ typedef enum GpioAttributes {
 	kGPIO_IsAlternate
 };
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum GPIOSelector {
 	kGPIO_Selector_AnalogCodecReset	= 0,
 	kGPIO_Selector_ClockMux,
@@ -71,7 +71,7 @@ typedef enum GPIOSelector {
 	kGPIO_Selector_NotAssociated
 };
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum GPIOType {
 	kGPIO_Type_ConnectorType = 0,
 	kGPIO_Type_Detect,
@@ -82,13 +82,13 @@ typedef enum GPIOType {
 	kGPIO_Type_Reset,
 };
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum {
 	kCODEC_RESET_Analog			= 0,
 	kCODEC_RESET_Digital
 } CODEC_RESET;
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum {
 	kUnknownInterrupt			= 0,
 	kCodecErrorInterrupt,
@@ -103,7 +103,7 @@ typedef enum {
 	kComboOutDetectInterrupt
 } PlatformInterruptSource;
 
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum PlatformInterfaceObjectType {
 	kPlatformInterfaceType_Unknown			=	0,
 	kPlatformInterfaceType_KeyLargo,
@@ -111,7 +111,31 @@ typedef enum PlatformInterfaceObjectType {
 	kPlatformInterfaceType_Shasta
 } ;
 
-//	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
+typedef enum {
+	gpioMessage_AnalogCodecReset_bitAddress		=   0,
+	gpioMessage_ClockMux_bitAddress,
+	gpioMessage_CodecInterrupt_bitAddress,
+	gpioMessage_CodecErrorInterrupt_bitAddress,
+	gpioMessage_ComboInJackType_bitAddress,
+	gpioMessage_ComboOutJackType_bitAddress,
+	gpioMessage_DigitalCodecReset_bitAddress,
+	gpioMessage_DigitalInDetect_bitAddress,
+	gpioMessage_DigitalOutDetect_bitAddress,
+	gpioMessage_HeadphoneDetect_bitAddress,
+	gpioMessage_HeadphoneMute_bitAddress,
+	gpioMessage_InputDataMux_bitAddress,
+	gpioMessage_LineInDetect_bitAddress,
+	gpioMessage_LineOutDetect_bitAddress,
+	gpioMessage_LineOutMute_bitAddress,
+	gpioMessage_SpeakerDetect_bitAddress,
+	gpioMessage_SpeakerMute_bitAddress,
+	gpioMessage_InternalSpeakerID_bitAddress,
+	gpioMessage_ComboInAssociation_bitAddress,
+	gpioMessage_ComboOutAssociation_bitAddress,
+} gpioMessages_bitAdddresses_bitAddresses;
+
+//	If this structure changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef struct { 
 	UInt32					intCtrl;
 	UInt32					serialFmt;
@@ -147,7 +171,7 @@ typedef struct {
 } i2sDescriptor ;
 typedef i2sDescriptor * i2sDescriptorPtr;
 
-//	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this structure changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef struct {
 	UInt32					i2sEnable;
 	UInt32					i2sClockEnable;
@@ -183,7 +207,7 @@ typedef struct {
 } fcrDescriptor ;
 typedef fcrDescriptor * fcrDescriptorPtr ;
 
-//	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this structure changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef struct {
 	GpioAttributes			gpio_AnalogCodecReset;
 	GpioAttributes			gpio_ClockMux;
@@ -216,7 +240,7 @@ typedef struct {
 	GpioAttributes			reserved_28;
 	GpioAttributes			reserved_29;
 	GpioAttributes			reserved_30;
-	GpioAttributes			reserved_31;
+	UInt32					gpioMessageFlags;				//  bit mapped array indicating interrupt control success (TRUE) or failure (FALSE)
 } gpioDescriptor;
 typedef gpioDescriptor * gpioDescriptorPtr;
 
@@ -248,7 +272,7 @@ typedef enum ComboStateMachineState {
 	kComboStateMachine_handle_plastic_change
 };
 
-//	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
+//	If this structure changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef struct {
 	PlatformInterfaceObjectType				platformType;
 	fcrDescriptor							fcr;
@@ -397,6 +421,7 @@ public:
 	virtual	IOReturn		enableInterrupt ( PlatformInterruptSource source ) { return kIOReturnError; }
 	virtual	IOReturn		registerInterruptHandler (IOService * theDevice, void * interruptHandler, PlatformInterruptSource source ) { return kIOReturnError; }
 	virtual	IOReturn		unregisterInterruptHandler (IOService * theDevice, void * interruptHandler, PlatformInterruptSource source ) { return kIOReturnError; }
+	virtual void			checkDetectStatus ( IOService * device );
 
 	//
 	// DBDMA Memory Address Acquisition Methods
@@ -415,7 +440,7 @@ public:
 	virtual void			LogGPIO ( void ) { return; }
 	virtual void			LogInterruptGPIO ( void ) { return; }
 protected:
-
+	UInt32					mGpioMessageFlag;
 	static UInt32			sInstanceCount;
 	UInt32					mInstanceIndex;
 	bool					mEnableAmplifierMuteRelease;								//	[3514762]

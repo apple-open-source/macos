@@ -502,6 +502,12 @@ void RenderImage::detach()
     RenderReplaced::detach();
 }
 
+HTMLMapElementImpl* RenderImage::imageMap()
+{
+    HTMLImageElementImpl* i = element()->id() == ID_IMG ? static_cast<HTMLImageElementImpl*>(element()) : 0;
+    return i ? static_cast<HTMLDocumentImpl*>(i->getDocument())->getMap(i->imageMap()) : 0;
+}
+
 bool RenderImage::nodeAtPoint(NodeInfo& info, int _x, int _y, int _tx, int _ty,
                               HitTestAction hitTestAction, bool inside)
 {

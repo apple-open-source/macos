@@ -31,6 +31,7 @@
 #import "dom_docimpl.h"
 #import "dom_elementimpl.h"
 #import "html_inlineimpl.h"
+#import "html_imageimpl.h"
 #import "dom_string.h"
 #import "dom2_range.h"
 #import "htmlattrs.h"
@@ -39,14 +40,18 @@
 #import "khtml_part.h"
 #import "render_canvas.h"
 #import "render_object.h"
-#import "render_replaced.h"
+#import "render_image.h"
+#import "render_list.h"
 #import "render_style.h"
 #import "render_text.h"
 #import "kjs_html.h"
 #import "html_miscimpl.h"
+#import "qptrstack.h"
 
 using DOM::ElementImpl;
 using DOM::HTMLAnchorElementImpl;
+using DOM::HTMLMapElementImpl;
+using DOM::HTMLAreaElementImpl;
 using DOM::HTMLCollection;
 using DOM::HTMLCollectionImpl;
 using DOM::Node;
@@ -59,6 +64,8 @@ using khtml::RenderWidget;
 using khtml::RenderCanvas;
 using khtml::RenderText;
 using khtml::RenderBlock;
+using khtml::RenderListMarker;
+using khtml::RenderImage;
 
 // FIXME: This will eventually need to really localize.
 #define UI_STRING(string, comment) ((NSString *)[NSString stringWithUTF8String:(string)])
@@ -68,6 +75,7 @@ using khtml::RenderBlock;
 {
     [super init];
     m_renderer = renderer;
+    m_areaElement = 0;
     return self;
 }
 
@@ -101,6 +109,9 @@ using khtml::RenderBlock;
 
 -(HTMLAnchorElementImpl*)anchorElement
 {
+    if (m_areaElement)
+        return m_areaElement;
+
     RenderObject* currRenderer;
     for (currRenderer = m_renderer; currRenderer && !currRenderer->element(); currRenderer = currRenderer->parent())
         if (currRenderer->continuation())
@@ -111,7 +122,7 @@ using khtml::RenderBlock;
     
     NodeImpl* elt = currRenderer->element();
     for ( ; elt; elt = elt->parentNode()) {
-        if (elt->hasAnchor())
+        if (elt->hasAnchor() && elt->renderer() && !elt->renderer()->isImage())
             return static_cast<HTMLAnchorElementImpl*>(elt);
     }
   
@@ -148,6 +159,9 @@ using khtml::RenderBlock;
 
 -(KWQAccObject*)parentObject
 {
+    if (m_areaElement)
+        return m_renderer->document()->getOrCreateAccObjectCache()->accObject(m_renderer);
+
     if (!m_renderer || !m_renderer->parent())
         return nil;
     return m_renderer->document()->getOrCreateAccObjectCache()->accObject(m_renderer->parent());
@@ -155,9 +169,7 @@ using khtml::RenderBlock;
 
 -(KWQAccObject*)parentObjectUnignored
 {
-    if (!m_renderer || !m_renderer->parent())
-        return nil;
-    KWQAccObject* obj = m_renderer->document()->getOrCreateAccObjectCache()->accObject(m_renderer->parent());
+    KWQAccObject* obj = [self parentObject];
     if ([obj accessibilityIsIgnored])
         return [obj parentObjectUnignored];
     else
@@ -185,6 +197,35 @@ using khtml::RenderBlock;
         else
             [array addObject: obj];
     }
+    
+    if (m_renderer->isImage() && !m_areaElement) {
+        HTMLMapElementImpl* map = static_cast<RenderImage*>(m_renderer)->imageMap();
+        if (map) {
+            // Need to add the <area> elements as individual accessibility objects.
+            QPtrStack<NodeImpl> nodeStack;
+            NodeImpl *current = map->firstChild();
+            while (1) {
+                if (!current) {
+                    if(nodeStack.isEmpty()) break;
+                    current = nodeStack.pop();
+                    current = current->nextSibling();
+                    continue;
+                }
+                if (current->hasAnchor()) {
+                    KWQAccObject* obj = [[[KWQAccObject alloc] initWithRenderer: m_renderer] autorelease];
+                    obj->m_areaElement = static_cast<HTMLAreaElementImpl*>(current);
+                    [array addObject: obj];
+                }
+                NodeImpl *child = current->firstChild();
+                if (child) {
+                    nodeStack.push(current);
+                    current = child;
+                }
+                else
+                    current = current->nextSibling();
+            }
+        }
+    }
 }
 
 -(NSString*)role
@@ -192,20 +233,27 @@ using khtml::RenderBlock;
     if (!m_renderer)
         return NSAccessibilityUnknownRole;
 
-    if (m_renderer->element() && m_renderer->element()->hasAnchor())
-        return NSAccessibilityButtonRole;
+    if (m_areaElement)
+        return @"AXLink";
+    if (m_renderer->element() && m_renderer->element()->hasAnchor()) {
+        if (m_renderer->isImage())
+            return @"AXImageMap";
+        return @"AXLink";
+    }
+    if (m_renderer->isListMarker())
+        return @"AXListMarker";
     if (m_renderer->element() && m_renderer->element()->isHTMLElement() &&
         Node(m_renderer->element()).elementId() == ID_BUTTON)
         return NSAccessibilityButtonRole;
     if (m_renderer->isText())
         return NSAccessibilityStaticTextRole;
     if (m_renderer->isImage())
-       return NSAccessibilityImageRole;
+        return NSAccessibilityImageRole;
     if (m_renderer->isCanvas())
         return @"AXWebArea";
     if (m_renderer->isBlockFlow())
         return NSAccessibilityGroupRole;
-    
+
     return NSAccessibilityUnknownRole;
 }
 
@@ -234,6 +282,15 @@ using khtml::RenderBlock;
     if ([role isEqualToString:@"AXWebArea"])
         return UI_STRING("web area", "accessibility role description for web area");
     
+    if ([role isEqualToString:@"AXLink"])
+        return UI_STRING("link", "accessibility role description for link");
+    
+    if ([role isEqualToString:@"AXListMarker"])
+        return UI_STRING("list marker", "accessibility role description for list marker");
+    
+    if ([role isEqualToString:@"AXImageMap"])
+        return UI_STRING("image map", "accessibility role description for image map");
+        
     return UI_STRING("unknown", "accessibility role description for unknown role");
 }
 
@@ -242,8 +299,20 @@ using khtml::RenderBlock;
     if (!m_renderer)
         return nil;
 
+    if (m_areaElement) {
+        QString summary = static_cast<ElementImpl*>(m_areaElement)->getAttribute(ATTR_SUMMARY).string();
+        if (!summary.isEmpty())
+            return summary.getNSString();
+        QString title = static_cast<ElementImpl*>(m_areaElement)->getAttribute(ATTR_TITLE).string();
+        if (!title.isEmpty())
+            return title.getNSString();
+    }
+
     for (RenderObject* curr = m_renderer; curr; curr = curr->parent()) {
         if (curr->element() && curr->element()->isHTMLElement()) {
+            QString summary = static_cast<ElementImpl*>(curr->element())->getAttribute(ATTR_SUMMARY).string();
+            if (!summary.isEmpty())
+                return summary.getNSString();
             QString title = static_cast<ElementImpl*>(curr->element())->getAttribute(ATTR_TITLE).string();
             if (!title.isEmpty())
                 return title.getNSString();
@@ -282,12 +351,15 @@ using khtml::RenderBlock;
 
 -(NSString*)value
 {
-    if (!m_renderer)
+    if (!m_renderer || m_areaElement)
         return nil;
 
     if (m_renderer->isText())
         return [self textUnderElement];
     
+    if (m_renderer->isListMarker())
+        return static_cast<RenderListMarker*>(m_renderer)->text().getNSString();
+
     // FIXME: We might need to implement a value here for more types
     // FIXME: It would be better not to advertise a value at all for the types for which we don't implement one;
     // this would require subclassing or making accessibilityAttributeNames do something other than return a
@@ -297,7 +369,7 @@ using khtml::RenderBlock;
 
 -(NSString*)title
 {
-    if (!m_renderer)
+    if (!m_renderer || m_areaElement)
         return nil;
 
     if (m_renderer->isImage()) {
@@ -340,7 +412,7 @@ static QRect boundingBoxRect(RenderObject* obj)
 
 -(NSValue*)position
 {
-    QRect rect = boundingBoxRect(m_renderer);
+    QRect rect = m_areaElement ? m_areaElement->getRect(m_renderer) : boundingBoxRect(m_renderer);
     
     // The Cocoa accessibility API wants the lower-left corner, not the upper-left, so we add in our height.
     NSPoint point = NSMakePoint(rect.x(), rect.y() + rect.height());
@@ -353,7 +425,7 @@ static QRect boundingBoxRect(RenderObject* obj)
 
 -(NSValue*)size
 {
-    QRect rect = boundingBoxRect(m_renderer);
+    QRect rect = m_areaElement ? m_areaElement->getRect(m_renderer) : boundingBoxRect(m_renderer);
     return [NSValue valueWithSize: NSMakeSize(rect.width(), rect.height())];
 }
 
@@ -364,14 +436,14 @@ static QRect boundingBoxRect(RenderObject* obj)
 
     if (m_renderer->isText())
         return m_renderer->isBR() || static_cast<RenderText*>(m_renderer)->inlineTextBoxes().count() == 0;
-
-    if (m_renderer->element() && m_renderer->element()->hasAnchor())
+    
+    if (m_areaElement || (m_renderer->element() && m_renderer->element()->hasAnchor()))
         return NO;
 
     if (m_renderer->isBlockFlow() && m_renderer->childrenInline())
         return !static_cast<RenderBlock*>(m_renderer)->firstLineBox();
 
-    return (!m_renderer->isCanvas() && 
+    return (!m_renderer->isListMarker() && !m_renderer->isCanvas() && 
             !m_renderer->isImage() &&
             !(m_renderer->element() && m_renderer->element()->isHTMLElement() &&
               Node(m_renderer->element()).elementId() == ID_BUTTON));
@@ -427,12 +499,14 @@ static QRect boundingBoxRect(RenderObject* obj)
             NSAccessibilityEnabledAttribute,
             NSAccessibilityWindowAttribute,
             @"AXLinkUIElements",
+            @"AXLoaded",
+            @"AXLayoutCount",
             nil];
     }
     
     if (m_renderer->isCanvas())
         return webAreaAttrs;
-    if (m_renderer->element() && m_renderer->element()->hasAnchor())
+    if (m_areaElement || (!m_renderer->isImage() && m_renderer->element() && m_renderer->element()->hasAnchor()))
         return anchorAttrs;
     return attributes;
 }
@@ -494,23 +568,29 @@ static QRect boundingBoxRect(RenderObject* obj)
         return m_children;
     }
 
-    if ([attributeName isEqualToString: @"AXLinkUIElements"] && m_renderer->isCanvas()) {
-        NSMutableArray* links = [NSMutableArray arrayWithCapacity: 32];
-        HTMLCollection coll(m_renderer->document(), HTMLCollectionImpl::DOC_LINKS);
-        if (coll.isNull())
+    if (m_renderer->isCanvas()) {
+        if ([attributeName isEqualToString: @"AXLinkUIElements"]) {
+            NSMutableArray* links = [NSMutableArray arrayWithCapacity: 32];
+            HTMLCollection coll(m_renderer->document(), HTMLCollectionImpl::DOC_LINKS);
+            if (coll.isNull())
+                return links;
+            Node curr = coll.firstItem();
+            while (!curr.isNull()) {
+                RenderObject* obj = curr.handle()->renderer();
+                if (obj)
+                    [links addObject: obj->document()->getOrCreateAccObjectCache()->accObject(obj)];
+                curr = coll.nextItem();
+            }
             return links;
-        Node curr = coll.firstItem();
-        while (!curr.isNull()) {
-            RenderObject* obj = curr.handle()->renderer();
-            if (obj)
-                [links addObject: obj->document()->getOrCreateAccObjectCache()->accObject(obj)];
-            curr = coll.nextItem();
         }
-        return links;
+        else if ([attributeName isEqualToString: @"AXLoaded"])
+            return [NSNumber numberWithBool: (!m_renderer->document()->tokenizer())];
+        else if ([attributeName isEqualToString: @"AXLayoutCount"])
+            return [NSNumber numberWithInt: (static_cast<RenderCanvas*>(m_renderer)->view()->layoutCount())];
     }
     
-    if ([attributeName isEqualToString: @"AXURL"] && m_renderer->element() &&
-        m_renderer->element()->hasAnchor()) {
+    if ([attributeName isEqualToString: @"AXURL"] && 
+        (m_areaElement || (!m_renderer->isImage() && m_renderer->element() && m_renderer->element()->hasAnchor()))) {
         HTMLAnchorElementImpl* anchor = [self anchorElement];
         if (anchor) {
             QString s = anchor->getAttribute(ATTR_HREF).string();

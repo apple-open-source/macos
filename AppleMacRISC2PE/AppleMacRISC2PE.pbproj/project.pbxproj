@@ -212,7 +212,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "\U0001-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -243,7 +243,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.4.6, Copyright 2002-2004 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.5.0, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -255,11 +255,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -894,7 +894,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB6_1_PlatformMonitor;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -930,11 +930,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB6_1_PlatformMonitor</key>
@@ -997,7 +997,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1033,11 +1033,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB5_1_PlatformMonitor</key>
@@ -1189,7 +1189,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1225,11 +1225,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2003_PlatformMonitor</key>
@@ -1464,7 +1464,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1500,11 +1500,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2004_PlatformMonitor</key>
@@ -1847,7 +1847,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.4.6b1;
+				MODULE_VERSION = 1.5.0b1;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1873,7 +1873,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformFunction</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformVersion version 1.4.6, Copyright 2003-2004 Apple Computer, Inc.</string>
+	<string>IOPlatformVersion version 1.5.0, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1885,11 +1885,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.6</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.6b1</string>
+	<string>1.5.0b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPlatformFunctionDriver</key>

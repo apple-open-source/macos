@@ -113,6 +113,8 @@
 #define	kDeviceFamilySpeaker		1
 #endif
 
+#define	kMiniumumPollsToAquireClockLock		3
+
 typedef enum {
 	kInternalSpeakerStatus			= 0,
 	kHeadphoneStatus,
@@ -145,7 +147,13 @@ typedef enum {
 	kSetMuteState,
 	kSetAnalogMuteState,										//	[3435307]	
 	kSetDigitalMuteState,										//	[3435307]	
-	kNumberOfActionSelectors					//	ALWAYS MAKE THIS LAST!!!!
+	kBeginFormatChange,											//	[3558796]	
+	kEndFormatChange,											//	[3558796]	
+	kRemoteActive,												//  [3515371]
+	kRemoteIdle,												//  [3515371]
+	kRemoteSleep,												//  [3515371]
+	kSetEnableSPDIFOut,
+	kNumberOfActionSelectors									//	ALWAYS MAKE THIS LAST!!!!
 } ActionSelector;
 
 //	================================================================================
@@ -236,6 +244,8 @@ enum AudioPortTypes {
 	kSndHWDigitalOutput			=	0x00002000,		// digital output device present
 	kSndHWDigitalInput			=	0x00004000,		// digital in device present
     kSndHWInputDevices			=	0x000040B0,		// mask to get input devices (excluding modems)
+	kSndHWDigitalOutputDetect   =	0x00008000,		// digital output device has detect
+	kSndHWDigitalInputDetect	=	0x00010000,		// digital in device has detect
     kSndHWAllDevices			=	0xFFFFFFFF		// all available devices
 };
 

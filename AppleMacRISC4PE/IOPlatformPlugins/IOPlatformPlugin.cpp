@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,6 +28,30 @@
 
 
 #include "IOPlatformPlugin.h"
+
+
+OSDefineMetaClassAndStructors( IOPlatformPluginThermalProfile, IOService )
+
+
+bool IOPlatformPluginThermalProfile::start( IOService* nub )
+{
+	platformPlugin = OSDynamicCast( IOPlatformPlugin, nub->getProvider() );
+
+	return( IOService::start( nub ) );
+}
+
+
+void IOPlatformPluginThermalProfile::adjustThermalProfile( void )
+{
+	return;			// Generic class does nothing...
+}
+
+
+UInt8 IOPlatformPluginThermalProfile::getThermalConfig( void )
+{
+	return( 0 );	// Generic class doesn't know anything about a machine's configs...
+}
+
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOPlatformPlugin, IOService)
@@ -57,6 +78,7 @@ const OSSymbol * gIOPPluginLocationKey;
 const OSSymbol * gIOPPluginZoneKey;
 const OSSymbol * gIOPPluginCurrentValueKey;
 const OSSymbol * gIOPPluginPollingPeriodKey;
+const OSSymbol * gIOPPluginPollingPeriodNSKey;
 const OSSymbol * gIOPPluginRegisteredKey;
 const OSSymbol * gIOPPluginSensorDataKey;
 const OSSymbol * gIOPPluginControlDataKey;
@@ -76,6 +98,7 @@ const OSSymbol * gIOPPluginControlFlagsKey;
 const OSSymbol * gIOPPluginTargetValueKey;
 const OSSymbol * gIOPPluginControlMinValueKey;
 const OSSymbol * gIOPPluginControlMaxValueKey;
+const OSSymbol * gIOPPluginControlSafeValueKey;
 const OSSymbol * gIOPPluginTypeSlewControl;
 const OSSymbol * gIOPPluginTypeFanRPMControl;
 const OSSymbol * gIOPPluginTypeFanPWMControl;
@@ -85,6 +108,9 @@ const OSSymbol * gIOPPluginEnvInternalOvertemp;
 const OSSymbol * gIOPPluginEnvExternalOvertemp;
 const OSSymbol * gIOPPluginEnvDynamicPowerStep;
 const OSSymbol * gIOPPluginEnvControlFailed;
+const OSSymbol * gIOPPluginEnvCtrlLoopOutputAtMax;
+const OSSymbol * gIOPPluginEnvChassisSwitch;
+const OSSymbol * gIOPPluginEnvPlatformFlags;
 const OSSymbol * gIOPPluginCtrlLoopIDKey;
 const OSSymbol * gIOPPluginCtrlLoopMetaState;
 const OSSymbol * gIOPPluginThermalLocalizedDescKey;
@@ -97,6 +123,12 @@ const OSNumber * gIOPPluginOne;
 
 IOPlatformPlugin * platformPlugin;
 
+static const IOPMPowerState ourPowerStates[kIOPPluginNumPowerStates] = 
+{
+	{kIOPMPowerStateVersion1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{kIOPMPowerStateVersion1, kIOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
+};
+
 #pragma mark
 #pragma mark *** IOService method overrides ***
 
@@ -106,12 +138,12 @@ IOPlatformPlugin * platformPlugin;
 
 bool IOPlatformPlugin::start(IOService *nub)
 {
-	mach_timespec_t waitTimeout;
 	AbsoluteTime now;
 	const OSArray * tempArray;
 	IONotifier * restartNotifier;
+	mach_timespec_t waitTimeout;
 
-	//DLOG("IOPlatformPlugin::start - entered\n");
+	DLOG("IOPlatformPlugin::start - entered\n");
 
 	if (!super::start (nub)) goto failOnly;
 
@@ -148,7 +180,13 @@ bool IOPlatformPlugin::start(IOService *nub)
 	tempArray->release();
 	setEnv(gIOPPluginEnvControlFailed, (tempArray = OSArray::withCapacity(0)));
 	tempArray->release();
+	setEnv(gIOPPluginEnvCtrlLoopOutputAtMax, (tempArray = OSArray::withCapacity(0)));
+	tempArray->release();
 	setEnv(gIOPPluginEnvDynamicPowerStep, gIOPPluginZero);	// assume fast boot
+
+	// ensure that the chassis-switch environment condition is present. The value will
+	// be kOSBooleanFalse until later on, when we poll the sensor properly.
+	setEnv( gIOPPluginEnvChassisSwitch, IOPlatformPlugin::pollChassisSwitch() );
 
 	// clear the envChanged flag
 	envChanged = false;
@@ -156,6 +194,13 @@ bool IOPlatformPlugin::start(IOService *nub)
 	// determine what the machine configuration is and cache the result
 	machineConfig = probeConfig();
 	DLOG("IOPlatformPlugin MACHINE CONFIG %u\n", machineConfig);
+
+	// get a pointer to the Root Power Domain policymaker
+	waitTimeout.tv_sec = 30;
+	waitTimeout.tv_nsec = 0;
+
+    pmRootDomain = OSDynamicCast(IOPMrootDomain,
+			waitForService(serviceMatching("IOPMrootDomain"), &waitTimeout));
 
 	// parse in all the info for this machine
 	initThermalProfile(nub);
@@ -166,25 +211,22 @@ bool IOPlatformPlugin::start(IOService *nub)
 	clock_get_uptime(&now);
 	setTimeout(now);
 
-    // Before we go to sleep we wish to disable the napping mode so that the PMU
-    // will not shutdown the system while going to sleep:
-	waitTimeout.tv_sec = 30;
-	waitTimeout.tv_nsec = 0;
+	// Initialize Power Management superclass variables from IOService.h
+    PMinit();
 
-    pmRootDomain = OSDynamicCast(IOPMrootDomain,
-			waitForService(serviceMatching("IOPMrootDomain"), &waitTimeout));
-    if (pmRootDomain != 0)
-    {
-        //DLOG("IOPlatformPlugin::start to acknowledge power changes\n");
-        pmRootDomain->registerInterestedDriver(this);
-        
-        // Join the Power Management Tree to receive setAggressiveness calls.
-        PMinit();
-        nub->joinPMtree(this);
-    }
+	// Register as controlling driver
+    registerPowerDriver( this, (IOPMPowerState *) ourPowerStates, kIOPPluginNumPowerStates );
+
+	// Join the Power Management tree from IOService.h
+	nub->joinPMtree( this );
 
 	// Install power change handler (for restart notification)
 	restartNotifier = registerPrioritySleepWakeInterest(&sysPowerDownHandler, this, 0);
+
+	// Install chassis switch notification (clamshell, shroud, chassis intrusion, etc.) and
+	// fetch the initial switch state.
+	registerChassisSwitchNotifier();
+	setEnv( gIOPPluginEnvChassisSwitch, pollChassisSwitch() );
 
 	// HELLO!!
 	registerService();
@@ -288,6 +330,7 @@ void IOPlatformPlugin::initSymbols( void )
 	gIOPPluginZoneKey					= OSSymbol::withCString( kIOPPluginZoneKey );
 	gIOPPluginCurrentValueKey			= OSSymbol::withCString( kIOPPluginCurrentValueKey );
 	gIOPPluginPollingPeriodKey			= OSSymbol::withCString( kIOPPluginPollingPeriodKey );
+	gIOPPluginPollingPeriodNSKey		= OSSymbol::withCString( kIOPPluginPollingPeriodNSKey );
 	gIOPPluginRegisteredKey				= OSSymbol::withCString( kIOPPluginRegisteredKey );
 	gIOPPluginSensorDataKey				= OSSymbol::withCString( kIOPPluginSensorDataKey );
 	gIOPPluginControlDataKey			= OSSymbol::withCString( kIOPPluginControlDataKey );
@@ -307,6 +350,7 @@ void IOPlatformPlugin::initSymbols( void )
 	gIOPPluginTargetValueKey			= OSSymbol::withCString( kIOPPluginTargetValueKey );
 	gIOPPluginControlMinValueKey		= OSSymbol::withCString( kIOPPluginControlMinValueKey );
 	gIOPPluginControlMaxValueKey		= OSSymbol::withCString( kIOPPluginControlMaxValueKey );
+	gIOPPluginControlSafeValueKey		= OSSymbol::withCString( kIOPPluginControlSafeValueKey );
 	gIOPPluginTypeSlewControl			= OSSymbol::withCString( kIOPPluginTypeSlewControl );
 	gIOPPluginTypeFanRPMControl			= OSSymbol::withCString( kIOPPluginTypeFanRPMControl );
 	gIOPPluginTypeFanPWMControl			= OSSymbol::withCString( kIOPPluginTypeFanPWMControl );
@@ -316,6 +360,9 @@ void IOPlatformPlugin::initSymbols( void )
 	gIOPPluginEnvExternalOvertemp		= OSSymbol::withCString( kIOPPluginEnvExternalOvertemp );
 	gIOPPluginEnvDynamicPowerStep		= OSSymbol::withCString( kIOPPluginEnvDynamicPowerStep );
 	gIOPPluginEnvControlFailed			= OSSymbol::withCString( kIOPPluginEnvControlFailed );
+	gIOPPluginEnvCtrlLoopOutputAtMax	= OSSymbol::withCString( kIOPPluginEnvCtrlLoopOutputAtMax );
+	gIOPPluginEnvChassisSwitch			= OSSymbol::withCString( kIOPPluginEnvChassisSwitch );
+	gIOPPluginEnvPlatformFlags			= OSSymbol::withCString( kIOPPluginEnvPlatformFlags );
 	gIOPPluginCtrlLoopIDKey				= OSSymbol::withCString( kIOPPluginCtrlLoopIDKey );
 	gIOPPluginCtrlLoopMetaState			= OSSymbol::withCString( kIOPPluginCtrlLoopMetaState );
 	gIOPPluginThermalLocalizedDescKey	= OSSymbol::withCString( kIOPPluginThermalLocalizedDescKey );
@@ -327,6 +374,7 @@ void IOPlatformPlugin::initSymbols( void )
 bool IOPlatformPlugin::initThermalProfile(IOService *nub)
 {
 	const OSDictionary *thermalProfile;
+	const OSData *platformFlags;
 
 #ifdef PLUGIN_DEBUG
 	const OSDictionary *dict;
@@ -371,6 +419,20 @@ bool IOPlatformPlugin::initThermalProfile(IOService *nub)
 #ifdef PLUGIN_DEBUG
 	}
 #endif
+
+	// Fetch the platform flags toplevel Thermal Profile property
+	if ((platformFlags = OSDynamicCast( OSData, thermalProfile->getObject( kIOPPluginPlatformFlagsKey ) )) == NULL)
+	{
+		// if there's no PlatformFlags supplied, assume no bits are set
+		UInt32 noFlags = 0;
+		platformFlags = OSData::withBytes( &noFlags, sizeof(UInt32) );
+		setEnv( gIOPPluginEnvPlatformFlags, platformFlags );
+		platformFlags->release();
+	}
+	else
+	{
+		setEnv( gIOPPluginEnvPlatformFlags, platformFlags );
+	}
 
 	// parse the control array
 	if (!initControls( OSDynamicCast(OSArray, thermalProfile->getObject(kIOPPluginThermalControlsKey)) ))
@@ -537,7 +599,7 @@ bool IOPlatformPlugin::initSensors( const OSArray * sensorDicts )
 		// initialize the sensor object
 		if ((result = sensor->initPlatformSensor(dict)) != kIOReturnSuccess)
 		{
-			DLOG("IOPlatformPlugin::initSensors failed to init sensor object\n");
+			DLOG( "IOPlatformPlugin::initSensors failed to init sensor object (%s)\n", string->getCStringNoCopy() );
 			sensor->release();
 			continue;
 		}
@@ -915,6 +977,23 @@ void IOPlatformPlugin::environmentChanged( void )
 	}
 }
 
+// Performs a logical AND of flagsBits with the platform flags and returns the result
+// as a bool.
+bool IOPlatformPlugin::matchPlatformFlags( UInt32 flagsBits )
+{
+	const OSData *flagsData = OSDynamicCast( OSData, getEnv( gIOPPluginEnvPlatformFlags ) );
+	if (flagsData)
+	{
+		UInt32 flags = *(UInt32 *)flagsData->getBytesNoCopy();
+		return ( flags & flagsBits ? true : false );
+	}
+	else
+	{
+		DLOG( "IOPlatformPlugin::matchPlatformFlags Flags Not Found !! \n" );
+		return( false );
+	}
+}
+
 #pragma mark
 #pragma mark *** Miscellaneous Helpers ***
 
@@ -977,6 +1056,36 @@ void IOPlatformPlugin::setTimeout( const AbsoluteTime now )
 	}
 }
 
+/*******************************************************************************
+ * Method:
+ *	registerChassisSwitchNotifier
+ *
+ * Purpose:
+ *	Plugins should override this method with code necessary to register for
+ *	clamshell/door ajar/shroud/chassis intrusion notifications. This method is
+ *	called during IOPlatformPlugin::start().
+ ******************************************************************************/
+// virtual
+void IOPlatformPlugin::registerChassisSwitchNotifier( void )
+{
+	// platform-specific plugins must override this method...
+}
+
+/*******************************************************************************
+ * Method:
+ *	pollChassisSwitch
+ *
+ * Purpose:
+ *	Plugins should override this method with code necessary to read the
+ *	clamshell/door ajar/shroud/chassis intrusion switch.
+ ******************************************************************************/
+// virtual
+OSBoolean *IOPlatformPlugin::pollChassisSwitch( void )
+{
+	// platform-specific plugins must override this method...
+	return( kOSBooleanFalse );
+}
+
 #pragma mark
 #pragma mark *** Event Handling Helpers ***
 
@@ -1021,6 +1130,10 @@ IOReturn IOPlatformPlugin::handleEvent(IOPPluginEventData *event)
 
 		case IOPPluginEventSetProperties:
 			status = setPropertiesHandler( OSDynamicCast(OSObject, (OSMetaClassBase *) event->param1) );
+			break;
+
+		case IOPPluginEventMisc:
+			status = ( (IOPPluginSyncHandler)(event->param4) )( event->param1, event->param2, event->param3 );
 			break;
 
 		case IOPPluginEventPlatformFunction:
@@ -1117,34 +1230,24 @@ void IOPlatformPlugin::timerEventOccured( void *self )
 	}
 }
 
-IOReturn IOPlatformPlugin::powerStateWillChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
+IOReturn IOPlatformPlugin::setPowerState(unsigned long whatState, IOService *policyMaker)
 {
 	IOPPluginEventData powerStateEvent;
 	IOReturn status = IOPMAckImplied;
 
-    if ( ! (theFlags & IOPMPowerOn) )
+	if ( whatState == kIOPPluginSleeping )
 	{
-		DLOG("IOPlatformPlugin::powerStateWillChangeTo theFlags = 0x%X\n", theFlags);
 		powerStateEvent.eventType = IOPPluginEventSystemWillSleep;
 		status = dispatchEvent(&powerStateEvent);
-    }
+	}
 
-    return(status);
-}
-
-IOReturn IOPlatformPlugin::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long, IOService*)
-{
-	IOPPluginEventData powerStateEvent;
-	IOReturn status = IOPMAckImplied;
-
-    if ( theFlags & IOPMPowerOn )
+	if ( whatState == kIOPPluginRunning )
 	{
-		DLOG("IOPlatformPlugin::powerStateDidChangeTo theFlags = 0x%X\n", theFlags);
 		powerStateEvent.eventType = IOPPluginEventSystemDidWake;
 		status = dispatchEvent(&powerStateEvent);
-    }
+	}
 
-    return(status);
+	return(status);	
 }
 
 IOReturn IOPlatformPlugin::sysPowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize )
@@ -1413,172 +1516,6 @@ IOReturn IOPlatformPlugin::setPropertiesHandler( OSObject * properties )
 {
 	IOReturn status = kIOReturnUnsupported;
 
-#if IMPLEMENT_SETPROPERTIES
-	OSDictionary * commandDict, * forceDict;
-	const OSNumber * id, * num;
-	ControlValue controlValue;
-	IOPlatformSensor * sensor;
-	IOPlatformControl * control;
-	IOPlatformCtrlLoop * ctrlLoop;
-	//OSSerialize *s;
-
-	//DLOG("IOPlatformPlugin::setPropertiesHandler - entered\n");
-
-	if ((commandDict = OSDynamicCast(OSDictionary, properties)) == NULL)
-		return kIOReturnBadArgument;
-
-	// look for a force-update request
-	if (commandDict->getObject(gIOPPluginForceUpdateKey) != NULL)
-	{
-		//DLOG("IOPlatformPlugin::setProperties force-update\n");
-
-		// force-update is accompanied by either a sensor-id or a ctrl-id
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginSensorIDKey))) != NULL)
-		{
-			if ((sensor = lookupSensorByID(id)) != NULL)
-			{
-				sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
-				status = kIOReturnSuccess;
-			}
-		}
-
-		else if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL)
-		{
-			if ((control = lookupControlByID( id )) != NULL)
-			{
-				control->setCurrentValue( control->forceAndFetchCurrentValue() );
-				status = kIOReturnSuccess;
-			}
-		}
-	}
-
-	// look for force-update-all request
-	else if ((commandDict->getObject(gIOPPluginForceUpdateAllKey)) != NULL)
-	{
-		//DLOG("IOPlatformPlugin::setProperties force-update-all\n");
-
-		int i, count;
-
-		if (sensors)
-		{
-			count = sensors->getCount();
-			for (i=0; i<count; i++)
-			{
-				//DLOG("IOPlatformPlugin::setProperties sensor %d\n", i);
-
-				if ((sensor = OSDynamicCast(IOPlatformSensor, sensors->getObject(i))) != NULL)
-				{
-					sensor->setCurrentValue( sensor->forceAndFetchCurrentValue() );
-				}
-			}
-		}
-
-		if (controls)
-		{
-			count = controls->getCount();
-			for (i=0; i<count; i++)
-			{
-				//DLOG("IOPlatformPlugin::setProperties control %d\n", i);
-
-				if ((control = OSDynamicCast(IOPlatformControl, controls->getObject(i))) != NULL)
-				{
-					control->setCurrentValue( control->forceAndFetchCurrentValue() );
-				}
-			}
-		}
-
-		// everything is updated
-		status = kIOReturnSuccess;
-	}
-
-/*
-	else if ((commandDict->getObject(gIOPPluginForceSensorCurValKey)) != NULL)
-	{
-	}
-*/
-
-	// force a control value
-	else if ((num = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginForceControlTargetValKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
-			(control = lookupControlByID(id)) != NULL)
-		{
-			controlValue = num->unsigned32BitValue();
-			if (control->sendTargetValue( controlValue, true ))
-			{
-				control->getInfoDict()->setObject(gIOPPluginForceControlTargetValKey, num);
-				//DLOG("IOPlatformPlugin Control ID 0x%08lX Forced to 0x%08lX\n", id->unsigned32BitValue(), controlValue);
-				status = kIOReturnSuccess;
-			}
-		}
-	}
-
-	// release a forced control value
-	else if ((num = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedControlKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginControlIDKey))) != NULL &&
-		    (control = lookupControlByID(id)) != NULL &&
-			(control->getInfoDict()->getObject(gIOPPluginForceControlTargetValKey)) != NULL)
-		{
-			if (control->sendTargetValue( control->getTargetValue(), true ))
-			{
-				//DLOG("IOPlatformPlugin ControlID 0x%08lX Release Forced Value\n", id->unsigned32BitValue());
-				control->getInfoDict()->removeObject(gIOPPluginForceControlTargetValKey);
-				status = kIOReturnSuccess;
-			}
-		}
-	}
-
-	// force a control loop meta state
-	else if ((forceDict = OSDynamicCast(OSDictionary, commandDict->getObject(gIOPPluginForceCtrlLoopMetaStateKey))) != NULL)
-	{
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
-			(ctrlLoop = lookupCtrlLoopByID(id)) != NULL)
-		{
-			ctrlLoop->getInfoDict()->setObject(gIOPPluginForceCtrlLoopMetaStateKey, forceDict);
-			ctrlLoop->updateMetaState();
-			status = kIOReturnSuccess;
-		}
-/*
-		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
-			commandDict->serialize(s))
-		{
-			DLOG("IOPlatformPlugin::setPropertiesHandler force-ctrlloop-meta-state %s\n", s->text());
-		}
-
-		if (s) s->release();
-*/
-	}
-
-	// release a forced control loop meta state
-	else if (OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginReleaseForcedCtrlLoopKey)) != NULL)
-	{
-/*
-		OSSerialize *s;
-
-		if ((s = OSSerialize::withCapacity(2048)) != NULL &&
-			commandDict->serialize(s))
-		{
-			DLOG("IOPlatformPlugin::setPropertiesHandler release-forced-ctrlloop %s\n", s->text());
-		}
-
-		if (s) s->release();
-*/
-
-		if ((id = OSDynamicCast(OSNumber, commandDict->getObject(gIOPPluginCtrlLoopIDKey))) != NULL &&
-		    (ctrlLoop = lookupCtrlLoopByID(id)) != NULL &&
-			(ctrlLoop->getInfoDict()->getObject(gIOPPluginForceCtrlLoopMetaStateKey)) != NULL)
-		{
-			//DLOG("IOPlatformPlugin CtrlLoopID 0x%08lX Release Forced Ctrl Loop\n", id->unsigned32BitValue());
-			ctrlLoop->getInfoDict()->removeObject(gIOPPluginForceCtrlLoopMetaStateKey);
-			ctrlLoop->updateMetaState();
-			status = kIOReturnSuccess;
-		}
-	}
-
-	// DLOG("IOPlatformPlugin::setPropertiesHandler - done\n");
-
-#endif  // IMPLEMENT_SETPROPERTIES
 
 	return(status);
 }
@@ -1618,6 +1555,23 @@ IOReturn IOPlatformPlugin::sleepHandler(void)
 
 	DLOG("IOPlatformPlugin::sleepHandler - entered\n");
 
+	// tell all the control loop we are going to sleep.
+	if (ctrlLoops)
+	{
+	int i, count;
+
+		count = ctrlLoops->getCount();
+		for (i=0; i<count; i++)
+		{
+		IOPlatformCtrlLoop *loop;
+
+			if ((loop = OSDynamicCast(IOPlatformCtrlLoop, ctrlLoops->getObject(i))) != NULL)
+			{
+				loop->willSleep();
+			}
+		}
+	}
+
 	pluginPowerState = kIOPPluginSleeping;
 
 	return(IOPMAckImplied);
@@ -1643,6 +1597,9 @@ IOReturn IOPlatformPlugin::wakeHandler(void)
 			}
 		}
 	}
+
+	// poll the chassis switch in case the state changed during the sleep cycle
+	setEnv( gIOPPluginEnvChassisSwitch, pollChassisSwitch() );
 
 	// force an update cycle for all ctrlloops by setting the environment changed flag
 	envChanged = true;

@@ -133,7 +133,6 @@ bool Apple02DBDMAAudioDMAEngine::init(OSDictionary	*properties,
                                  UInt16				bitDepth,
                                  UInt16				numChannels)
 {
-	IOAudioSampleRate initialSampleRate;
 	IOMemoryMap *map;
 	Boolean					result;
 
@@ -167,11 +166,6 @@ bool Apple02DBDMAAudioDMAEngine::init(OSDictionary	*properties,
 	setSampleOffset(kMinimumLatency);
 	setNumSampleFramesPerBuffer(numBlocks * blockSize / sizeof (float));
 
-	initialSampleRate.whole = rate;
-	initialSampleRate.fraction = 0;
-
-	setSampleRate(&initialSampleRate);
- 
 	mInputDualMonoMode = e_Mode_Disabled;		   
 		   
 	resetiSubProcessingState();
@@ -208,6 +202,7 @@ bool Apple02DBDMAAudioDMAEngine::initHardware(IOService *provider)
     IOWorkLoop *				workLoop;
     IOAudioStream *				stream;
 	Boolean						result;
+	IOAudioSampleRate initialSampleRate;
 
 	result = FALSE;
 	sampleBufIn = NULL;
@@ -246,6 +241,11 @@ bool Apple02DBDMAAudioDMAEngine::initHardware(IOService *provider)
     if(ioBaseDMAInput)
         sampleBufIn = (vm_offset_t)IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
     
+	initialSampleRate.whole = DBDMAAUDIODMAENGINE_DEFAULT_SAMPLE_RATE;
+	initialSampleRate.fraction = 0;
+
+	setSampleRate(&initialSampleRate);
+ 
 	// create the streams
     stream = new IOAudioStream;
     if (stream) {

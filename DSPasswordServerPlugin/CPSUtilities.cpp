@@ -479,7 +479,8 @@ Boolean Connected( sPSContextData *inContext )
 			
 			default:
 				// invalid error
-				return true;
+				// [3649059] err on the side of, "needs a new connection"
+				return false;
 				break;
 		}
 	}

@@ -11,10 +11,20 @@
 
 #define super AppleTopazPlugin
 
+static UInt8	cs8406_regs[] = {   0x01, 0x02, 0x03, 0x04, 0x05, 0x07, 0x08, 0x09, 
+									0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x12, 0x13, 0x20,
+									0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+									0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30,
+									0x31, 0x32, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37 };
+
 OSDefineMetaClassAndStructors ( AppleTopazPluginCS8406, AppleTopazPlugin )
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 bool	AppleTopazPluginCS8406::init ( OSDictionary *properties ) {
+	mChanStatusStruct.sampleRate	= 44100;						//  [3666183]   
+	mChanStatusStruct.sampleDepth   = 16;							//  [3666183]   
+	mChanStatusStruct.nonAudio		= kConsumerMode_audio;			//  [3666183]   
+	mChanStatusStruct.consumerMode  = kConsumer;					//  [3666183]   
 	return super::init (properties);
 }
 
@@ -50,17 +60,6 @@ bool	AppleTopazPluginCS8406::preDMAEngineInit ( void ) {
 	err = CODEC_WriteRegister ( map_CS8406_SERIAL_INPUT_FMT, kCS8406_SERIAL_AUDIO_INPUT_FORMAT_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
-	err = CODEC_WriteRegister ( map_CS8406_SERIAL_OUTPUT_FMT, kCS8406_SERIAL_AUDIO_OUTPUT_FORMAT_INIT );
-	FailIf ( kIOReturnSuccess != err, Exit );
-
-	//	Enable receiver error (i.e. RERR) interrupts
-	err = CODEC_WriteRegister ( map_CS8406_RX_ERROR_MASK, kCS8406_RX_ERROR_MASK_ENABLE_RERR );
-	FailIf ( kIOReturnSuccess != err, Exit );
-	
-	//	Clear any pending error interrupt
-	err = CODEC_ReadRegister ( map_CS8406_RX_ERROR, NULL, 1 );
-	FailIf ( kIOReturnSuccess != err, Exit );
-
 	err = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, kCS8406_CLOCK_SOURCE_CTRL_INIT );
 	FailIf ( kIOReturnSuccess != err, Exit );
 	
@@ -77,12 +76,10 @@ IOReturn	AppleTopazPluginCS8406::initCodecRegisterCache ( void ) {
 	IOReturn		result = kIOReturnSuccess;
 	IOReturn		err;
 	
-	for ( UInt32 loopCnt = map_CS8406_MISC_CNTRL_1; loopCnt <= map_CS8406_BUFFER_23; loopCnt++ ) {
-		if ( map_CS8406_RX_ERROR != loopCnt && map_CS8406_RESERVED_1F != loopCnt ) {					//	avoid hole in register address space
-			err = CODEC_ReadRegister ( loopCnt, NULL, 1 );												//	read I2C register into cache only
-			if ( kIOReturnSuccess != err && kIOReturnSuccess == result ) {
-				result = err;
-			}
+	for ( UInt32 cs8406_regs_table_index = 0; cs8406_regs_table_index <= sizeof ( cs8406_regs ); cs8406_regs_table_index++ ) {
+		err = CODEC_ReadRegister ( cs8406_regs[cs8406_regs_table_index], NULL, 1 );												//	read I2C register into cache only
+		if ( kIOReturnSuccess != err && kIOReturnSuccess == result ) {
+			result = err;
 		}
 	}
 	return result;
@@ -145,6 +142,8 @@ IOReturn	AppleTopazPluginCS8406::performDeviceWake ( void ) {
 	result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] );
 	FailIf ( kIOReturnSuccess != result, Exit );
 
+	setChannelStatus ( &mChanStatusStruct );		//  [3666183]   Flush channel status buffer
+
 Exit:
 	debugIOLog (3,  "- AppleTopazPluginCS8406::performDeviceWake()" );
 	return result;
@@ -157,44 +156,58 @@ IOReturn	AppleTopazPluginCS8406::setChannelStatus ( ChanStatusStructPtr channelS
 
 	FailIf ( NULL == channelStatus, Exit );
 	
+	if ( 0 != channelStatus->sampleRate ) {
+		mChanStatusStruct.sampleRate	= channelStatus->sampleRate;		//  [3666183]   
+	}
+	if ( 0 != channelStatus->sampleDepth ) {
+		mChanStatusStruct.sampleDepth   = channelStatus->sampleDepth;		//  [3666183]   
+	}
+	mChanStatusStruct.nonAudio = channelStatus->nonAudio;					//  [3666183]   
+	mChanStatusStruct.consumerMode = channelStatus->consumerMode;			//  [3666183]   
+	
 	//	Assumes consumer mode
 	data = ( ( kCopyPermited << ( 7 - kBACopyright ) ) | ( kConsumer << ( 7 -  kBAProConsumer ) ) );
-	if ( channelStatus->nonAudio ) {
-		data |= ( kConsumerMode_nonAudio << ( 7 - kBANonAudio ) );		//	consumer mode encoded
+	if ( mChanStatusStruct.nonAudio ) {
+		data |= ( kConsumerMode_nonAudio << ( 7 - kBANonAudio ) );								//	consumer mode encoded
 	} else {
-		data |= ( kConsumerMode_audio << ( 7 - kBANonAudio ) );			//	consumer mode linear PCM
+		data |= ( kConsumerMode_audio << ( 7 - kBANonAudio ) );									//	consumer mode linear PCM
 	}
-	result = CODEC_WriteRegister ( map_CS8406_BUFFER_0, data );
+	result = CODEC_WriteRegister ( map_CS8406_BUFFER_0, data );									//  [0É7]   consumer/format/copyright/pre-emphasis/
 	FailIf ( kIOReturnSuccess != result, Exit );
 	
-	if ( channelStatus->nonAudio ) {
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_1, 0 );		//	category code is not valid
+	if ( mChanStatusStruct.nonAudio ) {
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_1, kIEC60958_CategoryCode_DVD );		//	[8É15]  category code is not valid
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_2, 0 );		//	source & channel are not valid
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_2, 0 );								//	[16É23] source & channel are not valid
 		FailIf ( kIOReturnSuccess != result, Exit );
 			
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, 0 );		//	not valid
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_NotIndicated );	//	[24É31] sample frequency not indicated
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_4, 0 );		//	not valid
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_4, cWordLength_20Max_16bits );			//	[32É39] word length & original sample frequency
 		FailIf ( kIOReturnSuccess != result, Exit );
 	} else {
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_1, 0x01 );		//	category code is CD
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_1, kIEC60958_CategoryCode_CD );		//	[8É15]  category code is CD
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		result = CODEC_WriteRegister ( map_CS8406_BUFFER_2, 0 );		//	source & channel are not specified
+		result = CODEC_WriteRegister ( map_CS8406_BUFFER_2, 0 );								//	[16É23] source & channel are not specified
 		FailIf ( kIOReturnSuccess != result, Exit );
 			
-		switch ( channelStatus->sampleRate ) {
+		switch ( mChanStatusStruct.sampleRate ) {												//	[24É31] sample frequency
+			case 24000:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_24Khz );			break;
 			case 32000:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_32Khz );			break;
 			case 44100:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_44Khz );			break;
 			case 48000:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_48Khz );			break;
+			case 88200:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_88Khz );			break;
+			case 96000:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_96Khz );			break;
+			case 176400:	result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_176Khz );			break;
+			case 192000:	result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_192Khz );			break;
 			default:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_3, cSampleFrequency_44Khz );			break;
 		}
 		FailIf ( kIOReturnSuccess != result, Exit );
 		
-		switch ( channelStatus->sampleDepth ) {
+		switch ( mChanStatusStruct.sampleDepth ) {												//	[32É39] word length & original sample frequency
 			case 16:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_4, cWordLength_20Max_16bits );			break;
 			case 24:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_4, cWordLength_24Max_24bits );			break;
 			default:		result = CODEC_WriteRegister ( map_CS8406_BUFFER_4, cWordLength_20Max_16bits );			break;
@@ -213,10 +226,6 @@ IOReturn	AppleTopazPluginCS8406::breakClockSelect ( UInt32 clockSource ) {
 
 	debugIOLog (7,  "+ AppleTopazPluginCS8406::breakClockSelect ( %d )", (unsigned int)clockSource );
 	
-	//	Disable error interrupts during completing clock source selection
-	result = CODEC_WriteRegister ( map_CS8406_RX_ERROR_MASK, kCS8406_RX_ERROR_MASK_DISABLE_RERR );
-	FailIf ( kIOReturnSuccess != result, Exit );
-
 	//	Mute the output port
 	data = mShadowRegs[map_CS8406_MISC_CNTRL_1];
 	data &= ~( kCS84XX_BIT_MASK << baCS8406_MuteAES );
@@ -232,61 +241,19 @@ IOReturn	AppleTopazPluginCS8406::breakClockSelect ( UInt32 clockSource ) {
 
 	switch ( clockSource ) {
 		case kTRANSPORT_MASTER_CLOCK:
-			//	Set input data source for SRC to serial audio input port
-			data = mShadowRegs[map_CS8406_DATA_FLOW_CTRL];
-			data &= ~( bvCS8406_spdMASK << baCS8406_SPD );
-			data |= ( bvCS8406_spdSAI << baCS8406_SPD );
-			result = CODEC_WriteRegister ( map_CS8406_DATA_FLOW_CTRL, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-			
-			//	Set the input time base to the OMCK input pin
-			data = mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL];
-			data &= ~( kCS84XX_BIT_MASK << baCS8406_OUTC );
-			data |= ( bvCS8406_outcOmckXbaCLK << baCS8406_OUTC );
-			result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-
 			//	Set the input port data format to slave mode
 			data = mShadowRegs[map_CS8406_SERIAL_INPUT_FMT];
 			data &= ~( kCS84XX_BIT_MASK << baCS8406_SIMS );
 			data |= ( bvCS8406_inputSlave << baCS8406_SIMS );
 			result = CODEC_WriteRegister ( map_CS8406_SERIAL_INPUT_FMT, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-			
-			//	Set the output port data format to slave mode
-			data = mShadowRegs[map_CS8406_SERIAL_OUTPUT_FMT];
-			data &= ~( kCS84XX_BIT_MASK << baCS8406_SOMS );
-			data |= ( bvCS8406_somsSlave << baCS8406_SOMS );
-			result = CODEC_WriteRegister ( map_CS8406_SERIAL_OUTPUT_FMT, data );
 			FailIf ( result != kIOReturnSuccess, Exit );
 			break;
 		case kTRANSPORT_SLAVE_CLOCK:
-			//	Set input data source for SRC to AES3 receiver
-			data = mShadowRegs[map_CS8406_DATA_FLOW_CTRL];
-			data &= ~( bvCS8406_spdMASK << baCS8406_SPD );
-			data |= ( bvCS8406_spdSrcOut << baCS8406_SPD );
-			result = CODEC_WriteRegister ( map_CS8406_DATA_FLOW_CTRL, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-
-			//	Set the input time base to the OMCK input pin
-			data = mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL];
-			data &= ~( kCS84XX_BIT_MASK << baCS8406_OUTC );
-			data |= ( bvCS8406_outcRecIC << baCS8406_OUTC );
-			result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-			
 			//	Set the input port data format to slave mode
 			data = mShadowRegs[map_CS8406_SERIAL_INPUT_FMT];
 			data &= ~( kCS84XX_BIT_MASK << baCS8406_SIMS );
 			data |= ( bvCS8406_inputSlave << baCS8406_SIMS );
 			result = CODEC_WriteRegister ( map_CS8406_SERIAL_INPUT_FMT, data );
-			FailIf ( result != kIOReturnSuccess, Exit );
-			
-			//	Set the output port data format to master mode
-			data = mShadowRegs[map_CS8406_SERIAL_OUTPUT_FMT];
-			data &= ~( kCS84XX_BIT_MASK << baCS8406_SOMS );
-			data |= ( bvCS8406_somsMaster << baCS8406_SOMS );
-			result = CODEC_WriteRegister ( map_CS8406_SERIAL_OUTPUT_FMT, data );
 			FailIf ( result != kIOReturnSuccess, Exit );
 			break;
 		default:
@@ -306,56 +273,14 @@ IOReturn	AppleTopazPluginCS8406::makeClockSelectPreLock ( UInt32 clockSource ) {
 	
 	debugIOLog (7,  "+ AppleTopazPluginCS8406::makeClockSelect ( %d )", (unsigned int)clockSource );
 
-	//	Clear any pending error interrupt status and re-enable error interrupts after completing clock source selection
-	result = CODEC_ReadRegister ( map_CS8406_RX_ERROR, &data, 1 );
-	FailIf ( kIOReturnSuccess != result, Exit );
-	
-	//	Enable error (i.e. RERR) interrupts ONLY IF C28420 IS CLOCK MASTER
-	if ( kTRANSPORT_SLAVE_CLOCK == clockSource ) {
-		result = CODEC_WriteRegister ( map_CS8406_RX_ERROR_MASK, kCS8406_RX_ERROR_MASK_ENABLE_RERR );
-		FailIf ( kIOReturnSuccess != result, Exit );
-	}
-	
-	switch ( clockSource ) {
-		case kTRANSPORT_MASTER_CLOCK:
-			data = mShadowRegs[map_CS8406_DATA_FLOW_CTRL];
-			data &= ~( bvCS8406_spdMASK << baCS8406_SPD );
-			data |= ( bvCS8406_spdSrcOut << baCS8406_SPD );
-			result = CODEC_WriteRegister ( map_CS8406_DATA_FLOW_CTRL, data );
-
-			data = mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL];
-			data &= ~( 1 << baCS8406_OUTC );
-			data |= ( bvCS8406_outcOmckXbaCLK << baCS8406_OUTC );
-			result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, data );
-			break;
-		case kTRANSPORT_SLAVE_CLOCK:
-			data = mShadowRegs[map_CS8406_DATA_FLOW_CTRL];
-			data &= ~( bvCS8406_spdMASK << baCS8406_SPD );
-			data |= ( bvCS8406_spdAES3 << baCS8406_SPD );
-			result = CODEC_WriteRegister ( map_CS8406_DATA_FLOW_CTRL, data );
-
-			data = mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL];
-			data &= ~( 1 << baCS8406_OUTC );
-			data |= ( bvCS8406_outcRecIC << baCS8406_OUTC );
-			result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, data );
-			break;
-	}
-	
 	//	restart the codec after switching clocks
 	data = mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL];
 	data &= ~( 1 << baCS8406_RUN );
 	data |= ( bvCS8406_runNORMAL << baCS8406_RUN );
 	result = CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, data );
 
-	if ( kTRANSPORT_SLAVE_CLOCK == clockSource ) {
-		//	It is necessary to restart the I2S cell here after the clocks have been
-		//	established using the CS8406 as the clock source.  Ask AOA to restart
-		//	the I2S cell.
-		FailIf ( NULL == mAudioDeviceProvider, Exit );
-		mAudioDeviceProvider->interruptEventHandler ( kRestartTransport, (UInt32)0 );
-
-	}
-Exit:
+	setChannelStatus ( &mChanStatusStruct );		//  [3666183]   Flush channel status buffer
+	
 	debugIOLog (7,  "- AppleTopazPluginCS8406::makeClockSelect ( %d ) returns %d", (unsigned int)clockSource, (unsigned int)result );
 
 	return result;
@@ -384,6 +309,10 @@ Exit:
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTopazPluginCS8406::setRunMode ( UInt8 mode ) {
 	CODEC_WriteRegister ( map_CS8406_CLOCK_SOURCE_CTRL, mode );
+	
+	if ( ( mode & ( 1 << baCS8406_RUN ) ) == ( 1 << baCS8406_RUN ) ) {		//  [3666183]   
+		setChannelStatus ( &mChanStatusStruct );							//  [3666183]   Flush channel status buffer
+	}
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -403,77 +332,41 @@ UInt8 AppleTopazPluginCS8406::setStopMode ( void ) {
 //	notification from the AppleOnboardAudio object.
 IOReturn	AppleTopazPluginCS8406::getCodecErrorStatus ( UInt32 * dataPtr ) {
 	IOReturn		err = kIOReturnBadArgument;
-	UInt8			regData;
 	
 	FailIf ( NULL == dataPtr, Exit );
 	*dataPtr = 0;
-	err = CODEC_ReadRegister ( map_CS8406_RX_ERROR, &regData, 1 );
-	FailIf ( kIOReturnSuccess != err, Exit );
-	*dataPtr = (UInt32)regData;
+	err = kIOReturnSuccess;
 Exit:
 	return err;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8406::phaseLocked ( void ) {
-	return ( bvCS8406_pllLocked << baCS8406_UNLOCK ) == ( mShadowRegs[map_CS8406_RX_ERROR] & ( bvCS8406_pllUnlocked << baCS8406_UNLOCK ) ) ? true : false ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8406::confidenceError ( void ) {
-	return ( bvCS8406_confError << baCS8406_CONF ) == ( mShadowRegs[map_CS8406_RX_ERROR] & ( bvCS8406_confError << baCS8406_CONF ) ) ? true : false ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	NOTE:	This method operates on the register cache which must be
-//			initialized to the hardware state previously through the
-//			'getCodecErrorState' method.
-bool	AppleTopazPluginCS8406::biphaseError ( void ) {
-	return ( bvCS8406_bipError << baCS8406_BIP ) == ( mShadowRegs[map_CS8406_RX_ERROR] & ( bvCS8406_bipError << baCS8406_BIP ) ) ? true : false ;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	AppleTopazPluginCS8406::disableReceiverError ( void ) {
-	CODEC_WriteRegister ( map_CS8406_RX_ERROR_MASK, kCS8406_RX_ERROR_MASK_DISABLE_RERR );
+	return;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IOReturn	AppleTopazPluginCS8406::flushControlRegisters ( void ) {
 	IOReturn		result = kIOReturnSuccess;
 	
-	for ( UInt32 regAddr = map_CS8406_MISC_CNTRL_1; regAddr <= map_CS8406_BUFFER_23; regAddr++ ) {
-		if ( kIOReturnSuccess == CODEC_IsControlRegister ( regAddr ) ) {
-			result = CODEC_WriteRegister ( regAddr, mShadowRegs[regAddr] );
+	for ( UInt32 index = 0; index < sizeof ( cs8406_regs ); index++ ) {
+		if ( kIOReturnSuccess == CODEC_IsControlRegister ( cs8406_regs[index] ) ) {
+			result = CODEC_WriteRegister ( cs8406_regs[index], mShadowRegs[cs8406_regs[index]] );
 			FailIf ( kIOReturnSuccess != result, Exit );
 		}
 	}
+	
 Exit:
 	return result; 
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	AppleTopazPluginCS8406::useExternalCLK ( void ) {
-	//	If the recovered clock is derived from the I2S I/O Module LRCLK and there is an external source 
-	//	then switch the recovered clock to derive from the external source.
-	mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] &= ~( kCS84XX_TWO_BIT_MASK << baCS8406_RXD );
-	mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] |= ( bvCS8406_rxd256fsiAES3 << baCS8406_RXD );
-	CODEC_WriteRegister( map_CS8406_CLOCK_SOURCE_CTRL, mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] );
 	return;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	AppleTopazPluginCS8406::useInternalCLK ( void ) {
-	//	If the recovered clock is derived from an external source and there is no external source 
-	//	then switch the recovered clock to derive from the I2S I/O Module LRCLK.
-	mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] &= ~( kCS84XX_TWO_BIT_MASK << baCS8406_RXD );
-	mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] |= ( bvCS8406_rxd256fsiILRCLK << baCS8406_RXD );
-	CODEC_WriteRegister( map_CS8406_CLOCK_SOURCE_CTRL, mShadowRegs[map_CS8406_CLOCK_SOURCE_CTRL] );
 	return;
 }
 
@@ -496,7 +389,13 @@ UInt8	AppleTopazPluginCS8406::CODEC_GetDataMask ( UInt8 regAddr ) {
 		case map_CS8406_IRQ2_MODE_LSB:				mask = kCS8406_IRQ2_8406_MASK_MASK;				break;
 		case map_CS8406_CH_STATUS_DATA_BUF_CTRL:	mask = kCS8406_CH_STATUS_DATA_BUF_CTRL_MASK;	break;
 		case map_CS8406_USER_DATA_BUF_CTRL:			mask = kCS8406_USER_DATA_BUF_CTRLL_MASK;		break;
-		default:									mask = kMASK_ALL;								break;
+		default:
+			if ( ( map_CS8406_BUFFER_0 <= regAddr ) && ( regAddr <= map_CS8406_BUFFER_23 ) ) {
+				mask = kMASK_NONE;
+			} else {
+				mask = kMASK_ALL;
+			}
+			break;
 	}
 	return mask;
 }
@@ -562,8 +461,6 @@ IOReturn	AppleTopazPluginCS8406::CODEC_IsControlRegister ( UInt8 regAddr ) {
 		case map_CS8406_BUFFER_21:
 		case map_CS8406_BUFFER_22:
 		case map_CS8406_BUFFER_23:			result = kIOReturnSuccess;			break;
-		case map_CS8406_SERIAL_OUTPUT_FMT:
-		case map_CS8406_RX_ERROR_MASK:
 		default:							result = kIOReturnError;			break;
 	}
 
@@ -579,22 +476,9 @@ IOReturn	AppleTopazPluginCS8406::CODEC_IsStatusRegister ( UInt8 regAddr ) {
 	switch ( regAddr ) {
 		case map_CS8406_IRQ1_STATUS:
 		case map_CS8406_IRQ2_STATUS:
-		case map_CS8406_RX_CH_STATUS:
-		case map_CS8406_RX_ERROR:
 		case map_ID_VERSION:
 			result = kIOReturnSuccess;
 			break;
-		case map_CS8406_Q_CHANNEL_SUBCODE_AC:
-		case map_CS8406_Q_CHANNEL_SUBCODE_TRK:
-		case map_CS8406_Q_CHANNEL_SUBCODE_INDEX:
-		case map_CS8406_Q_CHANNEL_SUBCODE_MIN:
-		case map_CS8406_Q_CHANNEL_SUBCODE_SEC:
-		case map_CS8406_Q_CHANNEL_SUBCODE_FRAME:
-		case map_CS8406_Q_CHANNEL_SUBCODE_ZERO:
-		case map_CS8406_Q_CHANNEL_SUBCODE_ABS_MIN:
-		case map_CS8406_Q_CHANNEL_SUBCODE_ABS_SEC:
-		case map_CS8406_Q_CHANNEL_SUBCODE_ABS_FRAME:
-		case map_CS8406_SAMPLE_RATE_RATIO:
 		default:
 			result = kIOReturnError;
 			break;

@@ -107,6 +107,7 @@ struct arp_client {
     struct in_addr		target_ip;
     char			errmsg[128];
     struct firewire_address	fw_addr;
+    boolean_t			probes_are_collisions;
 };
 
 #define ARP_PROBE_COUNT		3
@@ -443,7 +444,8 @@ arp_read(void * arg1, void * arg2)
 	}
 
 	if ((client->target_ip.s_addr == source_ip_p->s_addr
-	     || (op == ARPOP_REQUEST
+	     || (client->probes_are_collisions
+		 && op == ARPOP_REQUEST
 		 && source_ip_p->s_addr == 0
 		 && client->target_ip.s_addr == target_ip_p->s_addr))
 	    && (*session->is_our_address)(client->if_p, 
@@ -858,11 +860,29 @@ arp_client_free(arp_client_t * * client_p)
 }
 
 void
+arp_client_set_probes_are_collisions(arp_client_t * client, 
+				     boolean_t probes_are_collisions)
+{
+    client->probes_are_collisions = probes_are_collisions;
+    return;
+}
+
+void
 arp_probe(arp_client_t * client,
 	  arp_result_func_t * func, void * arg1, void * arg2,
 	  struct in_addr sender_ip, struct in_addr target_ip)
 {
     arp_session_t * session = client->session;
+
+    if (if_link_type(client->if_p) == IFT_IEEE1394) {
+	/* copy in the latest firewire address */
+	if (getFireWireAddress(if_name(client->if_p), 
+			       &client->fw_addr) == FALSE) {
+	    my_log(LOG_INFO, 
+		   "arp_probe(%s): could not retrieve firewire address",
+		   if_name(client->if_p));
+	}
+    }
     client->sender_ip = sender_ip;
     client->target_ip = target_ip;
     client->func = func;

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -72,7 +69,7 @@ bool MacRISC4PE::start(IOService *provider)
 //    IORegistryEntry 		*uniNRegEntry;
     IORegistryEntry 		*powerMgtEntry;
     UInt32			   		*primInfo;
-	const OSSymbol			*nameKey, *compatKey, *nameValueSymbol;
+	const OSSymbol			*nameValueSymbol;
 	const OSData			*nameValueData;
 	OSDictionary			*pluginDict, *platFuncDict;
 	bool					result;
@@ -110,40 +107,68 @@ bool MacRISC4PE::start(IOService *provider)
 	}
     macRISC4Speed[0] = *(unsigned long *)tmpData->getBytesNoCopy();
 
-#if 0
+
+// Ethan turned this ON for PowerMac 1.8ghz specific hack below
+#if 1
+    IORegistryEntry     *uniNRegEntry = NULL;
 	// get uni-N version for use by platformAdjustService
-	uniNRegEntry = provider->childFromPath("uni-n", gIODTPlane);
+	uniNRegEntry = provider->childFromPath("u3", gIODTPlane);
 	if (uniNRegEntry == 0) {
-		kprintf ("MacRISC4PE::start - no uni-n\n");
+		kprintf ("MacRISC4PE::start - no u3\n");
 		return false;
 	}
     tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev"));
     if (tmpData == 0) return false;
     uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
+
+// Ethan B: PowerMac G5 UP 1.8ghz specific hack
+// Disable sleep on these machines because of unstable sleep problems
+    IORegistryEntry *cpu0_reg_entry = NULL;
+    OSData *cpu0_freq_data = NULL;
+    UInt32 cpu0_freq = 0;
+    int second_cpu_exists = (int)fromPath ("/cpus/@1", gIODTPlane);
+    const UInt32 one_eight_ghz_freq = 1800000000;
+    
+    cpu0_reg_entry = fromPath ("/cpus/@0", gIODTPlane);
+    if(cpu0_reg_entry) 
+    {
+        cpu0_freq_data = OSDynamicCast (OSData, cpu0_reg_entry->getProperty ("clock-frequency"));
+        if(cpu0_freq_data) 
+        {
+            cpu0_freq = *(UInt32 *)cpu0_freq_data->getBytesNoCopy();
+			IOLog ("PE: cpu freq %ld\n", cpu0_freq);
+        }
+    }
+    
+    cannotSleep = ((0 == strncmp(provider_name, "PowerMac7,2", strlen("PowerMac7,2")))     // check model
+        && ((kUniNRevision3_2_1 == uniNVersion)                      // check U3 version 2.1
+        || (kUniNRevision3_2_3 == uniNVersion))                     // check U3 version 2.3
+        && (!second_cpu_exists)                                     // check for existence of second CPU
+        && (one_eight_ghz_freq == cpu0_freq) );                      // check CPU0 speed = 1.8ghz
+
+	if (cannotSleep) setProperty ("PlatformCannotSleep", true);
+
 #endif
 
     // Get PM features and private features
+	// The power-mgt node is being deprecated in favor of specfic properties to describe
+	// platform behaviors.  This is here mostly for backward compatibility
     powerMgtEntry = retrievePowerMgtEntry ();
-    if (powerMgtEntry == 0)
-    {
-        kprintf ("didn't find power mgt node\n");
-        return false;
-    }
 
-    tmpData  = OSDynamicCast(OSData, powerMgtEntry->getProperty ("prim-info"));
-    if (tmpData != 0)
-    {
-        primInfo = (unsigned long *)tmpData->getBytesNoCopy();
-        if (primInfo != 0)
-        {
-            _pePMFeatures            = primInfo[3];
-            _pePrivPMFeatures        = primInfo[4];
-            _peNumBatteriesSupported = ((primInfo[6]>>16) & 0x000000FF);
-            kprintf ("Public PM Features: %0x.\n",_pePMFeatures);
-            kprintf ("Privat PM Features: %0x.\n",_pePrivPMFeatures);
-            kprintf ("Num Internal Batteries Supported: %0x.\n", _peNumBatteriesSupported);
-        }
-    }
+	if (powerMgtEntry) {
+		tmpData  = OSDynamicCast(OSData, powerMgtEntry->getProperty ("prim-info"));
+		if (tmpData != 0) {
+			primInfo = (unsigned long *)tmpData->getBytesNoCopy();
+			if (primInfo != 0) {
+				_pePMFeatures            = primInfo[3];
+				_pePrivPMFeatures        = primInfo[4];
+				_peNumBatteriesSupported = ((primInfo[6]>>16) & 0x000000FF);
+				kprintf ("MacRISC4PE: Public PM Features: %0x.\n",_pePMFeatures);
+				kprintf ("MacRISC4PE: Privat PM Features: %0x.\n",_pePrivPMFeatures);
+				kprintf ("MacRISC4PE: Num Internal Batteries Supported: %0x.\n", _peNumBatteriesSupported);
+			}
+		}
+	} else kprintf ("MacRISC4PE: no power-mgt information available\n");
 	
     // This is to make sure that  is PMRegisterDevice reentrant
     pmmutex = IOLockAlloc();
@@ -160,16 +185,14 @@ bool MacRISC4PE::start(IOService *provider)
 	 */
 	result = super::start(provider);
 	
-	nameKey = OSSymbol::withCStringNoCopy("name");
-	compatKey = OSSymbol::withCStringNoCopy("compatible");
 	// Create PlatformFunction nub
 	platFuncDict = OSDictionary::withCapacity(2);
 	if (platFuncDict) {		
 		strcpy(tmpName, "IOPlatformFunctionNub");
 		nameValueSymbol = OSSymbol::withCString(tmpName);
 		nameValueData = OSData::withBytes(tmpName, strlen(tmpName)+1);
-		platFuncDict->setObject (nameKey, nameValueData);
-		platFuncDict->setObject (compatKey, nameValueData);
+		platFuncDict->setObject ("name", nameValueData);
+		platFuncDict->setObject ("compatible", nameValueData);
 		if (plFuncNub = IOPlatformExpert::createNub (platFuncDict)) {
 			if (!plFuncNub->attach( this ))
 				IOLog ("NUB ATTACH FAILED for IOPlatformFunctionNub\n");
@@ -202,6 +225,7 @@ bool MacRISC4PE::start(IOService *provider)
 	OSString*						platformPluginNameString;
 	OSData*							platformPluginNameData;
 	const char*						platformPluginName = "MacRISC4_PlatformPlugin";
+	OSString*						modelString;
 
 	// The pluginDict requires the values associated with the "name" and "compatible" keys to be OSData types.  Convert the
 	// OSStrings to OSData.
@@ -213,16 +237,19 @@ bool MacRISC4PE::start(IOService *provider)
 
 	platformPluginNameData = OSData::withBytes( platformPluginName, strlen( platformPluginName ) + 1 );
 
-	if ( ( pluginDict = OSDictionary::withCapacity( 2 ) ) == NULL )
+	if ( ( pluginDict = OSDictionary::withCapacity( 3 ) ) == NULL )
 		return( false );
 
 	const char*						ioPlatformPluginString = "IOPlatformPlugin";
 
 	nameValueData = OSData::withBytes( ioPlatformPluginString, strlen( ioPlatformPluginString ) + 1 );
 
-	pluginDict->setObject( nameKey, nameValueData );
-	pluginDict->setObject( compatKey, platformPluginNameData );
+	modelString = OSString::withCString( provider_name );
 
+	pluginDict->setObject( "name", nameValueData );
+	pluginDict->setObject( "compatible", platformPluginNameData );
+	pluginDict->setObject( "model", modelString );
+	
 	nameValueData->release();
 	platformPluginNameData->release();
 
@@ -237,8 +264,7 @@ bool MacRISC4PE::start(IOService *provider)
 
 	pluginDict->release();
 
-	nameKey->release();
-	compatKey->release();
+	modelString->release();
 
 	kprintf ("MacRISC4PE::start - done\n");
     return result;
@@ -321,7 +347,7 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
 			// Match to compatible directly.  IODTMatchNubWithKeys does not work because phy
 			// only exists in the device tree plane and is not an IOService
 			compat = OSDynamicCast (OSData, phy->getProperty ("compatible"));
-			if (compat && (strncmp (compat->getBytesNoCopy(), "B5221", strlen ("B5221")))) {
+			if (compat && (strncmp ( ( const char * ) compat->getBytesNoCopy(), "B5221", strlen ("B5221")))) {
 				hasVesta = true;
 				if (macio)
 					macio->setProperty ("hasVesta", hasVesta);
@@ -377,7 +403,7 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
         // Change the interrupt mapping for pmu source 4.
         OSArray              *tmpArray;
         OSCollectionIterator *extIntList, *extIntListOldWay;
-        IORegistryEntry      *extInt;
+        IORegistryEntry      *extInt = NULL;
         OSObject             *extIntControllerName;
         OSObject             *extIntControllerData;
     
@@ -490,7 +516,14 @@ void MacRISC4PE::PMInstantiatePowerDomains ( void )
     root->attach(this);
     root->start(this);
 
-    root->setSleepSupported(kRootDomainSleepSupported);
+    if (cannotSleep) {
+        // Attempt to spot these machines by UniN version, number of CPU's, speed of CPU0, and model name
+        // This forces the machines to doze at all times rather than sleep.
+        root->setSleepSupported(kPCICantSleep);
+    } else {
+		root->setSleepSupported(kRootDomainSleepSupported);
+    }
+// End of hack
    
     if (NULL == root)
     {

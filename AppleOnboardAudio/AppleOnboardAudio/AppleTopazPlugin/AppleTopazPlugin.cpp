@@ -20,12 +20,24 @@ OSDefineMetaClassAndStructors ( AppleTopazPlugin, super )
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 bool AppleTopazPlugin::init ( OSDictionary *properties ) {
+	mTopaz_I2C_Address = kCS84xx_I2C_ADDRESS;	//  [3648867]
 	return super::init ();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTopazPlugin::initPlugin ( PlatformInterface * inPlatformObject ) {
 	mPlatformInterface = inPlatformObject;
+	return;
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void AppleTopazPlugin::initPlugin ( PlatformInterface* inPlatformObject, IOService * provider, UInt8 i2cAddress, TOPAZ_CODEC_TYPES codecID ) {
+	debugIOLog ( 3, "+ AppleTopazPlugin::initPlugin ( %p, %p, 0x%0.2X, 0x%0.8X )", inPlatformObject, provider, i2cAddress, codecID );
+	initPlugin ( inPlatformObject );
+	mAudioDeviceProvider = (AppleOnboardAudio *)provider;
+	mTopaz_I2C_Address = i2cAddress;	//  [3648867]
+	mCodecID = codecID;
+	debugIOLog ( 3, "- AppleTopazPlugin::initPlugin ( %p, %p, 0x%0.2X, 0x%0.8X )", inPlatformObject, provider, i2cAddress, codecID );
 	return;
 }
 
@@ -68,7 +80,7 @@ IOReturn 	AppleTopazPlugin::CODEC_ReadRegister ( UInt8 regAddr, UInt8 * register
 					FailIf ( kIOReturnSuccess != result, Exit );
 				}
 				//	Always read data into the cache.
-				success = mPlatformInterface->readCodecRegister(kCS84xx_I2C_ADDRESS, 0, &mShadowRegs[regAddr & ~kMAP_AUTO_INCREMENT_ENABLE], size, kI2C_StandardMode);
+				success = mPlatformInterface->readCodecRegister(mTopaz_I2C_Address, 0, &mShadowRegs[regAddr & ~kMAP_AUTO_INCREMENT_ENABLE], size, kI2C_StandardMode);	//  [3648867]
 				FailIf ( !success, Exit );
 				//	Then return data from the cache.
 				if ( NULL != registerData && success ) {
@@ -77,21 +89,22 @@ IOReturn 	AppleTopazPlugin::CODEC_ReadRegister ( UInt8 regAddr, UInt8 * register
 					}
 				}
 			} else {
-				debugIOLog (7,  "not a control or status register at register %X", regAddr );
+				debugIOLog (6,  "  *** not a control or status register" );
 			}
 		} else {
-			debugIOLog (7,  "codec register size is invalid" );
+			debugIOLog (6,  "  *** codec register size is invalid" );
 		}
+	} else {
+		debugIOLog (6,  "  *** codec register is invalid" );
 	}
  
 Exit:	
 	if ( !success ) { result = kIOReturnError; }
-	if ( kIOReturnSuccess != result ) {
-		if ( NULL == registerData ) {
-			debugIOLog (7, "-AppleTopazPlugin::CODEC_ReadRegister regAddr = %X registerData = %p size = %ul, returns %d", regAddr, registerData, (unsigned int)size, result);
-		} else {
-			debugIOLog (7, "-AppleTopazPlugin::CODEC_ReadRegister regAddr = %X registerData = %X size = %ul, returns %d", regAddr, *registerData, (unsigned int)size, result);
-		}
+
+	switch ( mCodecID ) {
+		case kCS8406_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8406::CODEC_ReadRegister ( 0x%0.2X, %p, %d ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X with data 0x%0.2X", regAddr, registerData, size, mTopaz_I2C_Address, result, mShadowRegs[regAddr & ~kMAP_AUTO_INCREMENT_ENABLE] );   break;
+		case kCS8416_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8416::CODEC_ReadRegister ( 0x%0.2X, %p, %d ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X with data 0x%0.2X", regAddr, registerData, size, mTopaz_I2C_Address, result, mShadowRegs[regAddr & ~kMAP_AUTO_INCREMENT_ENABLE] );   break;
+		case kCS8420_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8420::CODEC_ReadRegister ( 0x%0.2X, %p, %d ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X with data 0x%0.2X", regAddr, registerData, size, mTopaz_I2C_Address, result, mShadowRegs[regAddr & ~kMAP_AUTO_INCREMENT_ENABLE] );   break;
 	}
 	return result;
 }
@@ -109,14 +122,12 @@ IOReturn 	AppleTopazPlugin::CODEC_WriteRegister ( UInt8 regAddr, UInt8 registerD
 	FailIf ( NULL == mPlatformInterface, Exit );
 	updateRequired = false;
 
-	debugIOLog (7,  "<>< AppleTopazPlugin::CODEC_WriteRegister ( regAddr %X, registerData %X )", regAddr, registerData );
-
 	//	Write through to the shadow register as a 'write through' cache would and
 	//	then write the data to the hardware;
 	if ( kIOReturnSuccess == CODEC_IsControlRegister ( regAddr ) ) {
 		registerData &= CODEC_GetDataMask ( regAddr );
 		mCurrentMAP = regAddr;
-		success = mPlatformInterface->writeCodecRegister( kCS84xx_I2C_ADDRESS, regAddr, &registerData, 1, kI2C_StandardSubMode );
+		success = mPlatformInterface->writeCodecRegister( mTopaz_I2C_Address, regAddr, &registerData, 1, kI2C_StandardSubMode );	//  [3648867]
 		FailIf ( !success, Exit );
 		mShadowRegs[regAddr] = registerData;
 	}
@@ -124,11 +135,15 @@ IOReturn 	AppleTopazPlugin::CODEC_WriteRegister ( UInt8 regAddr, UInt8 registerD
 	
 Exit:
 	if ( !success ) { result = kIOReturnError; }
-	if ( kIOReturnSuccess != result && !mRecoveryInProcess) {
-		debugIOLog (7,  "AppleTopazPlugin::CODEC_WriteRegister ( regAddr %X, registerData %X ) result = %X", regAddr, registerData, result );
+	if ( kIOReturnSuccess != result ) {
 		if ( mAudioDeviceProvider ) {
 			mAudioDeviceProvider->interruptEventHandler ( kRequestCodecRecoveryStatus, (UInt32)kControlBusFatalErrorRecovery );
 		}
+	}
+	switch ( mCodecID ) {
+		case kCS8406_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8406::CODEC_WriteRegister ( regAddr %X, registerData %X ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X", regAddr, registerData, mTopaz_I2C_Address, result );   break;
+		case kCS8416_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8416::CODEC_WriteRegister ( regAddr %X, registerData %X ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X", regAddr, registerData, mTopaz_I2C_Address, result );   break;
+		case kCS8420_CODEC: debugIOLog (6,  "± AppleTopazPluginCS8420::CODEC_WriteRegister ( regAddr %X, registerData %X ) where mTopaz_I2C_Address = 0x%0.2X returns 0x%0.8X", regAddr, registerData, mTopaz_I2C_Address, result );   break;
 	}
     return result;
 }
@@ -142,7 +157,7 @@ UInt8 	AppleTopazPlugin::getMemoryAddressPointer ( void ) {
 IOReturn 	AppleTopazPlugin::setMemoryAddressPointer ( UInt8 map ) { 
 	IOReturn		result = kIOReturnError;
 	
-	if ( mPlatformInterface->writeCodecRegister( kCS84xx_I2C_ADDRESS, 0, &map, 1, kI2C_StandardMode) ) {
+	if ( mPlatformInterface->writeCodecRegister( mTopaz_I2C_Address, 0, &map, 1, kI2C_StandardMode) ) {	//  [3648867]
 		result = kIOReturnSuccess;
 		mCurrentMAP = map;
 	}

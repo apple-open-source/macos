@@ -1373,9 +1373,11 @@ void HTMLInputElementImpl::parseAttribute(AttributeImpl *attr)
             setChanged();     // at the default value right now.
         break;
     case ATTR_CHECKED:
-        m_defaultChecked = attr->val();
-        if (m_useDefaultChecked)   // We only need to setChanged if the form is looking
-            setChanged();          // at the default checked state right now.
+        m_defaultChecked = attr->val() != 0;
+        if (m_useDefaultChecked) {
+            setChecked(m_defaultChecked);
+            m_useDefaultChecked = true;
+        }
         break;
     case ATTR_MAXLENGTH:
         m_maxLen = attr->val() ? attr->val()->toInt() : -1;
@@ -1704,8 +1706,8 @@ bool HTMLInputElementImpl::encoding(const QTextCodec* codec, khtml::encodingList
 void HTMLInputElementImpl::reset()
 {
     setValue(DOMString());
+    setChecked(m_defaultChecked);
     m_useDefaultChecked = true;
-    m_checked = m_defaultChecked;
 }
 
 void HTMLInputElementImpl::setChecked(bool _checked)

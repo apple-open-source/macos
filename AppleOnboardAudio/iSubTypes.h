@@ -40,12 +40,21 @@ typedef struct _sPreviousValues {
     float	yr_2;
 } PreviousValues;
 
+typedef struct _siSubCoefficients {
+    float	b0;
+    float	b1;
+    float	b2;
+    float	a1;
+    float	a2;
+} iSubCoefficients;
+
 typedef struct _iSubProcessingParams_t {
     float				srcPhase;
     float				srcState;
     PreviousValues 		filterState;
     PreviousValues 		filterState2;
     PreviousValues 		phaseCompState;
+    iSubCoefficients	coefficients;
     float				*lowFreqSamples;
     float				*highFreqSamples;
 	SInt16 				*iSubBuffer;

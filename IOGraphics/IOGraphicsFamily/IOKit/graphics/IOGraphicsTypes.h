@@ -280,7 +280,13 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field scalerFlags If the mode is scaled, kIOScaleStretchToFit may be set to allow stretching.
  * @field horizontalScaled If the mode is scaled, sets the size of the image before scaling.
  * @field verticalScaled If the mode is scaled, sets the size of the image before scaling.
- * @field signalConfig kIOAnalogSetupExpected set if display expects a blank-to-black setup or pedestal.  See VESA signal standards.
+ * @field signalConfig 
+    kIOAnalogSetupExpected set if display expects a blank-to-black setup or pedestal.  See VESA signal standards. <br>
+    kIOInterlacedCEATiming set for a CEA style interlaced timing:<br>
+	Field 1 vertical blanking = half specified vertical blanking lines. <br>
+	Field 2 vertical blanking = (half vertical blanking lines) + 1 line. <br>
+	Field 1 vertical offset = half specified vertical sync offset. <br>
+	Field 2 vertical offset = (half specified vertical sync offset) + 0.5 lines. <br>
  * @field signalLevels One of:<br>
     kIOAnalogSignalLevel_0700_0300 0.700 - 0.300 V p-p.<br>
     kIOAnalogSignalLevel_0714_0286 0.714 - 0.286 V p-p.<br>
@@ -305,6 +311,7 @@ typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
  * @field horizontalSyncLevel Zero.
  * @field verticalSyncConfig kIOSyncPositivePolarity for positive polarity vertical sync (0 for negative).
  * @field verticalSyncLevel Zero.
+ * @field numLinks number of links to be used by a dual link timing, if zero, assume one link.
  * @field __reservedB Reserved set to zero.
  */
 
@@ -343,8 +350,9 @@ struct IODetailedTimingInformationV2 {
     UInt32	horizontalSyncLevel;		// Future use (init to 0)
     UInt32	verticalSyncConfig;
     UInt32	verticalSyncLevel;		// Future use (init to 0)
+    UInt32	numLinks;
 
-    UInt32	__reservedB[8];			// Init to 0
+    UInt32	__reservedB[7];			// Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
@@ -397,7 +405,12 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
     kIORangeSupportsSignal_0714_0286 0.714 - 0.286 V p-p.<br>
     kIORangeSupportsSignal_1000_0400 1.000 - 0.400 V p-p.<br>
     kIORangeSupportsSignal_0700_0000 0.700 - 0.000 V p-p.<br>
- * @field __reservedC Set to zero.
+ * @field supportedSignalConfigs mask of possible signal configurations. The following are defined:<br>
+    kIORangeSupportsInterlacedCEATiming Supports CEA style interlaced timing:<br>
+	Field 1 vertical blanking = specified vertical blanking lines. <br>
+	Field 2 vertical blanking = vertical blanking lines + 1 line. <br>
+	Field 1 vertical offset = specified vertical sync offset. <br>
+	Field 2 vertical offset = specified vertical sync offset + 0.5 lines. <br>
  * @field minFrameRate minimum frame rate (vertical refresh frequency) in range, in Hz.
  * @field maxFrameRate maximum frame rate (vertical refresh frequency) in range, in Hz.
  * @field minLineRate minimum line rate (horizontal refresh frequency) in range, in Hz.
@@ -444,6 +457,11 @@ typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
  * @field maxVerticalBorderTop maximum value of verticalBorderTop.
  * @field minVerticalBorderBottom minimum value of verticalBorderBottom.
  * @field maxVerticalBorderBottom maximum value of verticalBorderBottom.
+ * @field maxNumLinks number of links supported, if zero, 1 link is assumed.
+ * @field minLink0PixelClock minimum pixel clock for link 0 (kHz).
+ * @field maxLink0PixelClock maximum pixel clock for link 0 (kHz).
+ * @field minLink1PixelClock minimum pixel clock for link 1 (kHz).
+ * @field maxLink1PixelClock maximum pixel clock for link 1 (kHz).
  * @field __reservedF Set to zero.
  */
 
@@ -459,7 +477,7 @@ struct IODisplayTimingRange
     UInt32	maxPixelError;            	// Max dot clock error
     UInt32	supportedSyncFlags;
     UInt32	supportedSignalLevels;
-    UInt32	__reservedC[1];			// Init to 0
+    UInt32	supportedSignalConfigs;
 
     UInt32	minFrameRate;             	// Hz
     UInt32	maxFrameRate;             	// Hz
@@ -518,8 +536,13 @@ struct IODisplayTimingRange
     UInt32	maxVerticalBorderTop;
     UInt32	minVerticalBorderBottom;
     UInt32	maxVerticalBorderBottom;
+    UInt32	maxNumLinks;                       // number of links, if zero, assume link 1
+    UInt32	minLink0PixelClock;      	   // min pixel clock for link 0 (kHz)
+    UInt32	maxLink0PixelClock;                // max pixel clock for link 0 (kHz)
+    UInt32	minLink1PixelClock;                // min pixel clock for link 1 (kHz)
+    UInt32	maxLink1PixelClock;                // max pixel clock for link 1 (kHz)
 
-    UInt32	__reservedF[8];			// Init to 0
+    UInt32	__reservedF[3];			// Init to 0
 };
 typedef struct IODisplayTimingRange  IODisplayTimingRange;
 
@@ -528,21 +551,25 @@ enum {
     kIORangeSupportsSignal_0700_0300	= 0x00000001,
     kIORangeSupportsSignal_0714_0286	= 0x00000002,
     kIORangeSupportsSignal_1000_0400	= 0x00000004,
-    kIORangeSupportsSignal_0700_0000	= 0x00000008,
+    kIORangeSupportsSignal_0700_0000	= 0x00000008
 };
 enum {
     // supportedSyncFlags
     kIORangeSupportsSeparateSyncs	 = 0x00000001,
     kIORangeSupportsSyncOnGreen		 = 0x00000002,
     kIORangeSupportsCompositeSync	 = 0x00000004,
-    kIORangeSupportsVSyncSerration	 = 0x00000008,
+    kIORangeSupportsVSyncSerration	 = 0x00000008
+};
+enum {
+    // supportedSignalConfigs
+    kIORangeSupportsInterlacedCEATiming	 = 0x00000004
 };
 
 enum {
     // signalConfig
-    // Do not set.  Mac OS does not currently support arbitrary digital timings
     kIODigitalSignal          = 0x00000001,
-    kIOAnalogSetupExpected    = 0x00000002
+    kIOAnalogSetupExpected    = 0x00000002,
+    kIOInterlacedCEATiming    = 0x00000004
 };
 
 enum {
@@ -568,8 +595,8 @@ enum {
  * @field scalerFeatures Mask of scaling features. The following are defined:<br>
     kIOScaleStretchOnly If set the framebuffer can only provide stretched scaling with non-square pixels, without borders.<br>
     kIOScaleCanUpSamplePixels If set framebuffer can scale up from a smaller number of source pixels to a larger native timing (eg. 640x480 pixels on a 1600x1200 timing).<br>
-    kIOScaleCanDownSamplePixels
     kIOScaleCanDownSamplePixels If set framebuffer can scale down from a larger number of source pixels to a smaller native timing (eg. 1600x1200 pixels on a 640x480 timing).<br>
+    kIOScaleCanScaleInterlaced If set framebuffer can scale an interlaced detailed timing.<br>
  * @field maxHorizontalPixels Maximum number of horizontal source pixels (horizontalScaled).<br>
  * @field maxVerticalPixels Maximum number of vertical source pixels (verticalScaled).<br>
  * @field __reservedC Set to zero.
@@ -591,7 +618,8 @@ enum {
     /* scalerFeatures */
     kIOScaleStretchOnly		  = 0x00000001,
     kIOScaleCanUpSamplePixels	  = 0x00000002,
-    kIOScaleCanDownSamplePixels   = 0x00000004
+    kIOScaleCanDownSamplePixels   = 0x00000004,
+    kIOScaleCanScaleInterlaced    = 0x00000008
 };
 
 //// Connections
@@ -821,7 +849,9 @@ enum {
     kIOTimingIDSony_1920x1080_60hz   = 510,	/* 1920x1080 (60 Hz) Sony timing (pixel clock is 159.84 Mhz dot clock). */
     kIOTimingIDSony_1920x1080_72hz   = 520,	/* 1920x1080 (72 Hz) Sony timing (pixel clock is 216.023 Mhz dot clock). */
     kIOTimingIDSony_1920x1200_76hz   = 540,	/* 1900x1200 (76 Hz) Sony timing (pixel clock is 243.20 Mhz dot clock). */
-    kIOTimingIDApple_0x0_0hz_Offline = 550	/* Indicates that this timing will take the display off-line and remove it from the system. */
+    kIOTimingIDApple_0x0_0hz_Offline = 550,	/* Indicates that this timing will take the display off-line and remove it from the system. */
+    kIOTimingIDVESA_848x480_60hz     = 570,	/*  848x480 (60 Hz)  VESA timing. */
+    kIOTimingIDVESA_1360x768_60hz    = 590	/* 1360x768 (60 Hz)  VESA timing. */
 };
 
 // framebuffer property keys

@@ -890,6 +890,7 @@ void AppleKeyLargo::saveKeyLargoState(void)
 
     savedKeyLargoMPICState = &savedKeyLargoState.savedMPICState;
 
+    savedKeyLargoMPICState->mpicGlobal0 = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICGlobal0);
     savedKeyLargoMPICState->mpicIPI[0] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI0);
     savedKeyLargoMPICState->mpicIPI[1] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI1);
     savedKeyLargoMPICState->mpicIPI[2] = *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI2);
@@ -946,6 +947,8 @@ void AppleKeyLargo::restoreKeyLargoState(void)
 
     savedKeyLargoMPICState = &savedKeyLargoState.savedMPICState;
 
+    *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICGlobal0) = savedKeyLargoMPICState->mpicGlobal0;
+    eieio();
     *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI0) = savedKeyLargoMPICState->mpicIPI[0];
     eieio();
     *(UInt32 *)(mpicBaseAddr + kKeyLargoMPICIPI1) = savedKeyLargoMPICState->mpicIPI[1];

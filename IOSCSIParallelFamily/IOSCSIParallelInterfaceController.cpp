@@ -33,10 +33,18 @@
 #include "SCSIParallelTask.h"
 #include "SCSIParallelTimer.h"
 
+// Libkern includes
+#include <libkern/OSAtomic.h>
+#include <libkern/c++/OSData.h>
+#include <libkern/c++/OSDictionary.h>
+#include <libkern/c++/OSNumber.h>
+#include <libkern/c++/OSString.h>
+
 // Generic IOKit includes
 #include <IOKit/IOService.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -81,7 +89,15 @@ OSDefineAbstractStructors ( IOSCSIParallelInterfaceController, IOService );
 //	Constants
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define kIOPropertySCSIInitiatorIdentifierKey		"SCSI Initiator Identifier"
+#define kIOPropertySCSIInitiatorManagesTargets		"Manages Targets"
+#define kIOPropertyControllerCharacteristicsKey		"Controller Characteristics"
+
+enum
+{
+	kWorldWideNameDataSize 		= 8,
+	kAddressIdentifierDataSize 	= 3,
+	kALPADataSize				= 1
+};
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -215,7 +231,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		
 		// A Protocol Characteristics dictionary could not be retrieved, so one
 		// will be created.		
-		protocolDict = OSDictionary::withCapacity ( 1 );
+		protocolDict = OSDictionary::withCapacity ( 3 );
 		
 	}
 	
@@ -225,7 +241,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 		// Since the object did not need to create the protocol 
 		// dictionary, issue a retain to balance out the release that will be 
 		// done later.
-		protocolDict->retain ( );
+		protocolDict = OSDictionary::withDictionary ( protocolDict );
 		
 	}
 	
@@ -233,7 +249,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	{
 		
 		OSString *		string = NULL;
-		OSNumber *		domainID = NULL;
+		OSNumber *		number = NULL;
 		
 		// Set the Physical Interconnect property if it doesn't already exist
 		string = OSDynamicCast ( OSString, getProperty ( kIOPropertyPhysicalInterconnectTypeKey ) );
@@ -282,13 +298,29 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 			
 		}
 		
-		domainID = OSNumber::withNumber ( fSCSIDomainIdentifier, 32 );
-		if ( domainID != NULL )
+		number = OSNumber::withNumber ( fSCSIDomainIdentifier, 32 );
+		if ( number != NULL )
 		{
 			
-			protocolDict->setObject ( kIOPropertySCSIDomainIdentifierKey, domainID );
-			domainID->release ( );
-			domainID = NULL;
+			protocolDict->setObject ( kIOPropertySCSIDomainIdentifierKey, number );
+			number->release ( );
+			number = NULL;
+			
+		}
+
+		number = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyReadTimeOutDurationKey ) );
+		if ( number != NULL )
+		{
+			
+			protocolDict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
+			
+		}
+		
+		number = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyWriteTimeOutDurationKey ) );
+		if ( number != NULL )
+		{
+			
+			protocolDict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
 			
 		}
 		
@@ -347,10 +379,13 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	// Now create SCSI Device objects
 	result = DoesHBAPerformDeviceManagement ( );
 	
+	// Set the property
+	setProperty ( kIOPropertySCSIInitiatorManagesTargets, result );
+	
 	if ( result == false )
 	{
 		
-		// This HBA does not support a mechansim for device attach/detach 
+		// This HBA does not support a mechanism for device attach/detach 
 		// notification, go ahead and create target devices.
 		for ( UInt32 index = 0; index <= fHighestSupportedDeviceID; index++ )
 		{
@@ -493,6 +528,165 @@ IOSCSIParallelInterfaceController::GetProvider ( void )
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	GetSCSIDomainIdentifier - Gets the domain identifier.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SInt32
+IOSCSIParallelInterfaceController::GetSCSIDomainIdentifier ( void )
+{
+	return fSCSIDomainIdentifier;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetHBAProperty - Sets a property for this object. 			   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool	
+IOSCSIParallelInterfaceController::SetHBAProperty (
+									const char *	key,
+									OSObject *	 	value )
+{
+	
+	bool			result 		= false;
+	OSDictionary *	hbaDict		= NULL;
+	
+	require_nonzero ( key, ErrorExit );
+	require_nonzero ( value, ErrorExit );
+	
+	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	require_nonzero ( hbaDict, ErrorExit );
+	
+	if ( strcmp ( key, kIOPropertyVendorNameKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyProductNameKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyProductRevisionLevelKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyPortDescriptionKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyPortSpeedKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertySCSIParallelSignalingTypeKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelCableDescriptionKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelPortWorldWideNameKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		result = hbaDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelNodeWorldWideNameKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kWorldWideNameDataSize ), ErrorExit );
+		result = hbaDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelAddressIdentifierKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kAddressIdentifierDataSize ), ErrorExit );
+		result = hbaDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyFibreChannelALPAKey ) == 0 )
+	{
+		
+		OSData * data = OSDynamicCast ( OSData, value );
+		
+		require_nonzero ( data, ErrorExit );
+		require ( ( data->getLength ( ) == kALPADataSize ), ErrorExit );
+		result = hbaDict->setObject ( key, value );
+		
+	}
+	
+	else if ( strcmp ( key, kIOPropertyPortTopologyKey ) == 0 )
+	{
+		result = hbaDict->setObject ( key, value );
+	}
+	
+	else
+	{
+		ERROR_LOG ( ( "SetHBAProperty: Unrecognized property key = %s", key ) );
+	}
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ RemoveHBAProperty - Removes a property for this object. 		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void	
+IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
+{
+	
+	OSDictionary *	hbaDict = NULL;
+	
+	require_nonzero ( key, ErrorExit );
+	
+	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	require_nonzero ( hbaDict, ErrorExit );
+	
+	if ( hbaDict->getObject ( key ) != NULL )
+	{
+		
+		hbaDict->removeObject ( key );
+		
+	}
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark WorkLoop Management
@@ -557,7 +751,7 @@ IOSCSIParallelInterfaceController::CreateWorkLoop ( IOService * provider )
 	
 	require_nonzero ( fDispatchEvent, CREATE_ISR_EVENT_FAILURE );
 	
-	status = fWorkLoop->addEventSource( fDispatchEvent );
+	status = fWorkLoop->addEventSource ( fDispatchEvent );
 	require_success ( status, ADD_ISR_EVENT_FAILURE );
 	
 	fControllerGate = IOCommandGate::commandGate ( this, NULL );
@@ -1034,7 +1228,7 @@ IOSCSIParallelInterfaceController::FilterInterrupt (
 							OSObject *						theObject, 
 							IOFilterInterruptEventSource *	theSource  )
 {
-	( ( IOSCSIParallelInterfaceController * ) theObject )->FilterInterruptRequest ( );
+	return ( ( IOSCSIParallelInterfaceController * ) theObject )->FilterInterruptRequest ( );
 }
 
 
@@ -1152,7 +1346,7 @@ IOSCSIParallelInterfaceController::HandleTimeout (
 	
 	check ( parallelRequest != NULL );
 	CompleteParallelTask ( 	parallelRequest,
-							kSCSITaskStatus_No_Status,
+							kSCSITaskStatus_TaskTimeoutOccurred,
 							kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
 	
 }
@@ -1173,6 +1367,34 @@ IOSCSIParallelInterfaceController::HandleTimeout (
 bool
 IOSCSIParallelInterfaceController::CreateTargetForID (
 										SCSITargetIdentifier	targetID )
+{
+	
+	OSDictionary *	dict 	= NULL;
+	bool			result	= false;
+	
+	dict = OSDictionary::withCapacity ( 0 );
+	require_nonzero ( dict, DICT_CREATION_FAILED );
+	
+	result = CreateTargetForID ( targetID, dict );
+	
+	
+DICT_CREATION_FAILED:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	CreateTargetForID - Creates a target device for the ID specified.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::CreateTargetForID (
+										SCSITargetIdentifier	targetID,
+										OSDictionary * 			properties )
 {
 	
 	IOSCSIParallelInterfaceDevice *		newDevice 	= NULL;
@@ -1199,11 +1421,13 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	result = newDevice->attach ( this );
 	require ( result, ATTACH_FAILED_EXIT );
 	
+	result = newDevice->SetInitialTargetProperties ( properties );
+	require ( result, START_FAILED_EXIT );
+	
 	result = newDevice->start ( this );
 	require ( result, START_FAILED_EXIT );
 	
 	newDevice->release ( );
-	
 	
 	// The SCSI Device was successfully created.
 	result = true;
@@ -1264,6 +1488,61 @@ IOSCSIParallelInterfaceController::DestroyTargetForID (
 	// The device can now be destroyed.
 	victimDevice->DestroyTarget ( );
 	victimDevice->terminate ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	SetTargetProperty - Sets a property for the specified target.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::SetTargetProperty (
+					SCSIDeviceIdentifier 				targetID,
+					const char * 						key,
+					OSObject *							value )
+{
+	
+	bool								result	= false;
+	IOSCSIParallelInterfaceDevice * 	device	= NULL;
+	
+	device = GetTargetForID ( targetID );
+	
+	require_nonzero ( device, ErrorExit );
+	result = device->SetTargetProperty ( key, value );
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	RemoveTargetProperty - Removes a property from the specified target.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIParallelInterfaceController::RemoveTargetProperty (
+					SCSIDeviceIdentifier 				targetID,
+					const char * 						key )
+{
+	
+	IOSCSIParallelInterfaceDevice * 	device	= NULL;
+	
+	device = GetTargetForID ( targetID );
+	
+	require_nonzero ( device, ErrorExit );
+	device->RemoveTargetProperty ( key );
+	
+	
+ErrorExit:
+	
+	
+	return;
 	
 }
 
@@ -1519,6 +1798,62 @@ void
 IOSCSIParallelInterfaceController::NotifyClientsOfBusReset ( void )
 {
 	messageClients ( kSCSIControllerNotificationBusReset );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	NotifyClientsOfPortStatusChange - Notifies clients of port status changes.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
+												SPIPortStatus newStatus )
+{
+	
+	OSDictionary *	hbaDict = NULL;
+	
+	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	if ( hbaDict != NULL )
+	{
+		
+		OSString *	string 		= NULL;
+		char *		linkStatus	= NULL;
+		
+		switch ( newStatus )
+		{
+			
+			case kSPIPortStatus_Online:
+				linkStatus = kIOPropertyPortStatusLinkEstablishedKey;
+				break;
+			
+			case kSPIPortStatus_Offline:
+				linkStatus = kIOPropertyPortStatusNoLinkEstablishedKey;
+				break;
+			
+			case kSPIPortStatus_Failure:
+				linkStatus = kIOPropertyPortStatusLinkFailedKey;
+				break;
+			
+			default:
+				break;
+			
+		}
+		
+		string = OSString::withCString ( linkStatus );
+		if ( string != NULL )
+		{
+			
+			hbaDict->setObject ( kIOPropertyPortStatusKey, string );
+			string->release ( );
+			string = NULL;
+			
+		}
+		
+	}
+	
+	messageClients ( kSCSIControllerNotificationPortStatus, ( void * ) newStatus );
+	
 }
 
 
@@ -1913,7 +2248,7 @@ IOSCSIParallelInterfaceController::GetAutoSenseData (
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 UInt8
-IOSCSIParallelInterfaceController::GetAutoSenseDataSize(
+IOSCSIParallelInterfaceController::GetAutoSenseDataSize (
  							SCSIParallelTaskIdentifier 		parallelTask )
 {
 	

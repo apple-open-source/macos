@@ -59,6 +59,7 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 
 #include <rpc/rpc.h>
 #include <rpc/pmap_clnt.h>
@@ -103,6 +104,7 @@ main(argc, argv)
 	int ch;
 	struct sigaction sigalarm;
 	int grace_period = 30;
+	struct rlimit rlp;
 	
 	while ((ch = getopt(argc, argv, "d:g:wx:")) != (-1)) {
 		switch (ch) {
@@ -141,7 +143,7 @@ main(argc, argv)
 	 * Note that it is NOT sensible to run this program from inetd - the
 	 * protocol assumes that it will run immediately at boot time.
 	 */
-	if (debug_level != 99 && daemon(0, 0)) {
+	if (debug_level != 99 && daemon(0, debug_level > 0)) {
 		err(1, "cannot fork");
 		/* NOTREACHED */
 	}
@@ -152,8 +154,12 @@ main(argc, argv)
 	signal(SIGHUP, handle_sig_cleanup);
 	signal(SIGQUIT, handle_sig_cleanup);
 
-	if (claim_pid_file("/var/run/lockd.pid", 0) < 0)
-		errx(1, "cannot claim pid file");
+	openlog("rpc.lockd", debug_level == 99 ? LOG_PERROR : 0, LOG_DAEMON);
+
+	if (claim_pid_file("/var/run/lockd.pid", 0) < 0) {
+		syslog(LOG_ERR, "cannot claim pid file");
+		exit(1);
+	}
 
 	if (waitkern) {
 		struct timespec ts;
@@ -168,7 +174,6 @@ main(argc, argv)
 		nanosleep(&ts, NULL);
 	}
 
-	openlog("rpc.lockd", debug_level == 99 ? LOG_PERROR : 0, LOG_DAEMON);
 	if (debug_level)
 		syslog(LOG_INFO, "Starting, debug level %d", debug_level);
 	else
@@ -180,24 +185,48 @@ main(argc, argv)
 	(void)pmap_unset(NLM_PROG, NLM_VERS4);
 
 	transp = svcudp_create(RPC_ANYSOCK);
-	if (transp == NULL)
-		errx(1, "cannot create udp service");
-	if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP))
-		errx(1, "unable to register (NLM_PROG, NLM_VERS, udp)");
-	if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP))
-		errx(1, "unable to register (NLM_PROG, NLM_VERSX, udp)");
-	if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP))
-		errx(1, "unable to register (NLM_PROG, NLM_VERS4, udp)");
+	if (transp == NULL) {
+		syslog(LOG_ERR, "cannot create udp service");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_UDP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_SM, udp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERS, udp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERSX, udp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERS4, udp)");
+		exit(1);
+	}
 	 
 	transp = svctcp_create(RPC_ANYSOCK, 0, 0);
-	if (transp == NULL)
-		errx(1, "cannot create tcp service");
-	if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP))
-		errx(1, "unable to register (NLM_PROG, NLM_VERS, tcp)");
-	if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP))  
-		errx(1, "unable to register (NLM_PROG, NLM_VERSX, tcp)");
-	if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP))   
-		errx(1, "unable to register (NLM_PROG, NLM_VERS4, tcp)");
+	if (transp == NULL) {
+		syslog(LOG_ERR, "cannot create tcp service");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_TCP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_SM, tcp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP)) {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERS, tcp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP))   {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERSX, tcp)");
+		exit(1);
+	}
+	if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP))    {
+		syslog(LOG_ERR, "unable to register (NLM_PROG, NLM_VERS4, tcp)");
+		exit(1);
+	}
 
 	sigalarm.sa_handler = (sig_t) sigalarm_handler;
 	sigemptyset(&sigalarm.sa_mask);
@@ -214,6 +243,18 @@ main(argc, argv)
 	init_nsm();
 
 	client_pid = client_request();
+
+	/* raise our resource limits as far as they can go */
+	if (getrlimit(RLIMIT_NOFILE, &rlp)) {
+		syslog(LOG_WARNING, "getrlimit(RLIMIT_NOFILE) failed: %s",
+			strerror(errno));
+	} else {
+		rlp.rlim_cur = rlp.rlim_max;
+		if (setrlimit(RLIMIT_NOFILE, &rlp)) {
+			syslog(LOG_WARNING, "setrlimit(RLIMIT_NOFILE) failed: %s",
+				strerror(errno));
+		}
+	}
 
 	my_svc_run();		/* Should never return */
 	exit(1);
@@ -265,7 +306,7 @@ init_nsm(void)
 		ret = callrpc("localhost", SM_PROG, SM_VERS, SM_UNMON_ALL,
 		    xdr_my_id, &id, xdr_sm_stat, &stat);
 		if (ret) {
-			warnx("%lu %s", SM_PROG, clnt_sperrno(ret));
+			syslog(LOG_WARNING, "%lu %s", SM_PROG, clnt_sperrno(ret));
 			if (++attempt < 20) {
 				sleep(attempt);
 				continue;
@@ -275,7 +316,8 @@ init_nsm(void)
 	} while (1);
 
 	if (ret != 0) {
-		errx(1, "%lu %s", SM_PROG, clnt_sperrno(ret));
+		syslog(LOG_ERR, "%lu %s", SM_PROG, clnt_sperrno(ret));
+		exit(1);
 	}
 
 	nsm_state = stat.state;

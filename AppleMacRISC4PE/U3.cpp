@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -58,7 +55,7 @@ OSDefineMetaClassAndStructors(AppleU3,ApplePlatformExpert)
 bool AppleU3::start ( IOService * nub )
 {
     // UInt32			   		uniNArbCtrl, uniNMPCIMemTimeout;
-	IOInterruptState 		intState;
+	IOInterruptState 		intState = 0;
 	IOPlatformFunction		*func;
 	const OSSymbol			*functionSymbol = OSSymbol::withCString(kInstantiatePlatformFunctions);
 	SInt32					retval;
@@ -103,7 +100,8 @@ bool AppleU3::start ( IOService * nub )
 			hostIsMobile = false;
 
 	// setup built-in platform functions
-	symsafeReadRegUInt32 = OSSymbol::withCString("safeReadRegUInt32");
+	symreadUniNReg = OSSymbol::withCString("readUniNReg");
+        symsafeReadRegUInt32 = OSSymbol::withCString("safeReadRegUInt32");
 	symsafeWriteRegUInt32 = OSSymbol::withCString("safeWriteRegUInt32");
 	symUniNSetPowerState = OSSymbol::withCString("UniNSetPowerState");
     symUniNPrepareForSleep = OSSymbol::withCString("UniNPrepareForSleep");
@@ -237,7 +235,13 @@ IOReturn AppleU3::callPlatformFunction(const OSSymbol *functionName, bool waitFo
 		u3APIPhyDisableProcessor1 ();
 		return kIOReturnSuccess;
 	}
-
+        
+    if (functionName == symreadUniNReg) {
+                UInt32 *returnval = (UInt32 *)param2;
+                *returnval = readUniNReg((UInt32)param1);
+                return kIOReturnSuccess;
+    }
+    
 	if (platformFuncArray) {
 		UInt32 i;
 		IOPlatformFunction *pfFunc;
@@ -298,7 +302,7 @@ void AppleU3::writeUniNReg(UInt32 offset, UInt32 data)
 // **********************************************************************************
 UInt32 AppleU3::safeReadRegUInt32(UInt32 offset)
 {
-	IOInterruptState intState;
+	IOInterruptState intState = 0;
 
 	if ( mutex  != NULL )
 		intState = IOSimpleLockLockDisableInterrupt(mutex);
@@ -317,7 +321,7 @@ UInt32 AppleU3::safeReadRegUInt32(UInt32 offset)
 // **********************************************************************************
 void AppleU3::safeWriteRegUInt32(UInt32 offset, UInt32 mask, UInt32 data)
 {
-	IOInterruptState	intState;
+	IOInterruptState	intState = 0;
 	UInt32 				currentReg;
 
 	if ( mutex  != NULL )
@@ -398,12 +402,12 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 {
 	bool						ret;
 	IOPlatformFunctionIterator 	*iter;
-	UInt32 						offset, value, valueLen, mask, maskLen, data, writeLen, 
-									cmd, cmdLen, result, pHandle, lastCmd,
+	UInt32 						offset, value, valueLen, mask, maskLen, data = 0, writeLen, 
+									cmd, cmdLen, result, pHandle = 0, lastCmd = 0,
 									param1, param2, param3, param4, param5, 
 									param6, param7, param8, param9, param10;
 
-	IOPCIDevice					*nub;
+	IOPCIDevice					*nub = NULL;
 	
 	if (func == 0) return(false);
 
@@ -671,7 +675,7 @@ IOReturn AppleU3::installChipFaultHandler ( IOService * provider )
 	// We should have a chip fault signal on U3 lite and heavy
 	if (provider->getProperty(kChipFaultFuncName) == NULL)
 	{
-		if (IS_U3_TWINS(uniNVersion))
+		if (IS_U3_HEAVY(uniNVersion))
 			IOLog("AppleU3: WARNING: platform-chip-fault expected, but not found\n");
 	
 		return kIOReturnUnsupported;

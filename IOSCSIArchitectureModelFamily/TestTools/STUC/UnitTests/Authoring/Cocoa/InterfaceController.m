@@ -137,7 +137,8 @@
 	
 	rowEnumerator = [ [ self theTableView ] selectedRowEnumerator ];
 	
-	while ( selectedIndex = [ rowEnumerator nextObject ] )
+	selectedIndex = [ rowEnumerator nextObject ];
+	while ( selectedIndex != nil )
 	{
 		
 		MyDocument * 		theDocument			= nil;
@@ -150,7 +151,8 @@
 		dataSource = ( DeviceDataSource * ) ( [ [ self theTableView ] dataSource ] );
 		theSelectedDevice = [ [ dataSource theDeviceList ] objectAtIndex: [ selectedIndex intValue ] ];
 		
-		while ( object = [ documentEnumerator nextObject ] )
+		object = [ documentEnumerator nextObject ];
+		while ( object != nil )
 		{
 			
 			if ( [ [ object theAuthoringDevice ] isEqual : theSelectedDevice ] )
@@ -168,6 +170,8 @@
 				
 			}
 			
+			object = [ documentEnumerator nextObject ];
+			
 		}
 		
 		// Create a new document
@@ -177,6 +181,8 @@
 		
 		[ theDocument setTheAuthoringDevice:
 			[ [ dataSource theDeviceList ] objectAtIndex: [ selectedIndex intValue ] ] ];
+		
+		selectedIndex = [ rowEnumerator nextObject ];
 		
 	}
 	

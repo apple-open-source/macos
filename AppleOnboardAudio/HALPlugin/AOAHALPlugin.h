@@ -46,7 +46,9 @@ properties : we will define the following enhancement
 //#include <CoreAudio/AudioDriverPlugin.h>
 enum {
 	kAOAPropertySelectionsReference				= 'selr',
-	kAOAPropertyPowerState						= 'powr'
+	kAOAPropertyPowerState						= 'powr',
+	kAOAPropertyAvailableInputsBitmap			= 'inbm',
+	kAOAPropertyAvailableOutputsBitmap			= 'otbm'
 };
 
 #endif

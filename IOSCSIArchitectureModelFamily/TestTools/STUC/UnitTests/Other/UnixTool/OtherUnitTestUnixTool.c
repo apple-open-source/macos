@@ -52,7 +52,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG	0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "OtherUnitTestUnixTool"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -94,6 +97,8 @@ DebugAssert ( const char *	componentNameString,
 		printf ( "	 error: %d\n", errorCode );
 	
 }
+
+#endif	/* DEBUG */
 
 #include <AssertMacros.h>
 
@@ -156,7 +161,7 @@ static void
 DeviceDisappeared ( void * refCon, io_iterator_t iterator );
 
 static void
-StripWhiteSpace ( char * buffer, UInt32 length );
+StripWhiteSpace ( char * buffer, SInt32 length );
 
 static void
 SignalHandler ( int sigraised );
@@ -1182,7 +1187,9 @@ DeviceAppeared ( void * refCon, io_iterator_t iterator )
 	
 	io_service_t	obj = MACH_PORT_NULL;
 	
-	while ( obj = IOIteratorNext ( iterator ) )
+	obj = IOIteratorNext ( iterator );
+	
+	while ( obj != MACH_PORT_NULL )
 	{
 		
 		IOReturn				error   = kIOReturnSuccess;
@@ -1236,6 +1243,7 @@ DeviceAppeared ( void * refCon, io_iterator_t iterator )
 		}
 		
 		( void ) IOObjectRelease ( obj );
+		obj = IOIteratorNext ( iterator );
 		
 	}
 	
@@ -1252,11 +1260,13 @@ DeviceDisappeared ( void * refCon, io_iterator_t iterator )
 	
 	io_service_t	obj = MACH_PORT_NULL;
 	
-	while ( obj = IOIteratorNext ( iterator ) )
+	obj = IOIteratorNext ( iterator );
+	while ( obj != MACH_PORT_NULL )
 	{
 		
 		printf ( "Device disappeared.\n" );
 		( void ) IOObjectRelease ( obj );
+		obj = IOIteratorNext ( iterator );
 		
 	}
 	
@@ -1268,15 +1278,18 @@ DeviceDisappeared ( void * refCon, io_iterator_t iterator )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static void
-StripWhiteSpace ( char * buffer, UInt32 length )
+StripWhiteSpace ( char * buffer, SInt32 length )
 {
 	
-	UInt32		index = 0;
+	SInt32		index = 0;
 	
 	for ( index = ( length - 1 ); index >= 0; index-- )
 	{
 		
 		if ( buffer[index] == 0 )
+			break;
+		
+		if ( buffer[index] != ' ' )
 			break;
 		
 		if ( buffer[index] == ' ' )

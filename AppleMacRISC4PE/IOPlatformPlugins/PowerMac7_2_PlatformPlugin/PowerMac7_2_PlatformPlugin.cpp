@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -37,8 +34,6 @@
 OSDefineMetaClassAndStructors(PowerMac7_2_PlatformPlugin, IOPlatformPlugin)
 
 PowerMac7_2_PlatformPlugin * PM72Plugin;
-//const OSSymbol * gPM72EnvShroudRemoved;
-//const OSSymbol * gPM72EnvAllowNapping;
 const OSSymbol * gPM72EnvSystemUncalibrated;
 
 static const OSData * gPM72EEPROM[2] = { NULL, NULL };
@@ -47,10 +42,6 @@ bool PowerMac7_2_PlatformPlugin::init( OSDictionary * dict )
 {
 	if (!super::init(dict)) return(false);
 
-//	if (!gPM72EnvShroudRemoved)
-//		gPM72EnvShroudRemoved = OSSymbol::withCString(kPM72EnvShroudRemoved);
-//	if (!gPM72EnvAllowNapping)
-//		gPM72EnvAllowNapping = OSSymbol::withCString(kPM72EnvAllowNapping);
 	if (!gPM72EnvSystemUncalibrated)
 		gPM72EnvSystemUncalibrated = OSSymbol::withCString(kPM72EnvSystemUncalibrated);
 
@@ -59,18 +50,6 @@ bool PowerMac7_2_PlatformPlugin::init( OSDictionary * dict )
 
 void PowerMac7_2_PlatformPlugin::free( void )
 {
-//	if (gPM72EnvShroudRemoved)
-//	{
-//		gPM72EnvShroudRemoved->release();
-//		gPM72EnvShroudRemoved = NULL;
-//	}
-
-//	if (gPM72EnvAllowNapping)
-//	{
-//		gPM72EnvAllowNapping->release();
-//		gPM72EnvAllowNapping = NULL;
-//	}
-
 	if (gPM72EnvSystemUncalibrated)
 	{
 		gPM72EnvSystemUncalibrated->release();
@@ -82,9 +61,6 @@ void PowerMac7_2_PlatformPlugin::free( void )
 
 bool PowerMac7_2_PlatformPlugin::start( IOService * provider )
 {
-	//OSArray * tmpArray;
-	//mach_timespec_t waitTimeout;
-	//IOService *rsc;
 	const OSData * cooling;
 	const OSNumber * sensorID;
 	IOPlatformSensor * powerSensor;
@@ -94,27 +70,6 @@ bool PowerMac7_2_PlatformPlugin::start( IOService * provider )
 	// store the self pointer so helper classes can call readProcROM()
 	PM72Plugin = this;
 
-/*
-	// get a pointer to the UniN I2C driver
-	waitTimeout.tv_sec = 5;
-	waitTimeout.tv_nsec = 0;
-
-	rsc = waitForService(resourceMatching("PPCI2CInterface.i2c-uni-n"), &waitTimeout);
-	if (!rsc)
-	{
-		DLOG("PowerMac7_2_PlatformPlugin::start i2c-uni-n resource not found\n");
-		return(false);
-	}
-
-	fI2C_iface = OSDynamicCast(IOService, rsc->getProperty("PPCI2CInterface.i2c-uni-n"));
-	if (!fI2C_iface)
-	{
-		DLOG("PowerMac7_2_PlatformPlugin::start failed to get I2C driver\n");
-		return(false);
-	}
-
-	DLOG("PowerMac7_2_PlatformPlugin::start got I2C driver %s\n", fI2C_iface->getName());
-*/
 	if (!super::start(provider)) return(false);
 
 	// Set flags to tell the system we do dynamic power step
@@ -187,10 +142,6 @@ bool PowerMac7_2_PlatformPlugin::start( IOService * provider )
 #undef RESIDUAL_PATH_LEN
 	}
 
-/*	tmpArray = OSArray::withCapacity(0);
-	setEnv(gPM72EnvAllowNapping, tmpArray);
-	tmpArray->release();
-*/
 	return(true);
 }
 
@@ -225,15 +176,12 @@ UInt8 PowerMac7_2_PlatformPlugin::probeConfig( void )
 	num_cpus = 0;
 	while (children->getNextObject() != 0) num_cpus++;
 	children->release();
-
 	if (num_cpus > 1)
 	{
 
-		
 		if ((fcu = IORegistryEntry::fromPath( "/u3/i2c/fan", gIODTPlane, residual, &residual_len, NULL )) == NULL ||
 			(children = OSDynamicCast(OSCollectionIterator, fcu->getChildIterator( gIODTPlane ))) == NULL)
 		{
-
 			return(2);
 		}
 
@@ -257,9 +205,14 @@ UInt8 PowerMac7_2_PlatformPlugin::probeConfig( void )
 			}
 		}
 
-
 		children->release();
-		return(1);	// dual
+		
+                //check for U3 Heavy
+                if (!(uniN = waitForService(serviceMatching("AppleU3")))) return false;
+                uniN->callPlatformFunction ("readUniNReg", false, (void *)(UInt32)kUniNVersion, (void *)(UInt32)&uniNVersion, (void *)0, (void *)0);
+                if (IS_U3_HEAVY(uniNVersion))
+                    return(3);	//dual (for Q77 better only)
+                return(1); // dual (Q37 better and best and Q77 good)
 	}
 	else
 	{
@@ -324,236 +277,3 @@ bool PowerMac7_2_PlatformPlugin::readProcROM( UInt32 procID, UInt16 offset, UInt
 	return(true);
 }
 
-/*
-bool PowerMac7_2_PlatformPlugin::readProcROM( UInt32 procID, UInt16 offset, UInt16 size, UInt8 * buf )
-{
-	UInt8 romBus, romAddr;
-	bool success = false;
-
-	DLOG("PowerMac7_2_PlatformPlugin::readProcROM procID 0x%02lX offset 0x%04X size %u\n",
-			procID, offset, size);
-
-	if (procID > 1) return(false);
-
-	// the ROM address depends on which processor card we're interested in
-	romBus = 0x0;	// uni-n master 0
-	romAddr = (!procID) ? 0xA0 : 0xA2;
-
-	if (!openI2C(romBus, romAddr))
-	{
-		DLOG("PowerMac7_2_PlatformPlugin::readProcROM failed to open I2C\n");
-		return(false);
-	}
-	else
-	{
-		// The IIC ROM requires two-byte subaddresses, so we use standard mode to address it.
-		// Each read is preceeded by a two-byte standard mode write which serves to set the
-		// address pointer register in the part.  The read is also performed in standard mode.
-
-		do
-		{
-			DLOG("PowerMac7_2_PlatformPlugin::readProcROM set standard mode\n");
-			if (!setI2CStandardMode())
-			{
-				DLOG("PowerMac7_2_PlatformPlugin::readProcROM failed to set bus mode\n");
-				break;
-			}
-
-			// set the address that we'll read from - the subAddr parameter is ignored in standard
-			// mode
-			DLOG("PowerMac7_2_PlatformPlugin::readProcROM write offset 0x%02X 0x%02X\n",
-					((UInt8 *) &offset)[0], ((UInt8 *) &offset)[1]);
-			if (!writeI2C( 0x00, (UInt8 *) &offset, 2 ))
-			{
-				DLOG("PowerMac7_2_PlatformPlugin::readProcROM failed to set address\n");
-				break;
-			}
-	
-			// read the data
-			DLOG("PowerMac7_2_PlatformPlugin::readProcROM read\n");
-			if (!readI2C( 0x00, buf, size ))
-			{
-				DLOG("PowerMac7_2_PlatformPlugin::readProcROM failed to read data\n");
-				break;
-			}
-
-			success = true;
-		} while (false);
-
-		closeI2C();
-	}
-
-	return(success);
-}
-*/
-
-/*******************************************************************************
- * I2C Helpers
- *******************************************************************************/
-/*
-bool PowerMac7_2_PlatformPlugin::openI2C( UInt8 busNo, UInt8 addr )
-{
-	UInt32 passBus;
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::openI2C bus 0x%02X addr 0x%02X\n", busNo, addr);
-
-	if (fI2C_iface == NULL)
-		return false;
-
-	fI2CBus = busNo;
-	fI2CAddress = addr;
-
-	// Open the interface
-	passBus = (UInt32) fI2CBus;	// cast from 8-bit to machine long word length
-	if ((status = (fI2C_iface->callPlatformFunction(kOpenI2Cbus, false, (void *) passBus, NULL, NULL, NULL)))
-			!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::openI2C failed, status = %08lx\n", (UInt32) status);
-		return(false);
-	}
-
-	return(true);
-}
-
-void PowerMac7_2_PlatformPlugin::closeI2C( void )
-{
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::closeI2C - entered\n");
-
-	if (fI2C_iface == NULL) return;
-
-	if ((status = (fI2C_iface->callPlatformFunction(kCloseI2Cbus, false, NULL, NULL, NULL, NULL)))
-			!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::closeI2C failed, status = %08lx\n", (UInt32) status);
-	}
-}
-
-bool PowerMac7_2_PlatformPlugin::setI2CDumbMode( void )
-{
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::setI2CDumbMode - entered\n");
-
-	if ((fI2C_iface == NULL) ||
-		(status = (fI2C_iface->callPlatformFunction(kSetDumbMode, false, NULL, NULL, NULL, NULL)))
-				!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::setI2CDumbMode failed, status = %08lx\n", (UInt32) status);
-		return(false);
-	}
-
-	return(true);
-}
-
-bool PowerMac7_2_PlatformPlugin::setI2CStandardMode( void )
-{
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::setI2CStandardMode - entered\n");
-
-	if ((fI2C_iface == NULL) ||
-		(status = (fI2C_iface->callPlatformFunction(kSetStandardMode, false, NULL, NULL, NULL, NULL)))
-				!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::setI2CStandardMode failed, status = %08lx\n", (UInt32) status);
-		return(false);
-	}
-
-	return(true);
-}
-
-bool PowerMac7_2_PlatformPlugin::setI2CStandardSubMode( void )
-{
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::setI2CStandardSubMode - entered\n");
-
-	if ((fI2C_iface == NULL) ||
-		(status = (fI2C_iface->callPlatformFunction(kSetStandardSubMode, false, NULL, NULL, NULL, NULL)))
-				!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::setI2CStandardSubMode failed, status = %08lx\n", (UInt32) status);
-		return(false);
-	}
-
-	return(true);
-}
-
-bool PowerMac7_2_PlatformPlugin::setI2CCombinedMode( void )
-{
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::setI2CCombinedMode - entered\n");
-
-	if ((fI2C_iface == NULL) ||
-		(status = (fI2C_iface->callPlatformFunction(kSetCombinedMode, false, NULL, NULL, NULL, NULL)))
-				!= kIOReturnSuccess)
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::setI2CCombinedMode failed, status = %08lx\n", (UInt32) status);
-		return(false);
-	}
-
-	return(true);
-}
-
-bool PowerMac7_2_PlatformPlugin::writeI2C(UInt8 subAddr, UInt8 *data, UInt16 size)
-{
-	UInt32 passAddr, passSubAddr, passSize;
-	unsigned int retries = 0;
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::writeI2C - entered\n");
-
-	if (fI2C_iface == NULL || data == NULL || size == 0)
-		return false;
-
-	passAddr = (UInt32) (fI2CAddress >> 1);
-	passSubAddr = (UInt32) subAddr;
-	passSize = (UInt32) size;
-
-	while ((retries < kNumRetries) &&
-	       ((status = (fI2C_iface->callPlatformFunction(kWriteI2Cbus, false, (void *) passAddr,
-		    (void *) passSubAddr, (void *) data, (void *) passSize))) != kIOReturnSuccess))
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::writeI2C transaction failed, status = %08lx\n", (UInt32) status);
-		retries++;
-	}
-
-	if (retries >= kNumRetries)
-		return(false);
-	else
-		return(true);
-}
-
-bool PowerMac7_2_PlatformPlugin::readI2C(UInt8 subAddr, UInt8 *data, UInt16 size)
-{
-	UInt32 passAddr, passSubAddr, passSize;
-	unsigned int retries = 0;
-	IOReturn status;
-
-	DLOG("PowerMac7_2_PlatformPlugin::readI2C \n");
-
-	if (fI2C_iface == NULL || data == NULL || size == 0)
-		return false;
-
-	passAddr = (UInt32) (fI2CAddress >> 1);
-	passSubAddr = (UInt32) subAddr;
-	passSize = (UInt32) size;
-
-	while ((retries < kNumRetries) &&
-	       ((status = (fI2C_iface->callPlatformFunction(kReadI2Cbus, false, (void *) passAddr,
-		    (void *) passSubAddr, (void *) data, (void *) passSize))) != kIOReturnSuccess))
-	{
-		IOLog("PowerMac7_2_PlatformPlugin::readI2C transaction failed, status = %08lx\n", (UInt32) status);
-		retries++;
-	}
-
-	if (retries >= kNumRetries)
-		return(false);
-	else
-		return(true);
-}
-*/

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -117,8 +114,12 @@ IOReturn IOPlatformSensor::initPlatformSensor( const OSDictionary *dict )
 	// polling period - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginPollingPeriodKey))) != NULL)
 	{
-		//SENSOR_DLOG("IOPlatformSensor::initPlatformSensor got polling period override %lu\n", number->unsigned32BitValue());
-		infoDict->setObject(gIOPPluginPollingPeriodKey, number);
+		setPollingPeriod( number->unsigned32BitValue() );
+	}
+	// nanosecond polling period component
+	if ((number = OSDynamicCast(OSNumber, dict->getObject(gIOPPluginPollingPeriodNSKey))) != NULL)
+	{
+		setPollingPeriodNS( number->unsigned32BitValue() );
 	}
 
 	// create the "registered" key and set it to false
@@ -150,10 +151,15 @@ IOReturn IOPlatformSensor::initPlatformSensor( IOService * unknownSensor, const 
 		return(kIOReturnBadArgument);
 	}
 
-	// polling period - if not included in driver property, will be set in registerDriver()
+	// polling period - if not included in thermal profile, will be set in registerDriver()
 	if ((number = OSDynamicCast(OSNumber, unknownSensor->getProperty(gIOPPluginPollingPeriodKey))) != NULL)
 	{
-		infoDict->setObject(gIOPPluginPollingPeriodKey, number);
+		setPollingPeriod( number->unsigned32BitValue() );
+	}
+	// nanosecond polling period component
+	if ((number = OSDynamicCast(OSNumber, unknownSensor->getProperty(gIOPPluginPollingPeriodNSKey))) != NULL)
+	{
+		setPollingPeriodNS( number->unsigned32BitValue() );
 	}
 
 	// create the "registered" key and set it to false
@@ -202,7 +208,7 @@ IOReturn IOPlatformSensor::registerDriver( IOService * driver, const OSDictionar
 {
 	const OSString * string;
 	SensorValue pluginValue, hwValue;
-	const OSNumber * pollingPeriod, * hwReading;
+	const OSNumber * hwReading;
 
 	SENSOR_DLOG("IOPlatformSensor::registerDriver ID 0x%08lX\n", getSensorID()->unsigned32BitValue());
 
@@ -267,27 +273,11 @@ IOReturn IOPlatformSensor::registerDriver( IOService * driver, const OSDictionar
 		setCurrentValue( pluginValue );
 	}
 
-	// initialize the polling period
-	if ((pollingPeriod = getPollingPeriod()) != NULL)
-	{
-		pollingPeriod->retain();
-	}
-	else
-	{
-		// nothing in infoDict, default to no polling
-		pollingPeriod = OSNumber::withNumber( (unsigned long long) kIOPPluginNoPolling, 32 );
-	}
-
-	if (sendPollingPeriod(pollingPeriod))
-	{
-		setPollingPeriod(pollingPeriod);
-	}
-	else
+	// send down polling periods to the sensor
+	if (!sendPollingPeriod())
 	{
 		SENSOR_DLOG("IOPlatformSensor::registerDriver failed to send polling period to sensor\n");
-	}
-		
-	pollingPeriod->release();
+	}	
 
 	// conditionally notify control loops that a driver registered
 	if (notify) notifyCtrlLoops();
@@ -477,6 +467,19 @@ void IOPlatformSensor::setCurrentValue( SensorValue newValue )
 		infoDict->setObject(gIOPPluginCurrentValueKey, num );
 		num->release();
 	}
+
+	// notify control loops that the value changed
+	if (ctrlLoops)
+	{
+		IOPlatformCtrlLoop * aCtrlLoop;
+		int index, count;
+		count = ctrlLoops->getCount();
+		for (index = 0; index < count; index++)
+		{
+			if ((aCtrlLoop = OSDynamicCast( IOPlatformCtrlLoop, ctrlLoops->getObject(index) )) != NULL)
+				aCtrlLoop->sensorCurrentValueWasSet( this, newValue );
+		}
+	}
 }
 
 SensorValue IOPlatformSensor::forceAndFetchCurrentValue( void )
@@ -523,26 +526,66 @@ SensorValue IOPlatformSensor::fetchCurrentValue( void )
 	return pluginValue;
 }
 
-// polling period
-OSNumber *IOPlatformSensor::getPollingPeriod( void )
-{
-	return OSDynamicCast(OSNumber, infoDict->getObject(gIOPPluginPollingPeriodKey));
-}
-
-void IOPlatformSensor::setPollingPeriod( const OSNumber * period )
+// polling period get/set primitives
+UInt32 IOPlatformSensor::getPollingPeriodPrimitive( const OSSymbol * key )
 {
 	OSNumber * num;
 
-	if ((num = getPollingPeriod()) != NULL)
+	num = OSDynamicCast(OSNumber, infoDict->getObject( key ));
+	if (num)
 	{
-		num->setValue( period->unsigned32BitValue() );
+		return num->unsigned32BitValue();
 	}
 	else
 	{
-		infoDict->setObject(gIOPPluginPollingPeriodKey, period);
+		num = OSNumber::withNumber( (UInt32) kIOPPluginNoPolling, 32 );
+		infoDict->setObject( key, num );
+		num->release();
+		return (UInt32) kIOPPluginNoPolling;
 	}
 }
 
+void IOPlatformSensor::setPollingPeriodPrimitive( const OSSymbol * key, UInt32 value )
+{
+	OSNumber * num;
+
+	num = OSDynamicCast(OSNumber, infoDict->getObject( key ));
+	if (num)
+	{
+		num->setValue( value );
+	}
+	else
+	{
+		num = OSNumber::withNumber( value, 32 );
+		infoDict->setObject( key, num );
+		num->release();
+	}
+}
+
+// polling period seconds component
+UInt32 IOPlatformSensor::getPollingPeriod( void )
+{
+	return getPollingPeriodPrimitive( gIOPPluginPollingPeriodKey );
+}
+
+// polling period nanoseconds component
+UInt32 IOPlatformSensor::getPollingPeriodNS( void )
+{
+	return getPollingPeriodPrimitive( gIOPPluginPollingPeriodNSKey );
+}
+
+// polling period seconds component
+void IOPlatformSensor::setPollingPeriod( UInt32 sec )
+{
+	setPollingPeriodPrimitive( gIOPPluginPollingPeriodKey, sec );
+}
+
+// polling period nanoseconds component
+void IOPlatformSensor::setPollingPeriodNS( UInt32 nsec )
+{
+	setPollingPeriodPrimitive( gIOPPluginPollingPeriodNSKey, nsec );
+}
+	
 IOReturn IOPlatformSensor::sendMessage( OSDictionary * msg )
 {
 	//SENSOR_DLOG("IOPlatformSensor::sendMessage - entered\n");
@@ -563,21 +606,23 @@ IOReturn IOPlatformSensor::sendMessage( OSDictionary * msg )
 }
 
 // this sends the polling period (as it is set in the infoDict) to the sensor
-bool IOPlatformSensor::sendPollingPeriod( const OSNumber * period )
+bool IOPlatformSensor::sendPollingPeriod( void )
 {
 	OSDictionary * msgDict;
 	IOReturn status;
-
-	if (!period)
-	{
-		SENSOR_DLOG("IOPlatformSensor::sendPollingPeriod no polling period\n");
-		return(kIOReturnBadArgument);
-	}
+	const OSNumber * num;
 
 	// set up the message dict
-	msgDict = OSDictionary::withCapacity(2);
+	msgDict = OSDictionary::withCapacity(3);
 	msgDict->setObject(gIOPPluginSensorIDKey, getSensorID());
-	msgDict->setObject(gIOPPluginPollingPeriodKey, period );
+
+	num = OSNumber::withNumber( getPollingPeriod(), 32 );
+	msgDict->setObject(gIOPPluginPollingPeriodKey, num );
+	num->release();
+
+	num = OSNumber::withNumber( getPollingPeriodNS(), 32 );
+	msgDict->setObject(gIOPPluginPollingPeriodNSKey, num );
+	num->release();
 
 	// send the dict down to the sensor
 	status = sendMessage( msgDict );

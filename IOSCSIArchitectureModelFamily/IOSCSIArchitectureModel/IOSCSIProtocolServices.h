@@ -37,6 +37,7 @@
 #include <IOKit/IOCommandGate.h>
 
 // SCSI Architecture Model Family includes
+#include <IOKit/scsi/SCSITask.h>
 #include <IOKit/scsi/IOSCSIProtocolInterface.h>
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 
@@ -83,7 +84,10 @@ protected:
 	// Reserve space for future expansion.
 	struct IOSCSIProtocolServicesExpansionData
 	{
-		UInt32	fSemaphore;
+		// For internal use only. Do not use.
+		UInt32				fSemaphore;
+		bool				fRequiresAutosenseDescriptor;
+		SCSITaskCompletion	fCompletionRoutine;
 	};
 	IOSCSIProtocolServicesExpansionData * fIOSCSIProtocolServicesReserved;
 	
@@ -162,6 +166,8 @@ protected:
 	bool	SetAutoSenseData ( SCSITaskIdentifier	request,
 							   SCSI_Sense_Data *	senseData,
 							   UInt8				senseDataSize );
+	
+	void	EnsureAutosenseDescriptorExists ( SCSITaskIdentifier request );
 	
 	bool	SetProtocolLayerReference ( 
 				SCSITaskIdentifier 		request, 
@@ -250,6 +256,7 @@ public:
 	virtual void	stop	( IOService *  provider );
 	virtual void	free	( void );
 	
+	void RegisterSCSITaskCompletionRoutine ( SCSITaskCompletion completion );
 	
 	// ------- SCSI Architecture Model Task Management Functions ------
 	// The ExecuteCommand method will take a SCSI Task and transport

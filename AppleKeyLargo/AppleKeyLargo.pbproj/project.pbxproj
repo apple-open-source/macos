@@ -107,8 +107,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.5.2d3;
-				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				MODULE_VERSION = 1.5.4d1;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN -mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleKeyLargo;
@@ -133,7 +133,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyLargo version 1.5.2, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleKeyLargo version 1.5.4, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -145,11 +145,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2d3</string>
+	<string>1.5.4d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -456,8 +456,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOKeyLargo;
-				MODULE_VERSION = 1.5.2d3;
-				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				MODULE_VERSION = 1.5.4d1;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN -mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOKeyLargo;
@@ -482,7 +482,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOKeyLargo</string>
+	<string>IOKeyLargo version 1.5.4, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -494,11 +494,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2d3</string>
+	<string>1.5.4d1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -685,12 +685,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2Driver;
-				MODULE_VERSION = 1.5.2d3;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 1.5.4d1;
+				OTHER_CFLAGS = "-mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleK2Driver;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = ppc;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
@@ -710,7 +711,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2Driver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2Driver version 1.5.2, Copyright Apple Computer, Inc.</string>
+	<string>AppleK2Driver version 1.5.4, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -722,11 +723,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2d3</string>
+	<string>1.5.4d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2Driver</key>
@@ -905,8 +906,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2;
-				MODULE_VERSION = 1.5.2d3;
-				OTHER_CFLAGS = "-D_BIG_ENDIAN";
+				MODULE_VERSION = 1.5.4d1;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN -mno-string";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleK2;
@@ -931,7 +932,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2 version 1.5.2, Copyright Apple Computer, Inc.</string>
+	<string>AppleK2 version 1.5.4, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -943,11 +944,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.2</string>
+	<string>1.5.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.2d3</string>
+	<string>1.5.4d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2</key>

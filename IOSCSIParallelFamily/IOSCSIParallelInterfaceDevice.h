@@ -117,6 +117,14 @@ public:
 	SCSIParallelTaskIdentifier	FindTaskForControllerIdentifier ( 
 									UInt64						theIdentifier );
 							
+	bool	SetInitialTargetProperties ( OSDictionary * properties );
+	
+	bool	SetTargetProperty (
+					const char * 	key,
+					OSObject *		value );
+	
+	void	RemoveTargetProperty ( const char * key );
+	
 	bool	IsFeatureNegotiationNecessary ( SCSIParallelFeature	feature );
 	
 	/*

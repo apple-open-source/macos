@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -315,29 +312,30 @@ static io_registry_entry_t  getPMRootDomainRef(void)
 
 static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
 {
-    mach_port_t 		        master_device_port;
-    io_connect_t        		PM_connection = NULL;
-    kern_return_t       	    	kr;
-    IOReturn    		        err, ret;
-    int				        type;
-    CFDataRef                   	on;
-    io_registry_entry_t      		cudaPMU;
-    io_registry_entry_t             PMRootDomain;
-
-    io_connect_t			connection;
-    UInt32				i;
+    io_registry_entry_t             cudaPMU = NULL;
+    io_registry_entry_t             PMRootDomain = NULL;
+    io_connect_t        		    PM_connection = NULL;
+    io_connect_t                    connection;
+    kern_return_t                   kr;
+    IOReturn    		            err;
+    IOReturn                        ret;
+    CFDataRef                       on;
+    CFNumberRef                     number1;
+    CFNumberRef                     number0;
+    int                             type;
+    UInt32                          i;
     
+    i = 1;
+    number1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+    i = 0;
+    number0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &i);
+    if(!number0 || !number1) return -1;
+    
+    PMRootDomain = getPMRootDomainRef();
+    if(!PMRootDomain) return -1;
 
-        kr = IOMasterPort(bootstrap_port,&master_device_port);
-        if ( kr == kIOReturnSuccess ) 
-        {
-            PM_connection = IOPMFindPowerManagement(master_device_port);
-            if ( !PM_connection ) 
-            {
-                printf("IOPMconfigd: Error connecting to Power Management\n"); fflush(stdout);
-                return -1;
-            }
-        }
+    PM_connection = IOPMFindPowerManagement(0);
+    if ( !PM_connection ) return -1;
 
     type = kPMMinutesToDim;
     err = IOPMSetAggressiveness(PM_connection, type, p->fMinutesToDim);
@@ -360,63 +358,84 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnRingKey), NULL))
     {
         cudaPMU = getCudaPMURef();
-        ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-    
-        if(p->fWakeOnRing) i = 0xFFFFFFFF;
-        else i = 0x0;
-        on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4); 
-               
-        ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnRing"), on);
-        CFRelease(on);
-        IOServiceClose(connection);
-        IOObjectRelease(cudaPMU);
+        if(cudaPMU)
+        {
+            // DEPRECATED
+            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
+            // are fixed and closed.
+            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
+        
+            if(p->fWakeOnRing) i = 0xFFFFFFFF;
+            else i = 0x0;
+            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4); 
+                   
+            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnRing"), on);
+            CFRelease(on);
+            IOServiceClose(connection);
+            IOObjectRelease(cudaPMU);
+        } else {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnRing"), 
+                            (p->fWakeOnRing?number1:number0));
+        }
     }
     
     // Automatic Restart On Power Loss, aka FileServer mode
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMRestartOnPowerLossKey), NULL))
     {
         cudaPMU = getCudaPMURef();
-        ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-    
-        if(p->fAutomaticRestart) i = 0xFFFFFFFF;
-        else i = 0x0;
-        on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+        if(cudaPMU)
+        {
+            // DEPRECATED
+            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
+            // are fixed and closed.
+            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
         
-        ret = IOConnectSetCFProperty(connection, CFSTR("FileServer"), on);
-        CFRelease(on);
-        IOServiceClose(connection);
-        IOObjectRelease(cudaPMU);
+            if(p->fAutomaticRestart) i = 0xFFFFFFFF;
+            else i = 0x0;
+            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+            
+            ret = IOConnectSetCFProperty(connection, CFSTR("FileServer"), on);
+            CFRelease(on);
+            IOServiceClose(connection);
+            IOObjectRelease(cudaPMU);
+        } else {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("AutoRestartOnPowerLoss"), 
+                            (p->fAutomaticRestart?number1:number0));
+        }
     }
     
     // Wake on change of AC state -- battery to AC or vice versa
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnACChangeKey), NULL))
     {
         cudaPMU = getCudaPMURef();
-        ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-    
-        if(p->fWakeOnACChange) i = 0xFFFFFFFF;
-        else i = 0x0;
-        on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+        if(cudaPMU)
+        {
+            // DEPRECATED
+            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
+            // are fixed and closed.
+            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
         
-	// Not a typo.  ApplePMU has ACchange, not ACChange
-        ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnACchange"), on);
-        CFRelease(on);
-        IOServiceClose(connection);
-        IOObjectRelease(cudaPMU);
+            if(p->fWakeOnACChange) i = 0xFFFFFFFF;
+            else i = 0x0;
+            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+            
+            // Not a typo.  ApplePMU has ACchange, not ACChange
+            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnACchange"), on);
+            CFRelease(on);
+            IOServiceClose(connection);
+            IOObjectRelease(cudaPMU);
+        } else {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnACChange"), 
+                            (p->fWakeOnACChange?number1:number0));
+        }
     }
     
     // Disable power button sleep on PowerMacs, Cubes, and iMacs
     // Default is false == power button causes sleep
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMSleepOnPowerButtonKey), NULL))
     {
-        PMRootDomain = getPMRootDomainRef();
-    
-        if(p->fSleepOnPowerButton) 
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("DisablePowerButtonSleep"), kCFBooleanFalse);
-        else 
-            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("DisablePowerButtonSleep"), kCFBooleanTrue);
-        
-        IOObjectRelease(PMRootDomain);
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("DisablePowerButtonSleep"), 
+                            (p->fSleepOnPowerButton?kCFBooleanFalse:kCFBooleanTrue));
     }    
     
     // Wakeup on clamshell open
@@ -424,18 +443,26 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
     if(true == IOPMFeatureIsAvailable(CFSTR(kIOPMWakeOnClamshellKey), NULL))
     {
         cudaPMU = getCudaPMURef();
-        ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
-    
-        if(p->fWakeOnClamshell) i = 0xFFFFFFFF;
-        else i = 0x0;
-        on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+        if(cudaPMU)
+        {
+            // DEPRECATED
+            // Delete this whole clause of the if statement when rdar://problems/3559004&3558998&3558989 
+            // are fixed and closed.
+            ret = IOServiceOpen((io_service_t)cudaPMU, mach_task_self(), kApplePMUUserClientMagicCookie, &connection);
         
-        ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnLid"), on);
-        CFRelease(on);
-        IOServiceClose(connection);
-        IOObjectRelease(cudaPMU);
-    }
-    
+            if(p->fWakeOnClamshell) i = 0xFFFFFFFF;
+            else i = 0x0;
+            on = CFDataCreate(kCFAllocatorDefault, (void *)&i, 4);
+            
+            ret = IOConnectSetCFProperty(connection, CFSTR("WakeOnLid"), on);
+            CFRelease(on);
+            IOServiceClose(connection);
+            IOObjectRelease(cudaPMU);
+        } else {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, CFSTR("WakeOnLid"), 
+                            (p->fWakeOnClamshell?number1:number0));            
+        }
+    }    
        
     /* PowerStep and Reduce Processor Speed are handled by a separate configd plugin that's
        watching the SCDynamicStore key State:/IOKit/PowerManagement/CurrentSettings. Changes
@@ -443,7 +470,9 @@ static int sendEnergySettingsToKernel(IOPMAggressivenessFactors *p)
        Note that IOPMActivatePMPreference updates that key in the SCDynamicStore when we activate
        new settings.
     */
-
+    CFRelease(number0);
+    CFRelease(number1);
+    IOObjectRelease(PMRootDomain);
     return 0;
 }
 
@@ -529,7 +558,6 @@ static int getAggressivenessFactorsFromProfile(CFDictionaryRef System, CFStringR
 extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
 {
     CFDictionaryRef		        supportedFeatures = NULL;
-    CFPropertyListRef           izzo;
     CFArrayRef                  tmp_array;
     io_registry_entry_t		    registry_entry;
     io_iterator_t		        tmp;
@@ -580,7 +608,7 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
         // Check for WakeOnLAN property in supportedFeatures
         // Radar 2946434 WakeOnLAN is only supported when running on AC power. It's automatically disabled
         // on battery power, and thus shouldn't be offered as a checkbox option.
-        if(CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnMagicPacket"))
+        if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnMagicPacket"))
                 && (!power_source || !CFEqual(CFSTR(kIOPMBatteryPowerKey), power_source)))
         {
             ret = true;
@@ -592,16 +620,10 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
 
     if(CFEqual(f, CFSTR(kIOPMWakeOnRingKey)))
     {
-        // Check for WakeOnRing property under PMU
-        registry_entry = getCudaPMURef();
-        if((izzo = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("WakeOnRing"),
-                            kCFAllocatorDefault, NULL)))
+        if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnRing")))
         {
-            CFRelease(izzo);
-            IOObjectRelease(registry_entry);
             ret = true;
         } else {
-            IOObjectRelease(registry_entry);    
             ret = false;
         }
         goto IOPMFeatureIsAvailable_exitpoint;        
@@ -610,16 +632,10 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
     // restart on power loss
     if(CFEqual(f, CFSTR(kIOPMRestartOnPowerLossKey)))
     {
-        registry_entry = getCudaPMURef();
-        // Check for fileserver property under PMU
-        if((izzo = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("FileServer"),
-                            kCFAllocatorDefault, NULL)))
-        { 
-            CFRelease(izzo);
-            IOObjectRelease(registry_entry);
+        if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("FileServer")))
+        {
             ret = true;
         } else {
-            IOObjectRelease(registry_entry);       
             ret = false;
         }
         goto IOPMFeatureIsAvailable_exitpoint;
@@ -628,11 +644,13 @@ extern bool IOPMFeatureIsAvailable(CFStringRef f, CFStringRef power_source)
     // Wake on AC change
     if(CFEqual(f, CFSTR(kIOPMWakeOnACChangeKey)))
     {
-        if(!supportedFeatures) return false;
-	// Not a typo, ApplePMU has "ACchange" not "ACChange" :
-        if(CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnACchange")))
+    	// Not a typo, ApplePMU has "ACchange" not "ACChange" :
+        if(supportedFeatures && CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnACchange")))
+        {
             ret = true;
-        else ret = false;
+        } else {
+            ret = false;
+        }
         goto IOPMFeatureIsAvailable_exitpoint;
     }
 

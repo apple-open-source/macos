@@ -50,7 +50,10 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #define DEBUG	0
+
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING "STUCLeakFinder"
+
+#if DEBUG
 #define DEBUG_ASSERT_MESSAGE(componentNameString,	\
 							 assertionString,		\
 							 exceptionLabelString,	\
@@ -92,6 +95,8 @@ DebugAssert ( const char *	componentNameString,
 		printf ( "	 error: %d\n", errorCode );
 	
 }
+
+#endif	/* DEBUG */
 
 #include <AssertMacros.h>
 

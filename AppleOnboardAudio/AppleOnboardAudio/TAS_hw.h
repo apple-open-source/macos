@@ -499,6 +499,9 @@ enum {
 #define	kOneWireBusPropName			"one-wire-bus"
 #define	kSpeakerIDPropValue			"speaker-id"
 
+#define		kMinimumTAS3004SampleRate		31200
+#define		kMaximumTAS3004SampleRate		49200
+
 enum UFixedPointGain{
 	kMinSoftwareGain				=	0x00008000,
 	kUnitySoftwareGain				=	0x00010000,

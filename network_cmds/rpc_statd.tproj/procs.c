@@ -381,9 +381,33 @@ void *sm_notify_1_svc(stat_chge *arg, struct svc_req *req __unused)
   hp = find_host(arg->mon_name, FALSE);
   if (!hp)
   {
-    /* Never heard of this host - why is it notifying us?		*/
-    syslog(LOG_ERR, "Unsolicited notification from host %s", arg->mon_name);
-    return (&dummy);
+    /*
+     * Hmmm... We've never heard of this host.
+     * It's possible the host just didn't give us the right hostname.
+     * Let's try the IP address the request came from and any hostnames it has.
+     */
+    struct sockaddr_in *claddr;
+    if ((claddr = svc_getcaller(req->rq_xprt))) {
+      struct hostent *he;
+      he = gethostbyaddr((char*)&claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
+      if (he) {
+        char **np = he->h_aliases;
+        hp = find_host(he->h_name, FALSE);
+        while (!hp && *np) {
+          hp = find_host(*np, FALSE);
+          if (!hp)
+            np++;
+        }
+      }
+      if (hp)
+        syslog(LOG_DEBUG, "Notification from host %s found as %s",
+          arg->mon_name, hp->hostname);
+    }
+    if (!hp) {
+      /* Never heard of this host - why is it notifying us?		*/
+      syslog(LOG_DEBUG, "Unsolicited notification from host %s", arg->mon_name);
+      return (&dummy);
+    }
   }
   lp = hp->monList;
   if (!lp) return (&dummy);	/* We know this host, but have no	*/
@@ -398,7 +422,7 @@ void *sm_notify_1_svc(stat_chge *arg, struct svc_req *req __unused)
 
   while (lp)
   {
-    tx_arg.mon_name = arg->mon_name;
+    tx_arg.mon_name = hp->hostname;
     tx_arg.state = arg->state;
     memcpy(tx_arg.priv, lp->notifyData, sizeof(tx_arg.priv));
     cli = clnt_create(lp->notifyHost, lp->notifyProg, lp->notifyVers, "udp");

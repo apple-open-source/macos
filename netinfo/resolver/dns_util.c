@@ -255,7 +255,6 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 		}
 
 		*x += 1;
-		*remaining -= 1;
 
 		if (dlen > 0)
 		{
@@ -273,7 +272,6 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 		{
 			name[j++] = **x;
 			*x += 1;
-			*remaining -= 1;
 		}
 
 		name[j] = '\0';
@@ -306,6 +304,7 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 	}
 
 	*x = start + skip;
+	*remaining -= skip;
 
 	return name;
 }
@@ -340,6 +339,8 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 	r->dnsclass = _dns_parse_uint16(x);
 	r->ttl = _dns_parse_uint32(x);
 	rdlen = _dns_parse_uint16(x);
+
+	*remaining -= 10;
 
 	eor = *x;
 	r->data.A = NULL;

@@ -137,7 +137,7 @@ static ConSensorInfo subSensorArray[kMaxSensorIndex];
  */
 static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex][kNumClamshellStates][kMaxThermalStates] =
 {
-    {
+    {	// PowerBook6,4 values	( Q54A )
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -219,7 +219,7 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {
+    {	// PowerBook6,5 values ( Q72 / Q73 )
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -301,7 +301,7 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {	// PowerBook5,4 values
+    {	// PowerBook5,4 values (Q16a)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -383,7 +383,7 @@ static NewThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIn
                     },
             },
     },
-    {	// PowerBook5,5 values
+    {	// PowerBook5,5 values (Q41a)
             {	// Sensor 0
                     {	// Clamshell open
                             //	 thresholdLow,			thresholdHigh,			// currentState
@@ -1080,6 +1080,7 @@ IOReturn Portable2004_PlatformMonitor::monitorPower (OSDictionary *dict, IOServi
 			value = num->unsigned32BitValue();
 			value &= ~kIOPMForceLowSpeed;  		// Clear low speed bit
                       
+                        // For Q16A and Q41A with a >= 65W adapter plugged in OR airline adapter,
                         // don't enforce force-reduced-speed conditions.
                         if (!(((machineType == kPB54MachineType) || (machineType == kPB55MachineType)) && 
                              (((((value & 0xFF000000) >> 24) > 0) && (((value & 0xFF000000) >> 24) >= 0x41)) ||

@@ -523,6 +523,7 @@ enum {
 		kKeyLargoMPICTimerCount				= 4,
 		kKeyLargoMPICBaseOffset				= 0x40000,						// MPIC base offset from start of KeyLargo
 	
+        kKeyLargoMPICGlobal0				= 0x1020,						// MPIC global0 register
 		kKeyLargoMPICIPI0					= 0x10A0,						// MPIC IPI0 vector/priority register
 		kKeyLargoMPICIPI1					= 0x10B0,						// MPIC IPI1 vector/priority register
 		kKeyLargoMPICIPI2					= 0x10C0,						// MPIC IPI2 vector/priority register

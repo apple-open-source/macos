@@ -193,7 +193,7 @@ private:
     };
 
     enum {
-        kSMUSleepDelay          = 150	// milliseconds
+        kSMUSleepDelay          = 5	// milliseconds
     };
 	
     enum {

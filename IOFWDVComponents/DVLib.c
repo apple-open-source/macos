@@ -604,6 +604,32 @@ static bool isSDL(IOFireWireAVCLibUnitInterface **avc, UInt8 signalMode)
     return hasSDL;
 }
 
+static bool isMPEG(IOFireWireAVCLibUnitInterface **avc)
+{
+    UInt32 size;
+    UInt8 cmd[8],response[8];
+    IOReturn res;
+
+	cmd[0] = kAVCStatusInquiryCommand;
+	cmd[1] = kAVCUnitAddress;
+	cmd[2] = kAVCOutputPlugSignalFormatOpcode;
+	cmd[3] = 0;
+	cmd[4] = 0xFF;
+	cmd[5] = 0xFF;
+	cmd[6] = 0xFF;
+	cmd[7] = 0xFF;
+	size = 8;
+
+	res = (*avc)->AVCCommand(avc, cmd, 8, response, &size);
+
+	if ((res == kIOReturnSuccess) &&
+	 (response[0] == kAVCImplementedStatus) &&
+	 (response[4] == 0xA0))
+		return true;
+	else
+		return false; 
+}
+
 static void deviceArrived(void *refcon, io_iterator_t iterator )
 {
     io_object_t obj;
@@ -664,7 +690,7 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
 		{
             UInt8 mode, stype;
 
-			// Exclude DVCProHD devices from the IDH device list!
+			// Exclude DVCProHD and MPEG devices from the IDH device list!
 			if (dev->fSupportsFCP)
 			{
 				if(isDVCPro(dev->fAVCInterface,&dvcProMode))
@@ -679,6 +705,16 @@ static void deviceArrived(void *refcon, io_iterator_t iterator )
 
 						continue;	// continue to next device!
 					}
+				}
+				else if (isMPEG(dev->fAVCInterface))
+				{
+						// Terminate this device
+						DVDeviceTerminate(dev);
+
+						// Remove this device from the device list
+						dvThread->fNumDevices--;
+
+						continue;	// continue to next device!
 				}
 			}
 			
@@ -2894,13 +2930,17 @@ IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
 			break;
 
 		// NTSC SDL
-		case kAVCSignalModeSDL525_60: 
-			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL525_60;
+		case kAVCSignalModeSDL525_60:
+			// override SDL modes to SD
+			globs->fStreamVars.fSignalMode = kAVCSignalModeSD525_60;
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD525_60;
 			break;
 
 		// PAL SDL
 		case kAVCSignalModeSDL625_50:
-			globs->fStreamVars.fDVFrameSize = kFrameSize_SDL625_50;
+			// override SDL modes to SD
+			globs->fStreamVars.fSignalMode = kAVCSignalModeSD625_50;
+			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
 			break;
 
 		// NTSC DVCPro50 or HD
@@ -2926,6 +2966,8 @@ IOReturn DVReadSetSignalMode(DVGlobalInPtr globs, UInt8 mode)
 			break;
 
 		default:
+			// override the specified mode if it's not one of our supported modes.
+			globs->fStreamVars.fSignalMode = kAVCSignalModeSD625_50;
 			globs->fStreamVars.fDVFrameSize = kFrameSize_SD625_50;
 			break;
 	};
@@ -3024,6 +3066,7 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
     int prevBlock;
 	UInt8 fn;
 	UInt8 stype;
+	UInt32 actualModeFrameSize;
 
 #if TIMING
     CFAbsoluteTime cstart, cend;
@@ -3070,9 +3113,23 @@ static void DVStorePackets(DVLocalInPtr pLocalData)
 			}
 
 			// Check to make sure the signal mode in the CIP header is what we're expecting
-			if (pGlobalData->fStreamVars.fSignalMode != ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff)){
-				syslog(LOG_INFO, "DVStorePackets: expected DV mode: %d, actual DV mode: %d\n", pGlobalData->fStreamVars.fSignalMode, ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff));
-				packetSize = 8;
+			if (pGlobalData->fStreamVars.fSignalMode != ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff))
+			{
+				// CIP DV-mode doesn't match the configured mode! To prevent a crash, we
+				// should only store packets if the CIP DV-mode frame-size will
+				// fit into our allocated frame-buffers!
+
+				if (((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff) & kAVCSignalModeMask_50)
+					actualModeFrameSize = kPALNumDataPacketsPerDVFrame * (packetSize-8);
+				else
+					actualModeFrameSize = kNTSCNumDataPacketsPerDVFrame * (packetSize-8);
+				
+				if (actualModeFrameSize >  pGlobalData->fStreamVars.fDVFrameSize)
+				{
+					syslog(LOG_INFO, "DVStorePackets (received frame too large for frame-buffer): expected DV mode: %d, actual DV mode: %d\n", 
+						pGlobalData->fStreamVars.fSignalMode, ((*(UInt32 *)(pPacketBuffer+4) >> 16) & 0xff));
+					packetSize = 8;
+				}
 			}
         }
 #endif

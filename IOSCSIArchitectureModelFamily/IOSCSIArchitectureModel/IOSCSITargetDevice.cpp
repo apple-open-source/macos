@@ -28,19 +28,35 @@
 
 // Libkern includes
 #include <libkern/OSByteOrder.h>
+#include <libkern/c++/OSArray.h>
+#include <libkern/c++/OSData.h>
+#include <libkern/c++/OSDictionary.h>
+#include <libkern/c++/OSString.h>
 
 // Generic IOKit related headers
-#include <IOKit/IOKitKeys.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOKitKeys.h>
+#include <IOKit/IOMemoryDescriptor.h>
+#include <IOKit/IOMessage.h>
+#include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOService.h>
+
+// IOKit storage headers
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 // SCSI Architecture Model Family includes
 #include "SCSITaskDefinition.h"
 #include "SCSIPrimaryCommands.h"
-#include "IOSCSITargetDevice.h"
 #include "SCSICmds_INQUIRY_Definitions.h"
+#include "SCSICmds_REPORT_LUNS_Definitions.h"
+#include "SCSICmds_REQUEST_SENSE_Defs.h"
+#include "IOSCSITargetDevice.h"
+#include "IOSCSITargetDeviceHashTable.h"
+#include "SCSITargetDevicePathManager.h"
+#include "SCSIPathManagers.h"
+
+// SPI Family includes
+#include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -51,7 +67,7 @@
 #define DEBUG_ASSERT_COMPONENT_NAME_STRING					"SCSI Target Device"
 
 #if DEBUG
-#define SCSI_TARGET_DEVICE_DEBUGGING_LEVEL					3
+#define SCSI_TARGET_DEVICE_DEBUGGING_LEVEL					0
 #endif
 
 #include "IOSCSIArchitectureModelFamilyDebugging.h"
@@ -64,13 +80,13 @@
 #endif
 
 #if ( SCSI_TARGET_DEVICE_DEBUGGING_LEVEL >= 2 )
-#define ERROR_LOG(x)		IOLog x
+#define ERROR_LOG(x)		IOLog x; IOSleep (1)
 #else
 #define ERROR_LOG(x)
 #endif
 
 #if ( SCSI_TARGET_DEVICE_DEBUGGING_LEVEL >= 3 )
-#define STATUS_LOG(x)		IOLog x
+#define STATUS_LOG(x)		IOLog x; IOSleep (1)
 #else
 #define STATUS_LOG(x)
 #endif
@@ -86,7 +102,10 @@ OSDefineMetaClassAndStructors ( IOSCSITargetDevice, IOSCSIPrimaryCommandsDevice 
 #define kTURMaxRetries							1
 #define kMaxInquiryAttempts						2
 #define kStandardInquiryDataHeaderSize			5
-#define kVitalProductsInquiryDataHeaderSize		4
+#define kMaxInquiryDataBytes					255
+#define kSCSILogicalUnitDefaultLUN				0					
+
+#define kSCSICmd_INQUIRY_StandardDataAllString	"SCSICmd_INQUIRY_StandardDataAll"
 
 #if 0
 #pragma mark -
@@ -96,9 +115,328 @@ OSDefineMetaClassAndStructors ( IOSCSITargetDevice, IOSCSIPrimaryCommandsDevice 
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ handleOpen - Handles opens on the object.						   [PUBLIC]
+//	¥ Create - Creates a new target device.					   [PUBLIC][STATIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
+bool
+IOSCSITargetDevice::Create (
+				IOSCSIProtocolServices * provider )
+{
+	
+	bool					result 		= false;
+	IOSCSITargetDevice *	newDevice 	= NULL;
+	
+	// Allocate the object.
+	newDevice = OSTypeAlloc ( IOSCSITargetDevice );
+	require_nonzero ( newDevice, ErrorExit );
+	
+	// Init the object.
+	result = newDevice->init ( 0 );
+	require ( result, ReleaseTargetExit );
+	
+	// Attach the object.
+	result = newDevice->attach ( provider );
+	require ( result, DetachTargetExit );
+	
+	// Start the object.
+	result = newDevice->start ( provider );
+	require ( result, DetachTargetExit );
+	
+	// Create the target device or path to a previously existing
+	// target (in the case of multipathing).
+	result = newDevice->CreateTargetDeviceOrPath ( provider );
+	require ( result, DetachTargetExit );
+	
+	newDevice->release ( );
+	newDevice = NULL;
+	
+	return result;
+	
+	
+DetachTargetExit:
+	
+	
+	newDevice->stop ( provider );
+	newDevice->detach ( provider );
+	
+	
+ReleaseTargetExit:
+	
+	
+	require_nonzero_quiet ( newDevice, ErrorExit );
+	newDevice->release ( );
+	newDevice = NULL;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ CreateTargetDeviceOrPath - Creates a new target device or path to an
+//								 existing target device.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSITargetDevice::CreateTargetDeviceOrPath (
+					IOSCSIProtocolServices * provider )
+{
+	
+	bool	result = true;
+	
+	// Verify that a target is indeed connected for this instantiation.	
+	result = VerifyTargetPresence ( );
+	require ( result, ErrorExit );
+	
+	// Set all appropriate Registry Properties so that they are available if needed.
+	RetrieveCharacteristicsFromProvider ( );
+	
+	// Determine the SCSI Target Device characteristics for the target
+	// that is represented by this object.
+	result = DetermineTargetCharacteristics ( );
+	require ( result, ErrorExit );
+	
+	result = IsProviderAnotherPathToTarget ( provider );
+	if ( result == false )
+	{
+		
+		// Create a path manager.
+		fPathManager = SCSIRoundRobinPathManager::Create ( this, provider );
+		check ( fPathManager );
+		
+		// Finally, perform a LUN scan.
+		ScanForLogicalUnits ( );
+		
+	}
+	
+	else
+	{
+		
+		// Our provider is a path to an existing target, so we must
+		// detach ourselves from our provider here (our provider has
+		// already been attach'ed to the existing target).
+		detach ( provider );
+		
+	}
+	
+	result = true;
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ IsProviderAnotherPathToTarget - 	Checks if we have this target device
+//										in global hash table. If so, it simply
+//										adds a new path and returns false,
+//										otherwise, returns true.	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSITargetDevice::IsProviderAnotherPathToTarget (
+						IOSCSIProtocolServices * 	provider )
+{
+	
+	bool							result 				= false;
+	bool							checkSerialNumber	= true;
+	OSDictionary *					dict				= NULL;
+	OSArray *						array				= NULL;
+	OSData *						nodeName			= NULL;
+	UInt32							index				= 0;
+	UInt32							count				= 0;
+	IOSCSITargetDeviceHashTable *	ht					= NULL;
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::IsProviderAnotherPathToTarget\n" ) );
+	
+	ht = IOSCSITargetDeviceHashTable::GetSharedInstance ( );
+	
+	// Look in registry for Page 83h identifier.
+	array = OSDynamicCast ( OSArray, getProperty ( kIOPropertySCSIINQUIRYDeviceIdentification ) );
+	if ( array != NULL )
+	{
+		
+		STATUS_LOG ( ( "Inspecting page 83h identifiers\n" ) );
+		
+		count = array->getCount ( );
+		
+		for ( index = 0; index < count; index++ )
+		{
+			
+			STATUS_LOG ( ( "Inspecting identifier = %ld\n", index ) );
+			
+			dict = OSDynamicCast ( OSDictionary, array->getObject ( index ) );
+			if ( dict != NULL )
+			{
+				
+				OSNumber *	idType 		= NULL;
+				OSNumber *	codeSet		= NULL;
+				OSNumber *	association	= NULL;
+				
+				idType 		= OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertySCSIINQUIRYDeviceIdType ) );
+				codeSet 	= OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertySCSIINQUIRYDeviceIdCodeSet ) );
+				association = OSDynamicCast ( OSNumber, dict->getObject ( kIOPropertySCSIINQUIRYDeviceIdAssociation ) );
+				
+				if ( ( idType == NULL ) || ( codeSet == NULL ) || ( association == NULL ) )
+				{
+					
+					ERROR_LOG ( ( "Found NULL for idType, codeSet, or association\n" ) );
+					continue;
+					
+				}
+				
+				if ( ( idType->unsigned8BitValue ( ) == kINQUIRY_Page83_IdentifierTypeIEEE_EUI64 ) &&
+					 ( codeSet->unsigned8BitValue ( ) == kINQUIRY_Page83_CodeSetBinaryData ) &&
+					 ( association->unsigned8BitValue ( ) == ( kINQUIRY_Page83_AssociationDevice >> 4 ) ) )
+				{
+					
+					nodeName = OSDynamicCast ( OSData, dict->getObject ( kIOPropertySCSIINQUIRYDeviceIdentifier ) );
+					if ( nodeName == NULL )
+						panic ( "nodeName can't be NULL\n" );
+					
+					SetNodeUniqueIdentifier ( nodeName );
+					
+					STATUS_LOG ( ( "Verifying identifier is same as WWNN\n" ) );
+					
+					dict = OSDynamicCast ( OSDictionary, provider->getProperty ( kIOPropertyProtocolCharacteristicsKey, gIOServicePlane ) );
+					if ( ( dict != NULL ) && ( nodeName != NULL ) )
+					{
+						check ( nodeName->isEqualTo ( dict->getObject ( kIOPropertyFibreChannelNodeWorldWideNameKey ) ) );
+					}
+					
+					else
+					{
+						check ( dict );
+						check ( nodeName );
+					}
+					
+					STATUS_LOG ( ( "Updating hash table\n" ) );
+					
+					result = ht->IsProviderPathToExistingTarget ( this, provider, ht->Hash ( nodeName ) );
+					checkSerialNumber = false;
+					break;
+					
+				}
+				
+			}
+			
+		}
+		
+	}
+	
+	if ( checkSerialNumber == true )
+	{
+		
+		// Look in registry for Page 80h identifier.
+		OSString *	string = NULL;
+		
+		STATUS_LOG ( ( "Inspecting unit serial number\n" ) );
+		
+		string = OSDynamicCast ( OSString, getProperty ( kIOPropertySCSIINQUIRYUnitSerialNumber ) );
+		if ( string != NULL )
+		{
+			
+			SetNodeUniqueIdentifier ( string );
+			result = ht->IsProviderPathToExistingTarget ( this, provider, ht->Hash ( string ) );
+			
+		}
+		
+	}
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::IsProviderAnotherPathToTarget\n" ) );
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetHashEntry - Set the hash entry corresponding to this target device.
+//																	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::SetHashEntry ( void * newEntry )
+{
+	fTargetHashEntry = newEntry;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetNodeUniqueIdentifier - Gets the node's unique identifier
+//								(unit serial number or EUI-64)		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+OSObject *
+IOSCSITargetDevice::GetNodeUniqueIdentifier ( void )
+{
+	return fNodeUniqueIdentifier;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetNodeUniqueIdentifier - Sets the node's unique identifier
+//								(unit serial number or EUI-64)		   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::SetNodeUniqueIdentifier ( OSObject * uniqueID )
+{
+	
+	require_nonzero ( uniqueID, ErrorExit );
+	
+	uniqueID->retain ( );
+	
+	if ( fNodeUniqueIdentifier != NULL )
+		fNodeUniqueIdentifier->release ( );
+	
+	fNodeUniqueIdentifier = uniqueID;
+	
+	
+ErrorExit:
+	
+	
+	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AddPath - Adds a path to the target device					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::AddPath ( IOSCSIProtocolServices * provider )
+{
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::AddPath\n" ) );
+	
+	attach ( provider );
+	provider->open ( this );
+	if ( fPathManager != NULL )
+	{
+		
+		fPathManager->AddPath ( provider );
+		messageClients ( kIOMessageServicePropertyChange );
+		
+	}
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::AddPath\n" ) );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ handleOpen - Handles opens on the object.						   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
 IOSCSITargetDevice::handleOpen ( IOService *		client,
@@ -192,6 +530,125 @@ CallSuperClassError:
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ message - Called for broadcasted messages.					   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSITargetDevice::message ( UInt32 type, IOService * nub, void * arg )
+{
+	
+	IOReturn	result = kIOReturnSuccess;
+	
+	switch ( type )
+	{
+		
+		case kSCSIControllerNotificationPortStatus:
+		{
+			
+			IOSCSIProtocolServices *	path = NULL;
+			
+			path = OSDynamicCast ( IOSCSIProtocolServices, nub );
+						
+			// Port status is changing, let path manager object know
+			// about it.
+			if ( ( fPathManager != NULL ) && ( path != NULL ) )
+			{
+				
+				fPathManager->PathStatusChanged ( path, ( UInt32 ) arg );
+				messageClients ( kIOMessageServicePropertyChange );
+				
+			}
+			
+		}
+		break;
+		
+		default:
+		{
+			
+			STATUS_LOG ( ( "IOSCSITargetDevice::Unknown message type = 0x%08x\n", type ) );
+			result = super::message ( type, nub, arg );
+			
+		}
+		break;
+		
+	}
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ detach - Detaches a path from the target device.				   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::detach ( IOService * provider )
+{
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::detach\n" ) );
+	
+	if ( fPathManager != NULL )
+	{
+		
+		fPathManager->RemovePath ( ( IOSCSIProtocolServices * ) provider );
+		messageClients ( kIOMessageServicePropertyChange );
+		
+	}
+	
+	super::detach ( provider );
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::detach\n" ) );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ free - Called to free any resource before object destruction.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::free ( void )
+{
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::free\n" ) );
+	
+	if ( fTargetHashEntry != NULL )
+	{
+		
+		IOSCSITargetDeviceHashTable *	ht = NULL;
+		
+		ht = IOSCSITargetDeviceHashTable::GetSharedInstance ( );
+		
+		ht->DestroyHashReference ( fTargetHashEntry );
+		fTargetHashEntry = NULL;
+		
+	}
+
+	if ( fPathManager != NULL )
+	{
+		
+		fPathManager->release ( );
+		fPathManager = NULL;
+		
+	}
+	
+	if ( fNodeUniqueIdentifier != NULL )
+	{
+		
+		fNodeUniqueIdentifier->release ( );
+		fNodeUniqueIdentifier = NULL;
+		
+	}
+	
+	super::free ( );
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::free\n" ) );
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Protected Methods - Methods used by this class and subclasses
@@ -208,23 +665,6 @@ IOSCSITargetDevice::InitializeDeviceSupport ( void )
 {
 	
 	bool	result = true;
-	
-	// Verify that a target is indeed connected for this instantiation.	
-	result = VerifyTargetPresence ( );
-	require ( result, ErrorExit );
-	
-	// Set all appropriate Registry Properties so that they are available if needed.
-	RetrieveCharacteristicsFromProvider ( );
-	
-	// Determine the SCSI Target Device characteristics for the target
-	// that is represented by this object.
-	result = DetermineTargetCharacteristics ( );
-	require ( result, ErrorExit );
-	
-	
-ErrorExit:
-	
-	
 	return result;
 	
 }
@@ -237,12 +677,26 @@ ErrorExit:
 void
 IOSCSITargetDevice::StartDeviceSupport ( void )
 {
+	return;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ScanForLogicalUnits - Scans for SCSI Logical Units in the Target Device.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::ScanForLogicalUnits ( void )
+{
 	
-	UInt64		countLU;
-	UInt64		loopLU;
-	bool		result = false;
-	bool		supportsREPORTLUNS = false;
-	//UInt8 *	reportLUNData;
+	UInt64			countLU				= 0;
+	UInt64			loopLU 				= 0;
+	OSData *		data 				= NULL;
+	bool			supportsREPORTLUNS 	= false;
+	bool			result				= false;
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::ScanForLogicalUnits\n" ) ); 
 	
 	// Try to determine the available Logical Units by using the REPORT_LUNS
 	// command.
@@ -253,56 +707,346 @@ IOSCSITargetDevice::StartDeviceSupport ( void )
 	// Logical Unit for its LUN?
 	
 	// Determine the maximum number of Logical Units supported by the device
-	// and protocol
+	// and protocol.
 	countLU = DetermineMaximumLogicalUnitNumber ( );
 	
 	// Allocate space for our set that will keep track of the LUNs.
 	fClients = OSSet::withCapacity ( countLU + 1 );
 	
-#if 0
-	// Check to see the specification that this device claims compliance with
-	// and if it is after SPC (SCSI-3), see if it supports the REPORT_LUNS
-	// command.
-	if ( fTargetANSIVersion >= kINQUIRY_ANSI_VERSION_SCSI_SPC_Compliant )
+	// Does the protocol support more than 1 Logical Unit (LUN 0)?
+	if ( countLU > 0 )
 	{
 		
-		UInt32		luCount[2];
-		
-		// Check 
-		if ( RetrieveReportLUNsData ( 0, ( UInt8 * ) luCount, 8 ) == true )
+		// Check to see the specification that this device claims compliance with
+		// and if it is after SPC (SCSI-3), see if it supports the REPORT_LUNS
+		// command.
+		if ( fTargetANSIVersion >= kINQUIRY_ANSI_VERSION_SCSI_SPC_Compliant )
 		{
+			
+			STATUS_LOG ( ( "fTargetANSIVersion >= kINQUIRY_ANSI_VERSION_SCSI_SPC_Compliant\n" ) ); 
+			
+			SCSICmd_REPORT_LUNS_Header *	header = NULL;
+			
+			header = IONew ( SCSICmd_REPORT_LUNS_Header, 1 );
+			if ( header != NULL )
+			{
+				
+				STATUS_LOG ( ( "header != NULL\n" ) ); 
+				
+				bzero ( header, sizeof ( SCSICmd_REPORT_LUNS_Header )  );			
+				
+				// Retrieve REPORT_LUNS data.
+				result = RetrieveReportLUNsData ( kSCSILogicalUnitDefaultLUN, ( UInt8 * ) header, sizeof ( SCSICmd_REPORT_LUNS_Header ) );
+				if ( result == true )
+				{
+					
+					UInt32	length = 0;
+					
+					// Check the full length.
+					length = OSSwapBigToHostInt32 ( header->LUN_LIST_LENGTH ) + kREPORT_LUNS_HeaderSize;
+					IODelete ( header, SCSICmd_REPORT_LUNS_Header, 1 );
+					
+					STATUS_LOG ( ( "length = %ld\n", length ) ); 
+					
+					if ( length >= sizeof ( SCSICmd_REPORT_LUNS_Header ) )
+					{
+						
+						header = ( SCSICmd_REPORT_LUNS_Header * ) IOMalloc ( length );
+						
+						if ( header != NULL )
+						{
+							
+							result = RetrieveReportLUNsData ( kSCSILogicalUnitDefaultLUN, ( UInt8 * ) header, length );
+							if ( result == true )
+							{
+								
+								UInt32								count 	= 0;
+								UInt32								index 	= 0;
+								SCSICmd_REPORT_LUNS_LUN_ENTRY *		LUN		= NULL;
+								
+								supportsREPORTLUNS = true;
+								
+								count = OSSwapBigToHostInt32 ( header->LUN_LIST_LENGTH ) / ( sizeof ( SCSICmd_REPORT_LUNS_LUN_ENTRY ) );
+								STATUS_LOG ( ( "count = %ld\n", count ) );
+								
+								// For now, we only support single level LUN addressing.
+								for ( index = 0; index < count; index++ )
+								{
+									
+									UInt8	addressMethod 		= 0;
+									UInt8	logicalUnitNumber	= 0;
+									
+									LUN = &header->LUN[index];
+									LUN->FIRST_LEVEL_ADDRESSING = OSSwapBigToHostInt16 ( LUN->FIRST_LEVEL_ADDRESSING );
+									addressMethod = LUN->FIRST_LEVEL_ADDRESSING >> kREPORT_LUNS_ADDRESS_METHOD_OFFSET;
+									
+									STATUS_LOG ( ( "addressMethod = %d\n", addressMethod ) );
+									
+									if ( addressMethod == kREPORT_LUNS_ADDRESS_METHOD_PERIPHERAL_DEVICE )
+									{
+										
+										bool	LUNObjectExists = false;
+										
+										check ( ( LUN->FIRST_LEVEL_ADDRESSING & 0xFF00 ) == 0 );
+										
+										logicalUnitNumber = LUN->FIRST_LEVEL_ADDRESSING & 0x00FF;
+										STATUS_LOG ( ( "logicalUnitNumber = %d\n", logicalUnitNumber ) );
+										
+										// Protect ourselves against devices with bugs in their REPORT_LUNS
+										// information. Don't create more than one logical unit object to
+										// represent the same LUN.
+										LUNObjectExists = DoesLUNObjectExist ( logicalUnitNumber );
+										
+										if ( ( logicalUnitNumber < countLU ) && ( LUNObjectExists == false ) )
+										{
+											
+											bool	LUNPresent = false;
+											
+											LUNPresent = VerifyLogicalUnitPresence ( logicalUnitNumber );
+											if ( LUNPresent == true )
+											{
+												CreateLogicalUnit ( logicalUnitNumber );
+											}
+											
+										}
+										
+									}
+									
+								#if DEBUG
+									
+									else
+									{
+										ERROR_LOG ( ( "Not kREPORT_LUNS_ADDRESS_METHOD_PERIPHERAL_DEVICE, not creating LUN\n" ) );
+									}
+									
+								#endif	/* DEBUG */
+									
+								}
+								
+							}
+							
+							IOFree ( header, length );
+							header = NULL;
+							
+						}
+					
+					}
+					
+				}
+				
+				else
+				{
+					
+					IODelete ( header, SCSICmd_REPORT_LUNS_Header, 1 );
+					header = NULL;
+					
+				}
+				
+			}
+			
 		}
-		
 	}
-#endif
 	
+		
 	if ( supportsREPORTLUNS == false )
 	{
 		
+		ERROR_LOG ( ( "Device does not support REPORT_LUNS command, creating LUNs by brute-force\n" ) );
+		
 		for ( loopLU = 0; loopLU <= countLU; loopLU++ )
 		{
-			CreateLogicalUnit ( loopLU );
+			
+			bool	LUNPresent = false;
+			
+			LUNPresent = VerifyLogicalUnitPresence ( loopLU );
+			if ( LUNPresent == true )
+			{
+				CreateLogicalUnit ( loopLU );
+			}
+			
 		}
 		
 	}
+	
+	
+	data = OSDynamicCast ( OSData, getProperty ( kSCSICmd_INQUIRY_StandardDataAllString ) );
 	
 	// Check if the protocol layer driver needs the inquiry data for
 	// any reason. SCSI Parallel uses this to determine Wide,
 	// Sync, DT, QAS, IU, etc.
 	result = IsProtocolServiceSupported ( kSCSIProtocolFeature_SubmitDefaultInquiryData, NULL );
-	if ( ( result == true )&& ( fInquiryDataBuffer != NULL ) )
+	if ( ( result == true ) && ( data != NULL ) )
 	{
 		
 		HandleProtocolServiceFeature ( kSCSIProtocolFeature_SubmitDefaultInquiryData,
-									   ( void * ) fInquiryDataBuffer->getBytesNoCopy ( ) );
+									   ( void * ) data->getBytesNoCopy ( ) );
 		
-		fInquiryDataBuffer->release ( );
-		fInquiryDataBuffer = NULL;
+	#if (DEBUG == 0)
+		
+		// Remove the property to free up the memory.
+		removeProperty ( kSCSICmd_INQUIRY_StandardDataAllString );
+		
+	#endif
+		
+		data = NULL;
 		
 	}
 	
 	// Make me visible in the IORegistry.
 	registerService ( );
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::ScanForLogicalUnits\n" ) ); 
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ExecuteCommand - Executes a command using path manager (if one exists).
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void 					
+IOSCSITargetDevice::ExecuteCommand ( SCSITaskIdentifier request )
+{
+	
+	SetTargetLayerReference ( request, ( void * ) this );
+	
+	if ( fPathManager != NULL )
+	{
+		fPathManager->ExecuteCommand ( request );
+	}
+	
+	else
+	{
+		super::ExecuteCommand ( request );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortTask - Aborts a task.									[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::AbortTask ( UInt8				 		logicalUnit,
+								SCSITaggedTaskIdentifier	theTag )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->AbortTask ( logicalUnit, theTag );
+	}
+	
+	else
+	{
+		return super::AbortTask ( logicalUnit, theTag );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ AbortTaskSet - Aborts a task set.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::AbortTaskSet ( UInt8 logicalUnit )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->AbortTaskSet ( logicalUnit );
+	}
+	
+	else
+	{
+		return super::AbortTaskSet ( logicalUnit );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearACA - Clears an ACA condition.							[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::ClearACA ( UInt8 logicalUnit )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->ClearACA ( logicalUnit );
+	}
+	
+	else
+	{
+		return super::ClearACA ( logicalUnit );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ClearTaskSet - Clears a task set.								[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::ClearTaskSet ( UInt8 logicalUnit )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->ClearTaskSet ( logicalUnit );
+	}
+	
+	else
+	{
+		return super::ClearTaskSet ( logicalUnit );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ LogicalUnitReset - Resets a particular logical unit.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::LogicalUnitReset ( UInt8 logicalUnit )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->LogicalUnitReset ( logicalUnit );
+	}
+	
+	else
+	{
+		return super::LogicalUnitReset ( logicalUnit );
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TargetReset - Resets the target device.						[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+SCSIServiceResponse 					
+IOSCSITargetDevice::TargetReset ( void )
+{
+	
+	if ( fPathManager != NULL )
+	{
+		return fPathManager->TargetReset ( );
+	}
+	
+	else
+	{
+		return super::TargetReset ( );
+	}
 	
 }
 
@@ -343,7 +1087,7 @@ IOSCSITargetDevice::StopDeviceSupport ( void )
 
 void 					
 IOSCSITargetDevice::TerminateDeviceSupport ( void )
-{
+{	
 }
 
 
@@ -366,6 +1110,53 @@ bool
 IOSCSITargetDevice::ClearNotReadyStatus ( void )
 {
 	return true;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetTargetLayerReference - Sets target layer reference value in task.
+//															[PROTECTED][STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSITargetDevice::SetTargetLayerReference ( SCSITaskIdentifier 	request,
+											  void *				value )
+{
+	
+	SCSITask *	scsiRequest = NULL;
+	bool		result		= false;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	if ( scsiRequest != NULL )
+	{
+		result = scsiRequest->SetTargetLayerReference ( value );
+	}
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetTargetLayerReference - Gets target layer reference value in task.
+//															[PROTECTED][STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void *
+IOSCSITargetDevice::GetTargetLayerReference ( SCSITaskIdentifier request )
+{
+	
+	SCSITask *	scsiRequest = NULL;
+	void *		result		= NULL;
+	
+	scsiRequest = OSDynamicCast ( SCSITask, request );
+	if ( scsiRequest != NULL )
+	{
+		result = scsiRequest->GetTargetLayerReference ( );
+	}
+	
+	return result;
+	
 }
 
 
@@ -442,7 +1233,7 @@ IOSCSITargetDevice::RetrieveCharacteristicsFromProvider ( void )
 			
 			setProperty ( kIOPropertySCSIDeviceCharacteristicsKey, characterDict );
 			
-			// Check if the personality for this device specifies a preferred Inquiry count
+			// Check if the personality for this device specifies a preferred INQUIRY count.
 			if ( characterDict->getObject ( kIOPropertySCSIInquiryLengthKey ) != NULL )
 			{
 				
@@ -456,7 +1247,7 @@ IOSCSITargetDevice::RetrieveCharacteristicsFromProvider ( void )
 				if ( defaultInquiry != NULL )
 				{
 					
-					// This device has a preferred protocol, use that.
+					// This device has a preferred INQUIRY count, use that.
 					fDefaultInquiryCount = defaultInquiry->unsigned32BitValue ( );
 					
 				}
@@ -526,31 +1317,46 @@ IOSCSITargetDevice::RetrieveCharacteristicsFromProvider ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	¥ DetermineTargetCharacteristics - Method to interrogate device.
+//	¥ DetermineTargetCharacteristics - Method to publish INQUIRY VPD data.
 //																	[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// The DetermineTargetCharacteristics method will validate the existence of
-// a SCSI Target Device at the SCSI Target Identifier that the instantiation
-// of the IOSCSITargetDevice represents.  If no target is found, this routine
-// will return false and the instantiation will be destroyed.
-//
-// If a target if found, this routine will perform the following steps:
-// 1.) Determine the size of the standard INQUIRY data that the device has
-// 2.) Retrieve that amount of standard INQUIRY data from the target
-// 3.) Determine the available Logical Units by either the REPORT_LUNS command
-// or by sending an INQUIRY to each Logical Unit to see if it is valid.
-// 4.) Create a Logical Unit node for each that was determined valid.
 
 bool
 IOSCSITargetDevice::DetermineTargetCharacteristics ( void )
 {
 	
-	UInt8		inqData[255]	= { 0 };
-	UInt8		inqDataCount	= 0;
-	bool		result			= false;
+	bool		result = false;
 	
-	fInquiryDataBuffer = IOBufferMemoryDescriptor::withCapacity ( sizeof ( inqData ), kIODirectionIn );
-	require_nonzero ( fInquiryDataBuffer, ErrorExit );
+	result = PublishDefaultINQUIRYInformation ( );
+	require ( result, ErrorExit );
+	
+	PublishINQUIRYVitalProductDataInformation ( this, kSCSILogicalUnitDefaultLUN );
+	
+	
+ErrorExit:
+	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PublishDefaultINQUIRYInformation - Publishes default INQUIRY information.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSITargetDevice::PublishDefaultINQUIRYInformation ( void )
+{
+	
+	bool								result		= false;
+	UInt8								length		= 0;
+	OSData *							data		= NULL;
+	SCSICmd_INQUIRY_StandardDataAll *	inqData		= NULL;
+	
+	inqData = IONew ( SCSICmd_INQUIRY_StandardDataAll, 1 );
+	require_nonzero ( inqData, ErrorExit );
 	
 	// Determine the total amount of data that this target has available for
 	// the INQUIRY command.
@@ -559,70 +1365,44 @@ IOSCSITargetDevice::DetermineTargetCharacteristics ( void )
 		
 		// There is a default INQUIRY size for this device, just report that
 		// value back.
-		inqDataCount = fDefaultInquiryCount;
+		length = fDefaultInquiryCount;
 		
 	}
 	
 	else
 	{
 		
-		SCSICmd_INQUIRY_StandardDataAll *	stdData = NULL;
+		length = kStandardInquiryDataHeaderSize + 1;
 		
 		// Since there is not a default INQUIRY size for this device, determine what 
 		// the INQUIRY data size should be by sending an INQUIRY command for 6 bytes
 		// (In actuality, only 5 bytes are needed, but asking for 6 alleviates the 
 		// problem that some FireWire and USB to ATAPI bridges exhibit).
-		result = RetrieveDefaultINQUIRYData ( 0, inqData, kStandardInquiryDataHeaderSize + 1 );	
-		require_string ( result, ReleaseBuffer, "Target INQUIRY data could not be retrieved" );
+		result = RetrieveDefaultINQUIRYData ( kSCSILogicalUnitDefaultLUN, ( UInt8 * ) inqData, length );	
+		require ( result, ReleaseBuffer );
 		
-		stdData = ( SCSICmd_INQUIRY_StandardDataAll * ) inqData;
-		inqDataCount = stdData->ADDITIONAL_LENGTH + kStandardInquiryDataHeaderSize;
+		length = inqData->ADDITIONAL_LENGTH + kStandardInquiryDataHeaderSize;
 		
 	}
 	
    	// Before we register ourself as a nub, we need to find out what 
-   	// type of device we want to connect to us
+   	// type of device we want to connect to us.
 	// Do an Inquiry command and parse the data to determine the peripheral
 	// device type.
-	result = RetrieveDefaultINQUIRYData ( 0, inqData, inqDataCount );	
-	require_string ( result, ReleaseBuffer, "Target INQUIRY data could not be retrieved" );
+	result = RetrieveDefaultINQUIRYData ( kSCSILogicalUnitDefaultLUN, ( UInt8 * ) inqData, length );	
+	require ( result, ReleaseBuffer );
 	
-	SetCharacteristicsFromINQUIRY ( ( SCSICmd_INQUIRY_StandardDataAll * ) inqData );
-	fInquiryDataBuffer->writeBytes ( 0, inqData, inqDataCount );
+	SetCharacteristicsFromINQUIRY ( inqData );
 	
-	result = RetrieveINQUIRYDataPage ( 0, inqData, 0, kVitalProductsInquiryDataHeaderSize );
-	if ( result == true )
-	{
-		
-		UInt8 							loop		= 0;
-		bool 							pagefound 	= false;
-		SCSICmd_INQUIRY_Page83_Header *	header		= NULL;
-		
-		header = ( SCSICmd_INQUIRY_Page83_Header * ) inqData;
-		
-		RetrieveINQUIRYDataPage ( 0, inqData, 0, header->PAGE_LENGTH + kVitalProductsInquiryDataHeaderSize );
-		
-		// If Vital Data Page zero was successfully retrieved, check to see if page 83h
-		// the Device Identification page is supported and if so, retrieve that data
-		for ( loop = kVitalProductsInquiryDataHeaderSize; loop < ( header->PAGE_LENGTH + kVitalProductsInquiryDataHeaderSize ); loop++ )
-		{
-			
-			if ( inqData[loop] == kINQUIRY_Page83_PageCode )
-			{
-				
-				pagefound = true;
-				break;
-				
-			}
-			
-		}
-		
-		if ( pagefound == true )
-		{
-			PublishDeviceIdentification ( );
-		}
-		
-	}
+	data = OSData::withBytes ( ( const void * ) inqData, sizeof ( SCSICmd_INQUIRY_StandardDataAll ) );
+	require_nonzero ( data, ReleaseBuffer );
+	
+	setProperty ( kSCSICmd_INQUIRY_StandardDataAllString, data );
+	data->release ( );
+	data = NULL;
+	
+	IODelete ( inqData, SCSICmd_INQUIRY_StandardDataAll, 1 );
+	inqData = NULL;
 	
 	result = true;
 	
@@ -632,9 +1412,9 @@ IOSCSITargetDevice::DetermineTargetCharacteristics ( void )
 ReleaseBuffer:
 	
 	
-	require_nonzero_quiet ( fInquiryDataBuffer, ErrorExit );
-	fInquiryDataBuffer->release ( );
-	fInquiryDataBuffer = NULL;
+	require_nonzero_quiet ( inqData, ErrorExit );
+	IODelete ( inqData, SCSICmd_INQUIRY_StandardDataAll, 1 );
+	inqData = NULL;
 	
 	
 ErrorExit:
@@ -645,6 +1425,105 @@ ErrorExit:
 	return result;
 	
 }
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PublishINQUIRYVitalProductDataInformation - Check Page 00h for VPD pages
+//	  supported by this target. Then, publish interesting pages (80h, 83h)
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::PublishINQUIRYVitalProductDataInformation (
+										IOService * 			object,
+										SCSILogicalUnitNumber	logicalUnit )
+{
+	
+	bool							result		= false;
+	UInt8							length		= 0;
+	UInt8 							index		= 0;
+	UInt8							pageLength	= 0;
+	SCSICmd_INQUIRY_Page00_Header *	data		= NULL;
+	UInt8 *							bytes		= NULL;
+	IOBufferMemoryDescriptor *		buffer		= NULL;
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::PublishINQUIRYVitalProductDataInformation\n" ) );
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kMaxInquiryDataBytes, kIODirectionIn );
+	require_nonzero ( buffer, ErrorExit );
+	
+	length 	= sizeof ( SCSICmd_INQUIRY_Page00_Header );
+	data 	= ( SCSICmd_INQUIRY_Page00_Header * ) buffer->getBytesNoCopy ( );
+	bytes	= ( UInt8 * ) data;
+	
+	require_nonzero ( data, ReleaseBuffer );
+	bzero ( data, kMaxInquiryDataBytes );
+	
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   bytes,
+									   kINQUIRY_Page00_PageCode,
+									   length );
+	require ( result, ReleaseBuffer );
+	
+	STATUS_LOG ( ( "PERIPHERAL_DEVICE_TYPE = 0x%02x\n", data->PERIPHERAL_DEVICE_TYPE ) );
+	STATUS_LOG ( ( "PAGE_CODE = 0x%02x\n", data->PAGE_CODE ) );
+	STATUS_LOG ( ( "PAGE_LENGTH = %d\n", data->PAGE_LENGTH ) );
+	
+	pageLength = data->PAGE_LENGTH;
+	
+	length = data->PAGE_LENGTH + sizeof ( SCSICmd_INQUIRY_Page00_Header );
+	
+	STATUS_LOG ( ( "length = %d\n", length ) );
+	
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   bytes,
+									   kINQUIRY_Page00_PageCode,
+									   length );
+	require ( result, ReleaseBuffer );
+	require ( ( data->PAGE_CODE == kINQUIRY_Page00_PageCode ), ReleaseBuffer );
+	require ( ( data->PAGE_LENGTH == pageLength ), ReleaseBuffer );
+	
+	// If Vital Data Page zero was successfully retrieved, check to see if page 80h or 83h
+	// the Device Identification page is supported and if so, retrieve that data.
+	for ( index = sizeof ( SCSICmd_INQUIRY_Page00_Header ); index < length; index++ )
+	{
+		
+		STATUS_LOG ( ( "PAGE_CODE_ENTRY[%d] = 0x%02x\n", ( int ) ( index - sizeof ( SCSICmd_INQUIRY_Page00_Header ) ), bytes[index] ) );
+		
+		if ( bytes[index] == kINQUIRY_Page80_PageCode )
+		{
+			
+			PublishUnitSerialNumber ( object, logicalUnit );
+			
+		}
+		
+		if ( bytes[index] == kINQUIRY_Page83_PageCode )
+		{
+			
+			PublishDeviceIdentification ( object, logicalUnit );
+			
+		}
+		
+	}
+	
+	
+ReleaseBuffer:
+	
+	
+	require_nonzero_quiet ( buffer, ErrorExit );
+	buffer->release ( );
+	buffer = NULL;
+	
+	
+ErrorExit:
+	
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::PublishINQUIRYVitalProductDataInformation\n" ) );
+	
+	return;
+	
+}
+	
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -659,6 +1538,8 @@ IOSCSITargetDevice::VerifyTargetPresence ( void )
 	bool					presenceVerified 	= false;
 	UInt8					TURCount			= 0;
 	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::VerifyTargetPresence\n" ) );
+	
 	request = GetSCSITask ( );
 	require_nonzero ( request, ErrorExit );
 	
@@ -669,8 +1550,10 @@ IOSCSITargetDevice::VerifyTargetPresence ( void )
 		
 		TEST_UNIT_READY ( request, 0x00 );
 		
+		STATUS_LOG ( ( "Sending TEST_UNIT_READY %d to target\n", TURCount + 1 ) );
+		
 		// The command was successfully built, now send it
-		serviceResponse = SendCommand ( request, 10000 );
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
 		{
 			
@@ -694,7 +1577,7 @@ IOSCSITargetDevice::VerifyTargetPresence ( void )
 					{
 						
 						REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0 );
-						serviceResponse = SendCommand ( request, 10000 );
+						serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 						
 						bufferDesc->release ( );
 						
@@ -720,6 +1603,8 @@ IOSCSITargetDevice::VerifyTargetPresence ( void )
 ErrorExit:
 	
 	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::VerifyTargetPresence, target present = %s\n", presenceVerified ? "yes" : "no" ) );
+	
 	return presenceVerified;
 	
 }
@@ -737,7 +1622,7 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 	
 	OSString *		string			= NULL;
 	int				index			= 0;
-	char			tempString[17]; // Maximum + 1 for null char
+	char			tempString[17]	= { 0 }; // Maximum + 1 for null char
 	
 	// Set target characteristics
 	// Save the target's Peripheral Device Type
@@ -746,14 +1631,18 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 	// Save the SCSI ANSI version that the device to which the device claims compliance.
 	fTargetANSIVersion = ( inquiryBuffer->VERSION & kINQUIRY_ANSI_VERSION_Mask );
 	
+#if DEBUG
+	
+	setProperty ( "ANSI Version", fTargetANSIVersion, 8 );
+	
+#endif	/* DEBUG */
+	
 	// Set the other supported features
-#if 0
 	fTargetHasHiSup 		= ( inquiryBuffer->RESPONSE_DATA_FORMAT & kINQUIRY_Byte3_HISUP_Mask );
 	fTargetHasSCCS			= ( inquiryBuffer->SCCSReserved & kINQUIRY_Byte5_SCCS_Mask );
 	fTargetHasEncServs		= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_ENCSERV_Mask );
-	fTargetHasMultiPorts	= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MULTIP_Mask );;
-	fTargetHasMChanger		= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MCHNGR_Mask );;
-#endif
+	fTargetHasMultiPorts	= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MULTIP_Mask );
+	fTargetHasMChanger		= ( inquiryBuffer->flags1 & kINQUIRY_Byte6_MCHNGR_Mask );
 	
    	// Set the Peripheral Device Type property for the device.
    	setProperty ( kIOPropertySCSIPeripheralDeviceType,
@@ -858,6 +1747,64 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 }
 
 
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TargetTaskCompletion - Hook to check for Unit Attention conditions.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::TargetTaskCompletion ( SCSITaskIdentifier request )
+{
+	
+	if ( ( GetServiceResponse ( request ) == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION ) )
+	{
+		
+		bool 						validSense	= false;
+		SCSI_Sense_Data				senseBuffer = { 0 };
+		
+		validSense = GetAutoSenseData ( request, &senseBuffer, sizeof ( senseBuffer ) );
+		if ( validSense )
+		{
+			
+			ERROR_LOG ( ( "IOSCSITargetDevice::TargetTaskCompletion - SENSE_KEY = %d, ASC = 0x%02x, ASCQ = 0x%02x\n",
+						  senseBuffer.SENSE_KEY & kSENSE_KEY_Mask,
+						  senseBuffer.ADDITIONAL_SENSE_CODE,
+						  senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+			
+			// Check for Unit Attention errors.
+			if ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_UNIT_ATTENTION )
+			{
+				
+				if ( ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x3F ) &&
+					 ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x0E ) )
+				{
+					
+					// REPORT_LUNS DATA HAS CHANGED
+					IOLog ( "REPORT_LUNS DATA HAS CHANGED\n" );
+					
+				}
+				
+				else if ( ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x3F ) &&
+						  ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x03 ) )
+				{
+					
+					// INQUIRY DATA HAS CHANGED
+					IOLog ( "INQUIRY DATA HAS CHANGED\n" );
+					
+				}
+				
+			}
+			
+		}
+		
+	}
+	
+	TaskCompletedNotification ( request );
+	
+}
+
+
 #if 0
 #pragma mark -
 #pragma mark ¥ Logical Unit Related Member Routines
@@ -889,15 +1836,38 @@ IOSCSITargetDevice::RetrieveReportLUNsData (
  	request = GetSCSITask ( );
  	require_nonzero ( request, ReleaseBuffer );
 	
+	SetLogicalUnitNumber ( request, logicalUnit );
+	
 	if ( REPORT_LUNS ( request, bufferDesc, dataSize, 0 ) == true )
 	{
 		
-		serviceResponse = SendCommand ( request, 10000 );
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
-			result = true;	
+			result = true;
+		}
+		
+		else
+		{
+			
+			bool 						validSense	= false;
+			SCSI_Sense_Data				senseBuffer = { 0 };
+			
+			validSense = GetAutoSenseData ( request, &senseBuffer, sizeof ( senseBuffer ) );
+			if ( validSense )
+			{
+				
+				ERROR_LOG ( ( "REPORT_LUNS failed, serviceResponse = %d, taskStatus = %d\n",
+							  serviceResponse, GetTaskStatus ( request ) ) );
+				ERROR_LOG ( ( "SENSE_KEY = %d, ASC = 0x%02x, ASCQ = 0x%02x\n",
+							  senseBuffer.SENSE_KEY & kSENSE_KEY_Mask,
+							  senseBuffer.ADDITIONAL_SENSE_CODE,
+							  senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
 		}
 		
 	}
@@ -964,9 +1934,96 @@ IOSCSITargetDevice::DetermineMaximumLogicalUnitNumber ( void )
 
 bool
 IOSCSITargetDevice::VerifyLogicalUnitPresence (
-								SCSILogicalUnitNumber		theLogicalUnit )
+						SCSILogicalUnitNumber		logicalUnit )
 {
-	return false;
+	
+	bool					presenceVerified 	= false;
+	SCSITaskIdentifier		request				= NULL;
+	UInt8					TURCount			= 0;
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::VerifyLogicalUnitPresence\n" ) );
+	
+	request = GetSCSITask ( );
+	require_nonzero ( request, ErrorExit );
+	
+	do
+	{
+		
+		SCSIServiceResponse		serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+		
+		TEST_UNIT_READY ( request, 0x00 );
+		
+		STATUS_LOG ( ( "Sending TEST_UNIT_READY %d to LUN %d\n", TURCount + 1, ( int ) logicalUnit ) );
+		
+		SetLogicalUnitNumber ( request, logicalUnit );
+		
+		// The command was successfully built, now send it
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+		if ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE )
+		{
+			
+			if ( GetTaskStatus ( request ) == kSCSITaskStatus_CHECK_CONDITION )
+			{
+				
+				bool 						validSense	= false;
+				SCSI_Sense_Data				senseBuffer = { 0 };
+				
+				validSense = GetAutoSenseData ( request, &senseBuffer, sizeof ( senseBuffer ) );
+				if ( validSense == false )
+				{
+
+					IOMemoryDescriptor *		bufferDesc	= NULL;
+					
+					bufferDesc = IOMemoryDescriptor::withAddress ( ( void * ) &senseBuffer,
+																sizeof ( SCSI_Sense_Data ),
+																kIODirectionIn );
+					
+					if ( bufferDesc != NULL )
+					{
+						
+						REQUEST_SENSE ( request, bufferDesc, kSenseDefaultSize, 0 );
+						serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
+						
+						bufferDesc->release ( );
+						
+					}
+					
+				}
+				
+				// Check the sense data to see if the TUR was sent to an invalid LUN and if so,
+				// abort trying to access this Logical Unit.
+				if ( ( ( senseBuffer.SENSE_KEY & kSENSE_KEY_Mask ) == kSENSE_KEY_ILLEGAL_REQUEST ) &&
+					   ( senseBuffer.ADDITIONAL_SENSE_CODE == 0x25 ) &&
+					   ( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x00 ) )
+				{
+					
+					ERROR_LOG ( ( "Logical unit = %lld not valid\n", logicalUnit ) );
+				 	break;
+				 	
+				}
+				
+			}
+			
+			// The SCSI Task completed with status meaning that a target was found
+			// set that the presence was verified.
+			presenceVerified = true;
+			
+		}
+		
+		TURCount++;
+		
+	} while ( ( presenceVerified == false ) && ( TURCount < kTURMaxRetries ) );
+	
+	ReleaseSCSITask ( request );
+	
+	
+ErrorExit:
+	
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::VerifyLogicalUnitPresence, LUN present = %s\n", presenceVerified ? "yes" : "no" ) );
+	
+	return presenceVerified;
+	
 }
 
 
@@ -975,7 +2032,7 @@ IOSCSITargetDevice::VerifyLogicalUnitPresence (
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 bool
-IOSCSITargetDevice::CreateLogicalUnit ( SCSILogicalUnitNumber theLogicalUnit )
+IOSCSITargetDevice::CreateLogicalUnit ( SCSILogicalUnitNumber logicalUnit )
 {
 	
 	bool						result	= false;
@@ -987,13 +2044,15 @@ IOSCSITargetDevice::CreateLogicalUnit ( SCSILogicalUnitNumber theLogicalUnit )
 	result = nub->init ( 0 );
 	require ( result, ReleaseNub );
 	
-	nub->SetLogicalUnitNumber ( ( UInt8 ) theLogicalUnit );
+	nub->SetLogicalUnitNumber ( ( UInt8 ) logicalUnit );
 	
 	result = nub->attach ( this );
 	require ( result, ReleaseNub );
 	
+	PublishINQUIRYVitalProductDataInformation ( nub, logicalUnit );
+	
 	result = nub->start ( this );
-	require_action ( result, ReleaseNub, nub->detach ( this ) );
+	require_action_quiet ( result, ReleaseNub, nub->detach ( this ) );
 	
 	
 ReleaseNub:
@@ -1006,6 +2065,94 @@ ReleaseNub:
 	
 ErrorExit:
 	
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetLogicalUnitNumber - Sets the LUN for a request.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::SetLogicalUnitNumber (
+						SCSITaskIdentifier 		request,
+						SCSILogicalUnitNumber	logicalUnit )
+{
+	
+	if ( logicalUnit != 0 )
+	{
+		
+		SCSITask *	scsiRequest = NULL;
+		
+	    scsiRequest = OSDynamicCast ( SCSITask, request );
+	    if ( scsiRequest != NULL )
+	    {
+			
+			scsiRequest->SetLogicalUnitNumber ( logicalUnit );
+			
+		}
+		
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetLogicalUnitNumber - Sets the LUN for a request.			[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSITargetDevice::DoesLUNObjectExist ( SCSILogicalUnitNumber logicalUnit )
+{
+	
+	bool					result	= false;
+	OSCollectionIterator *	iter	= NULL;
+	IOSCSILogicalUnitNub *	lun		= NULL;
+	OSObject *				obj		= NULL;
+	
+	iter = OSCollectionIterator::withCollection ( fClients );
+	if ( iter != NULL )
+	{
+		
+		
+BeginLoop:
+		
+		
+		obj = iter->getNextObject ( );
+		while ( obj != NULL )
+		{
+			
+			lun = OSDynamicCast ( IOSCSILogicalUnitNub, obj );
+			
+			if ( ( lun != NULL ) && ( lun->GetLogicalUnitNumber ( ) == logicalUnit ) )
+			{
+				
+				result = true;
+				break;
+				
+			}
+			
+			if ( iter->isValid ( ) )
+			{
+				obj = iter->getNextObject ( );
+			}
+			
+			else
+			{
+				
+				iter->reset ( );
+				ERROR_LOG ( ( "IOSCSITargetDevice::DoesLUNObjectExist collection changed from underneath iterator\n" ) );
+				goto BeginLoop;
+				
+			}
+			
+		}
+		
+		iter->release ( );
+		
+	}
 	
 	return result;
 	
@@ -1045,13 +2192,15 @@ IOSCSITargetDevice::RetrieveDefaultINQUIRYData (
  	request = GetSCSITask ( );
  	require_nonzero ( request, ReleaseBuffer );
 	
+	SetLogicalUnitNumber ( request, logicalUnit );
+	
 	for ( index = 0; index < kMaxInquiryAttempts; index++ )
 	{
 		
 		result = INQUIRY ( request, bufferDesc, 0, 0, 0, inquirySize, 0 );
 		require ( result, ReleaseTask );
 		
-		serviceResponse = SendCommand ( request, 10000 );
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
@@ -1084,7 +2233,7 @@ ReleaseTask:
 ReleaseBuffer:
 	
 	
-	require_nonzero_quiet ( bufferDesc, ErrorExit );
+	require_nonzero_quiet ( bufferDesc, ReleaseBuffer );
 	bufferDesc->release ( );
 	bufferDesc = NULL;
 	
@@ -1123,6 +2272,8 @@ IOSCSITargetDevice::RetrieveINQUIRYDataPage (
  	request = GetSCSITask ( );
 	require_nonzero ( request, ReleaseBuffer );
 	
+	SetLogicalUnitNumber ( request, logicalUnit );
+	
 	if ( INQUIRY (
 			request,
 			bufferDesc,
@@ -1133,12 +2284,34 @@ IOSCSITargetDevice::RetrieveINQUIRYDataPage (
 			0 ) == true )
 	{
 		
-		serviceResponse = SendCommand ( request, 10000 );
+		serviceResponse = SendCommand ( request, kTenSecondTimeoutInMS );
 		
 		if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 			 ( GetTaskStatus ( request ) == kSCSITaskStatus_GOOD ) )
 		{
 			result = true;	
+		}
+		
+		else
+		{
+			
+			bool 						validSense	= false;
+			SCSI_Sense_Data				senseBuffer = { 0 };
+
+			ERROR_LOG ( ( "RetrieveINQUIRYDataPage failed, page = %d, serviceResponse = %d, taskStatus = %d\n",
+						  inquiryPage, serviceResponse, GetTaskStatus ( request ) ) );
+			
+			validSense = GetAutoSenseData ( request, &senseBuffer, sizeof ( senseBuffer ) );
+			if ( validSense )
+			{
+				
+				ERROR_LOG ( ( "SENSE_KEY = %d, ASC = 0x%02x, ASCQ = 0x%02x\n",
+							  senseBuffer.SENSE_KEY & kSENSE_KEY_Mask,
+							  senseBuffer.ADDITIONAL_SENSE_CODE,
+							  senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+				
+			}
+			
 		}
 		
 	}
@@ -1163,114 +2336,266 @@ ErrorExit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ PublishUnitSerialNumber - Publishes unit serial number
+//								(page 0x80) data.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSITargetDevice::PublishUnitSerialNumber ( IOService * 			object,
+											  SCSILogicalUnitNumber	logicalUnit )
+{
+	
+	bool							result 								= false;
+	SCSICmd_INQUIRY_Page80_Header *	data								= NULL;
+	IOBufferMemoryDescriptor *		buffer								= NULL;
+	OSString *						string								= NULL;
+	char							serialNumber[kMaxInquiryDataBytes]	= { 0 };
+	UInt8							length								= 0;
+	UInt8							pageLength							= 0;
+	
+	STATUS_LOG ( ( "+IOSCSITargetDevice::PublishUnitSerialNumber\n" ) );
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kMaxInquiryDataBytes, kIODirectionIn );
+	require_nonzero ( buffer, ErrorExit );
+	
+	// Reading header should not include PRODUCT_SERIAL_NUMBER field. Adjust
+	// length accordingly.
+	length 	= sizeof ( SCSICmd_INQUIRY_Page80_Header ) - sizeof ( UInt8 );
+	data 	= ( SCSICmd_INQUIRY_Page80_Header * ) buffer->getBytesNoCopy ( );
+	
+	require_nonzero ( data, ReleaseBuffer );
+	bzero ( data, kMaxInquiryDataBytes );
+	
+	// This device reports that it supports Inquiry Page 80
+	// determine the length of the unit serial number.
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   ( UInt8 * ) data,
+									   kINQUIRY_Page80_PageCode,
+									   length );
+	require ( result, ReleaseBuffer );
+	
+	// Verify that the device does indeed have Device Identification information, by checking
+	// that the additional length field is not zero.
+	require_nonzero ( data->PAGE_LENGTH, ReleaseBuffer );
+
+	STATUS_LOG ( ( "PERIPHERAL_DEVICE_TYPE = 0x%02x\n", data->PERIPHERAL_DEVICE_TYPE ) );
+	STATUS_LOG ( ( "PAGE_CODE = 0x%02x\n", data->PAGE_CODE ) );
+	STATUS_LOG ( ( "PAGE_LENGTH = %d\n", data->PAGE_LENGTH ) );
+	
+	pageLength = data->PAGE_LENGTH;
+	
+	length = sizeof ( SCSICmd_INQUIRY_Page80_Header ) - sizeof ( UInt8 ) + data->PAGE_LENGTH;
+	
+	STATUS_LOG ( ( "length = %d\n", length ) );
+	
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   ( UInt8 * ) data,
+									   kINQUIRY_Page80_PageCode,
+									   length );
+	require ( result, ReleaseBuffer );
+	require ( ( data->PAGE_CODE == kINQUIRY_Page80_PageCode ), ReleaseBuffer );
+	require ( ( data->PAGE_LENGTH == pageLength ), ReleaseBuffer );
+	
+	bcopy ( &data->PRODUCT_SERIAL_NUMBER, serialNumber, data->PAGE_LENGTH );
+	
+	string = OSString::withCString ( serialNumber );
+	if ( string != NULL )
+	{
+		
+		object->setProperty ( kIOPropertySCSIINQUIRYUnitSerialNumber, string );
+		string->release ( );
+		string = NULL;
+		
+	}
+	
+	
+ReleaseBuffer:
+	
+	
+	require_nonzero_quiet ( buffer, ErrorExit );
+	buffer->release ( );
+	buffer = NULL;
+	
+	
+ErrorExit:
+	
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::PublishUnitSerialNumber\n" ) );
+	
+	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ PublishDeviceIdentification - Publishes device ID page (page 0x83) data.
 //																	[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
-IOSCSITargetDevice::PublishDeviceIdentification ( void )
+IOSCSITargetDevice::PublishDeviceIdentification (
+							IOService * 			object,
+							SCSILogicalUnitNumber	logicalUnit )
 {
 	
-	OSArray *		deviceIDs 		= NULL;
-	UInt8			inqData[255]	= { 0 };
-	UInt8			inqDataCount	= 0;
-	UInt8			deviceIDCount	= 0;
-	bool			result			= false;
+	OSArray *											deviceIDs 		= NULL;
+	SCSICmd_INQUIRY_Page83_Identification_Descriptor *	descriptor		= NULL;
+	SCSICmd_INQUIRY_Page83_Header *						data			= NULL;
+	IOBufferMemoryDescriptor *							buffer			= NULL;
+	UInt8 *												bytes			= NULL;
+	UInt8												length			= 0;
+	UInt8												offset			= 0;
+	UInt8												pageLength		= 0;
+	bool												result			= false;
 	
-	// This device reports that it supports Inquiry Page 83
+	STATUS_LOG ( ( "+IOSCSITargetDevice::PublishDeviceIdentification\n" ) );
+	
+	buffer = IOBufferMemoryDescriptor::withCapacity ( kMaxInquiryDataBytes, kIODirectionIn );
+	require_nonzero ( buffer, ErrorExit );
+	
+	length 	= sizeof ( SCSICmd_INQUIRY_Page83_Header );
+	data 	= ( SCSICmd_INQUIRY_Page83_Header * ) buffer->getBytesNoCopy ( );
+	bytes	= ( UInt8 * ) data;
+
+	require_nonzero ( data, ReleaseBuffer );
+	
+	bzero ( data, kMaxInquiryDataBytes );
+	
+	// This device reports that it supports Inquiry Page 83h
 	// determine the length of all descriptors
-	result = RetrieveINQUIRYDataPage ( 0, inqData, kINQUIRY_Page83_PageCode, kVitalProductsInquiryDataHeaderSize );
-	require ( result, ErrorExit );
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   bytes,
+									   kINQUIRY_Page83_PageCode,
+									   length );
+	require ( result, ReleaseBuffer );
 	
 	// Verify that the device does indeed have Device Identification information, by checking
 	// that the additional length field is not zero.
-	require_nonzero ( inqData[3], ErrorExit );
+	require_nonzero ( data->PAGE_LENGTH, ReleaseBuffer );
+
+	STATUS_LOG ( ( "PAGE_LENGTH = %d\n", data->PAGE_LENGTH ) );
 	
-	result = RetrieveINQUIRYDataPage ( 0, inqData, kINQUIRY_Page83_PageCode, inqData[3] + kVitalProductsInquiryDataHeaderSize );
-	require ( result, ErrorExit );
+	pageLength = data->PAGE_LENGTH;
+	
+	length = data->PAGE_LENGTH + sizeof ( SCSICmd_INQUIRY_Page83_Header );
+	
+	result = RetrieveINQUIRYDataPage ( logicalUnit,
+									   bytes,
+									   kINQUIRY_Page83_PageCode,
+									   length );
+	
+	require ( result, ReleaseBuffer );
+	require ( ( data->PAGE_CODE == kINQUIRY_Page83_PageCode ), ReleaseBuffer );
+	require ( ( pageLength == data->PAGE_LENGTH ), ReleaseBuffer );
 	
 	// Create the array to hold the ID dictionaries
 	deviceIDs = OSArray::withCapacity ( 1 );
-	require_nonzero ( deviceIDs, ErrorExit );
+	require_nonzero ( deviceIDs, ReleaseBuffer );
 	
 	// Set the index to the first ID byte
-	inqDataCount = kVitalProductsInquiryDataHeaderSize;
+	offset = sizeof ( SCSICmd_INQUIRY_Page83_Header );
 	
-	while ( inqDataCount < ( inqData[3] + kVitalProductsInquiryDataHeaderSize ) )
+	STATUS_LOG ( ( "PERIPHERAL_DEVICE_TYPE = 0x%02x\n", data->PERIPHERAL_DEVICE_TYPE ) );
+	STATUS_LOG ( ( "PAGE_CODE = 0x%02x\n", data->PAGE_CODE ) );
+	STATUS_LOG ( ( "PAGE_LENGTH = %d\n", data->PAGE_LENGTH ) );
+	
+	STATUS_LOG ( ( "length = %d\n", length ) );
+	STATUS_LOG ( ( "offset = %d\n", offset ) );
+	
+	while ( offset < length )
 	{
 		
-		UInt8				idSize			= 0;
+		UInt8				codeSet			= 0;
+		UInt8				idType			= 0;
+		UInt8				association		= 0;
 		OSDictionary * 		idDictionary	= NULL;
-		OSNumber *			numString 		= NULL;
-		UInt8				codeSet 		= 0;		
+		OSNumber *			number	 		= NULL;
 		
-		deviceIDCount++;
+		STATUS_LOG ( ( "Processing SCSICmd_INQUIRY_Page83_Identification_Descriptor\n" ) );
 		
 		// Create the dictionary for the current device ID
 		idDictionary = OSDictionary::withCapacity ( 1 );
 		require_nonzero ( idDictionary, ReleaseDeviceIDs );
 		
+		descriptor = ( SCSICmd_INQUIRY_Page83_Identification_Descriptor * ) &bytes[offset];
+		
+		STATUS_LOG ( ( "CODE_SET = 0x%02x\n", descriptor->CODE_SET ) );
+		STATUS_LOG ( ( "IDENTIFIER_TYPE = 0x%02x\n", descriptor->IDENTIFIER_TYPE ) );
+		STATUS_LOG ( ( "IDENTIFIER_LENGTH = %d\n", descriptor->IDENTIFIER_LENGTH ) );
+		
+		// Move offset.
+		offset += descriptor->IDENTIFIER_LENGTH +
+			offsetof ( SCSICmd_INQUIRY_Page83_Identification_Descriptor, IDENTIFIER );
+		
+		// Sanity check the length to make sure it is within bounds of the page data.
+		require_action ( ( offset <= length ), ReleaseDeviceIDs, idDictionary->release ( ) );
+		
+	#if DEBUG
+		
+		UInt8	index = 0;
+		
+		for ( index = 0; index < descriptor->IDENTIFIER_LENGTH; index++ )
+		{
+			
+			UInt8 *		identifier = ( UInt8 * ) &descriptor->IDENTIFIER;
+			
+			STATUS_LOG ( ( "identifier[%d] = 0x%02x : ", index, identifier[index] ) );
+			
+		}
+		
+		STATUS_LOG ( ( "\n" ) );
+		
+	#endif	/* DEBUG */
+		
 		// Process identification header
-		codeSet = inqData[inqDataCount] & kINQUIRY_Page83_CodeSetMask;
-		numString = OSNumber::withNumber ( codeSet, 8 );
-		if ( numString != NULL )
+		codeSet = descriptor->CODE_SET & kINQUIRY_Page83_CodeSetMask;
+		number = OSNumber::withNumber ( codeSet, 8 );
+		if ( number != NULL )
 		{
 			
-			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdCodeSet, numString );
-			numString->release ( );
-			numString = NULL;
+			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdCodeSet, number );
+			number->release ( );
+			number = NULL;
 			
 		}
 		
-		numString = OSNumber::withNumber ( inqData[inqDataCount + 1] & kINQUIRY_Page83_CodeSetMask, 8 );
-		if ( numString != NULL )
+		idType = descriptor->IDENTIFIER_TYPE & kINQUIRY_Page83_IdentifierTypeMask;
+		number = OSNumber::withNumber ( idType, 8 );
+		if ( number != NULL )
 		{
 			
-			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdType, numString );
-			numString->release ( );
-			numString = NULL;
+			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdType, number );
+			number->release ( );
+			number = NULL;
 			
 		}
 		
-		numString = OSNumber::withNumber ( ( inqData[inqDataCount + 1] >> 4 ) & 0x03, 8 );
-		if ( numString != NULL )
+		association = ( ( descriptor->IDENTIFIER_TYPE & kINQUIRY_Page83_AssociationMask ) >> 4 );
+		number = OSNumber::withNumber ( association, 8 );
+		if ( number != NULL )
 		{
 			
-			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdAssociation, numString );
-			numString->release ( );
-			numString = NULL;
+			idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdAssociation, number );
+			number->release ( );
+			number = NULL;
 			
 		}
-		
-		// Increment length for the header info
-		inqDataCount += 3;
-		
-		// Get the size of the ID
-		idSize = inqData[inqDataCount];
-		
-		// Increment length for the length byte and so
-		// that the index is now at the IDENTIFIER field
-		inqDataCount++;
 		
 		if ( codeSet == kINQUIRY_Page83_CodeSetASCIIData )
 		{
 			
-			OSString *		charString		= NULL;
-			char			idString[255]	= { 0 };
+			OSString *		string 							 = NULL;
+			char			identifier[kMaxInquiryDataBytes] = { 0 };
 			
-			// Add the ASCII bytes to the C string
-			for ( UInt8 i = 0; i < idSize; i++ )
-			{
-				idString[i] = inqData[inqDataCount + i];
-			}
-			
-			charString = OSString::withCString ( idString );
-			if ( charString != NULL )
+			bcopy ( &descriptor->IDENTIFIER, identifier, descriptor->IDENTIFIER_LENGTH );
+						
+			string = OSString::withCString ( identifier );
+			if ( string != NULL )
 			{
 				
-				idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdentifier, charString );
-				charString->release ( );
-				charString = NULL;
+				idDictionary->setObject ( kIOPropertySCSIINQUIRYDeviceIdentifier, string );
+				string->release ( );
+				string = NULL;
 				
 			}
 			
@@ -1281,7 +2606,7 @@ IOSCSITargetDevice::PublishDeviceIdentification ( void )
 			
 			OSData *	idData = NULL;
 			
-			idData = OSData::withBytes ( &inqData[inqDataCount], idSize );
+			idData = OSData::withBytes ( &descriptor->IDENTIFIER, descriptor->IDENTIFIER_LENGTH );
 			if ( idData != NULL )
 			{
 				
@@ -1293,20 +2618,16 @@ IOSCSITargetDevice::PublishDeviceIdentification ( void )
 			
 		}
 		
-		// Increment length for the ID length byte
-		inqDataCount += idSize;
+		STATUS_LOG ( ( "offset = %d\n", offset ) );
 		
-		if ( deviceIDs->ensureCapacity ( deviceIDCount ) == deviceIDCount )
-		{
-			deviceIDs->setObject ( idDictionary );
-		}
+		deviceIDs->setObject ( idDictionary );
 		
 		idDictionary->release ( );
 		idDictionary = NULL;
 		
 	}
 	
-	setProperty ( kIOPropertySCSIINQUIRYDeviceIdentification, deviceIDs );
+	object->setProperty ( kIOPropertySCSIINQUIRYDeviceIdentification, deviceIDs );
 	
 	
 ReleaseDeviceIDs:
@@ -1317,8 +2638,18 @@ ReleaseDeviceIDs:
 	deviceIDs = NULL;
 	
 	
+ReleaseBuffer:
+	
+	
+	require_nonzero_quiet ( buffer, ErrorExit );
+	buffer->release ( );
+	buffer = NULL;
+	
+	
 ErrorExit:
 	
+	
+	STATUS_LOG ( ( "-IOSCSITargetDevice::PublishDeviceIdentification\n" ) );
 	
 	return;
 	

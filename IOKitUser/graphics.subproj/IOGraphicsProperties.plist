@@ -13,6 +13,7 @@
 		<integer>75</integer>
 		<integer>85</integer>
 		<integer>90</integer>
+		<integer>96</integer>
 		<integer>100</integer>
 		<integer>120</integer>
 	</array>
@@ -314,7 +315,7 @@
 			<key>TM</key>
 			<data>
 			AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-			AAAAAAAJY0JgAAAAAAljQmAAAAAACWNCYAAABQAAAAHAAAAAMAAA
+			AAAAAAAJY0JgAAAAAAljQmAAAAAACWNCYAAABQAAAAHAAAAAQAAA
 			AKAAAAQAAAAAMAAAAAEAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAEA
 			AAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 			AAAAAA==
@@ -485,6 +486,28 @@
 			AAAAAA==
 			</data>
 		</dict>
+		<key>570</key>
+		<dict>
+			<key>TM</key>
+			<data>
+			AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAA
+			AAAAAAACAvvwAAAAAAAAAAAAAAAAAAAAAAAAA1AAAADwAAAAEAAA
+			AHAAAAHgAAAAJQAAAAYAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAEA
+			AAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+			AAAAAA==
+			</data>
+		</dict>
+		<key>590</key>
+		<dict>
+			<key>TM</key>
+			<data>
+			AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAA
+			AAAAAAAFGKBgAAAAAAAAAAAAAAAAAAAAAAAABVAAAAGwAAAAQAAA
+			AHAAAAMAAAAAGwAAAAMAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAEA
+			AAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+			AAAAAA==
+			</data>
+		</dict>
 	</dict>
 	<key>timing-ids</key>
 	<dict>
@@ -510,6 +533,8 @@
 		<integer>262</integer>
 		<key>1342439509</key>
 		<integer>268</integer>
+		<key>1426260028</key>
+		<integer>590</integer>
 		<key>1677983820</key>
 		<integer>500</integer>
 		<key>1678028860</key>
@@ -566,6 +591,8 @@
 		<integer>188</integer>
 		<key>872575051</key>
 		<integer>170</integer>
+		<key>889315388</key>
+		<integer>570</integer>
 	</dict>
 </dict>
 </plist>

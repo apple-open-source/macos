@@ -1281,6 +1281,10 @@ void DocumentImpl::close()
         // Always do a layout after loading if needed.
         if (renderer() && (!renderer()->firstChild() || renderer()->needsLayout()))
             view()->layout();
+#if APPLE_CHANGES
+        if (renderer() && KWQAccObjectCache::accessibilityEnabled())
+            getOrCreateAccObjectCache()->postNotification(renderer(), "AXLoadComplete");
+#endif
     }
 }
 

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -111,23 +108,29 @@ bool PowerMac7_2_SlotFanCtrlLoop::updateMetaState( void )
 	}
 }
 
-/*
-const OSNumber *PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
+ControlValue PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 {
 	SInt32 dRaw, rRaw;
 	SInt64 accum, dProd, rProd, pProd;
 	//UInt32 result, prevResult, scratch;
 	SInt32 result;
-	UInt32 uResult;
+	UInt32 newTarget;
 	samplePoint * latest;
-	const OSNumber * newTarget;
+        IORegistryEntry *nvdaRegEntry;
+
+        //handle NV40 card, set PCI Slot Fan to a constant 3000RPM
+        if (((nvdaRegEntry = IORegistryEntry::fromPath("/pci/NVDA,Parent@10", gIODTPlane, 0, 0, 0)) != NULL) &&
+            (nvdaRegEntry -> getProperty("consume-ADC-power") != NULL) ) {
+       		CTRLLOOP_DLOG("NV40 present\n");
+                newTarget = 78;
+                return(newTarget);
+        }
 
 	// if there is an output override, use it
 	if (overrideActive)
 	{
 		CTRLLOOP_DLOG("*** PID *** Override Active\n");
-		newTarget = outputOverride;
-		newTarget->retain();
+		newTarget = outputOverride->unsigned32BitValue();
 	}
 
 	// apply the PID algorithm to choose a new control target value
@@ -170,40 +173,52 @@ const OSNumber *PowerMac7_2_SlotFanCtrlLoop::calculateNewTarget( void ) const
 			result = (SInt32)accum;
 		}
 
-		uResult = (UInt32)(result > 0) ? result : 0;
+		newTarget = (UInt32)(result > 0) ? result : 0;
 
 		// apply the hard limits
-		if (uResult < outputMin)
-			uResult = outputMin;
-		else if (uResult > outputMax)
-			uResult = outputMax;
+		if (newTarget < outputMin)
+			newTarget = outputMin;
+		else if (newTarget > outputMax)
+			newTarget = outputMax;
 
-
+/*
 #ifdef CTRLLOOP_DEBUG
 	if (timerCallbackActive)
 	{
 		const OSString * tempDesc;
 #endif
 		CTRLLOOP_DLOG("%s"
-		              " rRaw=%08lX"
+		              " G_p=%08lX"
+					  " G_d=%08lX"
 					  " G_r=%08lX"
-					  " rProd=%016llX"
+					  " T_cur=%08lX"
 					  " Res=%016llX"
-					  " Out=%lu\n",
+					  " Out=%lu"
+		              " T_err=%08lX"
+					  " pProd=%016llX"
+		              " dRaw=%08lX"
+					  " dProd=%016llX"
+					  " rRaw=%08lX"
+					  " rProd=%016llX",
 						(tempDesc = OSDynamicCast( OSString, infoDict->getObject(kIOPPluginThermalGenericDescKey))) != NULL ?
 								tempDesc->getCStringNoCopy() : "Unknown CtrlLoop",
-					  rRaw,
+					  G_p,
+					  G_d,
 					  G_r,
-					  rProd,
+					  latest->sample.sensValue,
 					  accum,
-					  uResult );
+					  uResult,
+					  (latest->error.sensValue),
+					  (pProd),
+					  (dRaw),
+					  (dProd),
+					  (rRaw),
+					  (rProd) );
 #ifdef CTRLLOOP_DEBUG
 	}
 #endif
-
-		newTarget = OSNumber::withNumber( uResult, 32 );
+*/
 	}
 
 	return(newTarget);
 }
-*/

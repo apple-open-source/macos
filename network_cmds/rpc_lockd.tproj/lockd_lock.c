@@ -65,11 +65,6 @@
 #define MAXBUFFERSIZE 1024
 
 /*
- * SM_MAXSTRLEN is usually 1024.  This means that lock requests and
- * host name monitoring entries are *MUCH* larger than they should be
- */
-
-/*
  * A set of utilities for managing file locking
  *
  * XXX: All locks are in a linked list, a better structure should be used
@@ -83,13 +78,11 @@ struct file_lock {
 	struct sockaddr *addr;
 	struct nlm4_holder client; /* lock holder */
 	u_int64_t granted_cookie;
-	char client_name[SM_MAXSTRLEN];
 	int nsm_status; /* status from the remote lock manager */
 	int status; /* lock status, see below */
 	int flags; /* lock flags, see lockd_lock.h */
 	int blocking; /* blocking lock or not */
-	pid_t locker; /* pid of the child process trying to get the lock */
-	int fd;	/* file descriptor for this lock */
+	char client_name[SM_MAXSTRLEN];	/* client_name is really variable length and must be last! */
 };
 
 LIST_HEAD(nfslocklist_head, file_lock);
@@ -102,9 +95,9 @@ struct blockedlocklist_head blockedlocklist_head = LIST_HEAD_INITIALIZER(blocked
 struct file_share {
 	LIST_ENTRY(file_share) nfssharelist;
 	netobj oh; /* share holder */
-	char client_name[SM_MAXSTRLEN];
 	short mode;
 	short access;
+	char client_name[SM_MAXSTRLEN]; /* name is really variable length and must be last! */
 };
 LIST_HEAD(nfssharelist_head, file_share);
 
@@ -129,9 +122,10 @@ struct nfssharefilelist_head nfssharefilelist_head = LIST_HEAD_INITIALIZER(nfssh
 /* struct describing a monitored host */
 struct host {
 	TAILQ_ENTRY(host) hostlst;
-	char name[SM_MAXSTRLEN];
 	int refcnt;
 	time_t lastuse;
+	struct sockaddr addr;
+	char name[SM_MAXSTRLEN]; /* name is really variable length and must be last! */
 };
 /* list of hosts we monitor */
 TAILQ_HEAD(hostlst_head, host);
@@ -187,17 +181,17 @@ int send_granted(struct file_lock *fl, int opcode);
 void siglock(void);
 void sigunlock(void);
 void destroy_lock_host(struct host *ihp);
-void monitor_lock_host(const char *hostname);
-void unmonitor_lock_host(const char *hostname);
+static void monitor_lock_host(const char *hostname, const struct sockaddr *addr);
 
 void	copy_nlm4_lock_to_nlm4_holder(const struct nlm4_lock *src,
     const bool_t exclusive, struct nlm4_holder *dest);
 struct file_lock *	allocate_file_lock(const netobj *lockowner,
-    const netobj *filehandle);
+    const netobj *filehandle, const struct sockaddr *addr,
+    const char *caller_name);
 void	deallocate_file_lock(struct file_lock *fl);
 void	fill_file_lock(struct file_lock *fl,
-    struct sockaddr *addr, const bool_t exclusive, const int32_t svid,
-    const u_int64_t offset, const u_int64_t len, const char *caller_name,
+    const bool_t exclusive, const int32_t svid,
+    const u_int64_t offset, const u_int64_t len,
     const int state, const int status, const int flags, const int blocking);
 int	regions_overlap(const u_int64_t start1, const u_int64_t len1,
     const u_int64_t start2, const u_int64_t len2);;
@@ -397,20 +391,40 @@ copy_nlm4_lock_to_nlm4_holder(src, exclusive, dest)
 }
 
 
+size_t
+strnlen(const char *s, size_t len)
+{
+    size_t n;
+
+    for (n = 0;  s[n] != 0 && n < len; n++)
+        ;
+    return n;
+}
+
 /*
  * allocate_file_lock: Create a lock with the given parameters
  */
 
 struct file_lock *
-allocate_file_lock(const netobj *lockowner, const netobj *filehandle)
+allocate_file_lock(const netobj *lockowner, const netobj *filehandle,
+		   const struct sockaddr *addr, const char *caller_name)
 {
 	struct file_lock *newfl;
+	size_t n;
 
-	newfl = malloc(sizeof(struct file_lock));
+	/* Beware of rubbish input! */
+	n = strnlen(caller_name, SM_MAXSTRLEN);
+	if (n == SM_MAXSTRLEN) {
+		return NULL;
+	}
+
+	newfl = malloc(sizeof(*newfl) - sizeof(newfl->client_name) + n + 1);
 	if (newfl == NULL) {
 		return NULL;
 	}
-	bzero(newfl, sizeof(newfl));
+	bzero(newfl, sizeof(*newfl) - sizeof(newfl->client_name));
+	memcpy(newfl->client_name, caller_name, n);
+	newfl->client_name[n] = 0;
 
 	newfl->client.oh.n_bytes = malloc(lockowner->n_len);
 	if (newfl->client.oh.n_bytes == NULL) {
@@ -429,6 +443,14 @@ allocate_file_lock(const netobj *lockowner, const netobj *filehandle)
 	newfl->filehandle.n_len = filehandle->n_len;
 	bcopy(filehandle->n_bytes, newfl->filehandle.n_bytes, filehandle->n_len);
 
+	newfl->addr = malloc(addr->sa_len);
+	if (newfl->addr == NULL) {
+		free(newfl->client.oh.n_bytes);
+		free(newfl);
+		return NULL;
+	}
+	memcpy(newfl->addr, addr, addr->sa_len);
+
 	return newfl;
 }
 
@@ -437,18 +459,14 @@ allocate_file_lock(const netobj *lockowner, const netobj *filehandle)
  */
 void
 fill_file_lock(struct file_lock *fl,
-    struct sockaddr *addr, const bool_t exclusive, const int32_t svid,
-    const u_int64_t offset, const u_int64_t len, const char *caller_name,
+    const bool_t exclusive, const int32_t svid,
+    const u_int64_t offset, const u_int64_t len,
     const int state, const int status, const int flags, const int blocking)
 {
-	fl->addr = addr;
-
 	fl->client.exclusive = exclusive;
 	fl->client.svid = svid;
 	fl->client.l_offset = offset;
 	fl->client.l_len = len;
-
-	strncpy(fl->client_name, caller_name, SM_MAXSTRLEN);
 
 	fl->nsm_status = state;
 	fl->status = status;
@@ -462,6 +480,7 @@ fill_file_lock(struct file_lock *fl,
 void
 deallocate_file_lock(struct file_lock *fl)
 {
+	free(fl->addr);
 	free(fl->client.oh.n_bytes);
 	free(fl->filehandle.n_bytes);
 	free(fl);
@@ -948,22 +967,21 @@ split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
 	    &start1, &len1, &start2, &len2);
 
 	if ((spstatus & SPL_LOCK1) != 0) {
-		*left_lock = allocate_file_lock(&exist_lock->client.oh, &exist_lock->filehandle);
+		*left_lock = allocate_file_lock(&exist_lock->client.oh, &exist_lock->filehandle, exist_lock->addr, exist_lock->client_name);
 		if (*left_lock == NULL) {
 			debuglog("Unable to allocate resource for split 1\n");
 			return SPL_RESERR;
 		}
 
 		fill_file_lock(*left_lock,
-		    exist_lock->addr,
 		    exist_lock->client.exclusive, exist_lock->client.svid,
 		    start1, len1,
-		    exist_lock->client_name, exist_lock->nsm_status,
+		    exist_lock->nsm_status,
 		    exist_lock->status, exist_lock->flags, exist_lock->blocking);
 	}
 
 	if ((spstatus & SPL_LOCK2) != 0) {
-		*right_lock = allocate_file_lock(&exist_lock->client.oh, &exist_lock->filehandle);
+		*right_lock = allocate_file_lock(&exist_lock->client.oh, &exist_lock->filehandle, exist_lock->addr, exist_lock->client_name);
 		if (*right_lock == NULL) {
 			debuglog("Unable to allocate resource for split 1\n");
 			if (*left_lock != NULL) {
@@ -973,10 +991,9 @@ split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
 		}
 
 		fill_file_lock(*right_lock,
-		    exist_lock->addr,
 		    exist_lock->client.exclusive, exist_lock->client.svid,
 		    start2, len2,
-		    exist_lock->client_name, exist_lock->nsm_status,
+		    exist_lock->nsm_status,
 		    exist_lock->status, exist_lock->flags, exist_lock->blocking);
 	}
 
@@ -1002,7 +1019,7 @@ unlock_nfslock(fl, released_lock, left_lock, right_lock)
 
 	retval = NFS_DENIED_NOLOCK;
 
-	printf("Attempting to match lock...\n");
+	debuglog("Attempting to match lock...\n");
 	mfl = get_lock_matching_unlock(fl);
 
 	if (mfl != NULL) {
@@ -1091,7 +1108,7 @@ lock_hwlock(struct file_lock *fl)
 		return (HW_RESERR);
 	}
 	nmf->filehandle.n_bytes = malloc(fl->filehandle.n_len);
-	if (nmf == NULL) {
+	if (nmf->filehandle.n_bytes == NULL) {
 		debuglog("hwlock resource allocation failure\n");
 		free(nmf);
 		return (HW_RESERR);
@@ -1102,6 +1119,7 @@ lock_hwlock(struct file_lock *fl)
 	if (nmf->fd < 0) {
 		debuglog("fhopen failed (from %16s): %32s\n",
 		    fl->client_name, strerror(errno));
+		free(nmf->filehandle.n_bytes);
 		free(nmf);
 		switch (errno) {
 		case ESTALE:
@@ -1128,6 +1146,7 @@ lock_hwlock(struct file_lock *fl)
 		debuglog("flock failed (from %16s): %32s\n",
 		    fl->client_name, strerror(errno));
 		close(nmf->fd);
+		free(nmf->filehandle.n_bytes);
 		free(nmf);
 		switch (errno) {
 		case EAGAIN:
@@ -1185,6 +1204,7 @@ unlock_hwlock(const struct file_lock *fl)
 	if (imf->refcount <= 0) {
 		close(imf->fd);
 		LIST_REMOVE(imf, monfilelist);
+		free(imf->filehandle.n_bytes);
 		free(imf);
 	}
 	debuglog("Exiting unlock_hwlock (HW_GRANTED)\n");
@@ -1463,7 +1483,7 @@ lock_partialfilelock(struct file_lock *fl)
 				retval = PFL_GRANTED;
 			}
 			if (fl->flags & LOCK_MON)
-				monitor_lock_host(fl->client_name);
+				monitor_lock_host_by_name(fl->client_name);
 			break;
 		case HW_RESERR:
 			debuglog("HW RESERR\n");
@@ -1505,12 +1525,17 @@ lock_partialfilelock(struct file_lock *fl)
 	if (retval == PFL_NFSDENIED || retval == PFL_HWDENIED) {
 		/* Once last chance to check the lock */
 		if (fl->blocking == 1) {
-			/* Queue the lock */
-			debuglog("BLOCKING LOCK RECEIVED\n");
-			retval = (retval == PFL_NFSDENIED ?
-			    PFL_NFSBLOCKED : PFL_HWBLOCKED);
-			add_blockingfilelock(fl);
-			dump_filelock(fl);
+			if (retval == PFL_NFSDENIED) {
+				/* Queue the lock */
+				debuglog("BLOCKING LOCK RECEIVED\n");
+				retval = PFL_NFSBLOCKED;
+				add_blockingfilelock(fl);
+				dump_filelock(fl);
+			} else {
+				/* retval is okay as PFL_HWDENIED */
+				debuglog("BLOCKING LOCK DENIED IN HARDWARE\n");
+				dump_filelock(fl);
+			}
 		} else {
 			/* Leave retval alone, it's already correct */
 			debuglog("Lock denied.  Non-blocking failure\n");
@@ -1585,7 +1610,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 				debuglog("HW duplicate lock failure for left split\n");
 			}
 			if (lfl->flags & LOCK_MON)
-				monitor_lock_host(lfl->client_name);
+				monitor_lock_host_by_name(lfl->client_name);
 		}
 
 		if (rfl != NULL) {
@@ -1595,7 +1620,7 @@ unlock_partialfilelock(const struct file_lock *fl)
 				debuglog("HW duplicate lock failure for right split\n");
 			}
 			if (rfl->flags & LOCK_MON)
-				monitor_lock_host(rfl->client_name);
+				monitor_lock_host_by_name(rfl->client_name);
 		}
 
 		switch (unlstatus) {
@@ -2003,7 +2028,9 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 		    nlm4_denied_grace_period : nlm_denied_grace_period;
 
 	/* allocate new file_lock for this request */
-	newfl = allocate_file_lock(&lckarg->alock.oh, &lckarg->alock.fh);
+	newfl = allocate_file_lock(&lckarg->alock.oh, &lckarg->alock.fh,
+				   (struct sockaddr *)svc_getcaller(rqstp->rq_xprt),
+				   lckarg->alock.caller_name);
 	if (newfl == NULL) {
 		syslog(LOG_NOTICE, "lock allocate failed: %s", strerror(errno));
 		/* failed */
@@ -2017,10 +2044,9 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 	}
 
 	fill_file_lock(newfl,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt),
 	    lckarg->exclusive, lckarg->alock.svid, lckarg->alock.l_offset,
 	    lckarg->alock.l_len,
-	    lckarg->alock.caller_name, lckarg->state, 0, flags, lckarg->block);
+	    lckarg->state, 0, flags, lckarg->block);
 	
 	/*
 	 * newfl is now fully constructed and deallocate_file_lock
@@ -2152,7 +2178,7 @@ cancellock(nlm4_cancargs *args, const int flags __unused)
 /*
  * XXX: The following monitor/unmonitor routines 
  * have not been extensively tested (ie. no regression
- * script exists like for the locking sections
+ * script exists like for the locking sections)
  */
 
 /*
@@ -2163,24 +2189,38 @@ cancellock(nlm4_cancargs *args, const int flags __unused)
  *    enqueue it at the front of the "in use" queue.
  */
 struct host *
-get_lock_host(struct hostlst_head *hd, const char *hostname)
+get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockaddr *saddr)
 {
 	struct host *ihp;
 
-	debuglog("get_lock_host %s\n", hostname);
+	if (!hostname && !saddr)
+		return (NULL);
+
+	debuglog("get_lock_host %s\n", hostname ? hostname : "addr");
 	TAILQ_FOREACH(ihp, hd, hostlst) {
-		if (strncmp(hostname, ihp->name, SM_MAXSTRLEN) == 0) {
-			TAILQ_REMOVE(hd, ihp, hostlst);
-			/* Host is already monitored, bump refcount */
+		if (hostname && (strncmp(hostname, ihp->name, SM_MAXSTRLEN) != 0))
+			continue;
+		if (saddr && addrcmp(saddr, &ihp->addr))
+			continue;
+		TAILQ_REMOVE(hd, ihp, hostlst);
+		/*
+		 * Host is already monitored, so just bump the
+		 * reference count.  But don't bump the reference
+		 * count if we're adding additional client-side
+		 * references.  Client-side monitors are done by
+		 * address, are never unmonitored, and should only
+		 * take one refcount.  Otherwise, repeated calls
+		 * could cause the refcount to wrap.
+		 */
+		if (!saddr || !ihp->addr.sa_len)
 			++ihp->refcnt;
-			ihp->lastuse = currsec;
-			/* Host should only be in the monitor list once */
-			TAILQ_INSERT_HEAD(&hostlst_head, ihp, hostlst);
-			break;
-		}
+		ihp->lastuse = currsec;
+		/* Host should only be in the monitor list once */
+		TAILQ_INSERT_HEAD(&hostlst_head, ihp, hostlst);
+		break;
 	}
 	debuglog("get_lock_host %s %s\n",
-	    ihp == NULL ? "did not find" : "found", hostname);
+	    ihp == NULL ? "did not find" : "found", hostname ? hostname : "addr");
 	return (ihp);
 }
 
@@ -2189,39 +2229,89 @@ get_lock_host(struct hostlst_head *hd, const char *hostname)
  * inform statd
  */
 void
-monitor_lock_host(const char *hostname)
+monitor_lock_host_by_name(const char *hostname)
 {
-	struct host *ihp, *nhp;
-	struct mon smon;
-	struct sm_stat_res sres;
-	int rpcret, statflag;
-
-	rpcret = 0;
-	statflag = 0;
+	struct host *ihp;
 
 	debuglog("monitor_lock_host: %s\n", hostname);
-	ihp = get_lock_host(&hostlst_head, hostname);
+	ihp = get_lock_host(&hostlst_head, hostname, NULL);
 	if (ihp == NULL)
-		ihp = get_lock_host(&hostlst_unref, hostname);
+		ihp = get_lock_host(&hostlst_unref, hostname, NULL);
 	if (ihp != NULL) {
 		debuglog("Monitor_lock_host: %s (cached)\n", hostname);
 		return;
 	}
 
-	debuglog("Monitor_lock_host: %s (not found, creating)\n", hostname);
-	/* Host is not yet monitored, add it */
-	nhp = malloc(sizeof(struct host));
+	monitor_lock_host(hostname, NULL);
+}
 
+void
+monitor_lock_host_by_addr(const struct sockaddr *saddr)
+{
+	struct host *ihp;
+	struct hostent *hp;
+	char hostaddr[SM_MAXSTRLEN];
+	struct sockaddr_in *sin = (struct sockaddr_in *)saddr;
+
+	if (getnameinfo(saddr, saddr->sa_len, hostaddr, sizeof(hostaddr),
+			NULL, 0, NI_NUMERICHOST)) {
+		debuglog("monitor_lock_host: bad address\n");
+		return;
+	}
+	debuglog("monitor_lock_host: %s\n", hostaddr);
+	ihp = get_lock_host(&hostlst_head, NULL, saddr);
+	if (ihp == NULL)
+		ihp = get_lock_host(&hostlst_unref, NULL, saddr);
+	if (ihp != NULL) {
+		debuglog("Monitor_lock_host: %s (cached)\n", ihp->name);
+		return;
+	}
+
+	hp = gethostbyaddr((char*)&sin->sin_addr, sizeof(sin->sin_addr), AF_INET);
+	if (hp) {
+		monitor_lock_host(hp->h_name, saddr);
+	} else {
+		// herror(hostaddr);
+		monitor_lock_host(hostaddr, saddr);
+	}
+}
+
+static void
+monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
+{
+	struct host *nhp;
+	struct mon smon;
+	struct sm_stat_res sres;
+	int rpcret, statflag;
+	size_t n;
+
+	rpcret = 0;
+	statflag = 0;
+
+	/* Host is not yet monitored, add it */
+	debuglog("Monitor_lock_host: %s (creating)\n", hostname);
+	n = strnlen(hostname, SM_MAXSTRLEN);
+	if (n == SM_MAXSTRLEN) {
+		debuglog("monitor_lock_host: hostname too long\n");
+		return;
+	}
+	nhp = malloc(sizeof(*nhp) - sizeof(nhp->name) + n + 1);
 	if (nhp == NULL) {
 		debuglog("Unable to allocate entry for statd mon\n");
 		return;
 	}
 
 	/* Allocated new host entry, now fill the fields */
-	strncpy(nhp->name, hostname, SM_MAXSTRLEN);
+	memcpy(nhp->name, hostname, n);
+	nhp->name[n] = 0;
 	nhp->refcnt = 1;
 	nhp->lastuse = currsec;
-	debuglog("Locally Monitoring host %16s\n",hostname);
+	if (saddr) {
+		bcopy(saddr, &nhp->addr, saddr->sa_len);
+	} else {
+		nhp->addr.sa_len = 0;
+	}
+	debuglog("Locally Monitoring host '%s'\n", hostname);
 
 	debuglog("Attempting to tell statd\n");
 
@@ -2267,7 +2357,7 @@ unmonitor_lock_host(const char *hostname)
 
 	TAILQ_FOREACH(ihp, &hostlst_head, hostlst) {
 		if (strncmp(hostname, ihp->name, SM_MAXSTRLEN) == 0) {
-			/* Host is monitored, bump refcount */
+			/* Host is unmonitored, drop refcount */
 			--ihp->refcnt;
 			/* Host should only be in the monitor list once */
 			break;
@@ -2514,6 +2604,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int flags)
 {
 	struct sharefile *shrfile;
 	struct file_share *sh;
+	size_t n;
 
 	debuglog("Entering getshare...\n");
 
@@ -2592,7 +2683,13 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int flags)
 	}
 
 	/* create/init new share */
-	sh = malloc(sizeof(struct file_share));
+	n = strnlen(shrarg->share.caller_name, SM_MAXSTRLEN);
+	if (n < SM_MAXSTRLEN) {
+		sh = malloc(sizeof(*sh) - sizeof(sh->client_name) + n + 1);
+	} else {
+		debuglog("getshare failed: hostname too long\n");
+		sh = NULL;
+	}
 	if (!sh) {
 		debuglog("getshare failed: can't allocate share\n");
 		if (!shrfile->refcount) {
@@ -2603,6 +2700,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int flags)
 		}
 		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
 	}
+	bzero(sh, sizeof(*sh) - sizeof(sh->client_name));
 	sh->oh.n_len = shrarg->share.oh.n_len;
 	sh->oh.n_bytes = malloc(sh->oh.n_len);
 	if (!sh->oh.n_bytes) {
@@ -2616,7 +2714,8 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp, const int flags)
 		}
 		return (flags & LOCK_V4) ? nlm4_failed : nlm_denied;
 	}
-	strncpy(sh->client_name, shrarg->share.caller_name, SM_MAXSTRLEN);
+	memcpy(sh->client_name, shrarg->share.caller_name, n);
+	sh->client_name[n] = 0;
 	sh->mode = shrarg->share.mode;
 	sh->access = shrarg->share.access;
 

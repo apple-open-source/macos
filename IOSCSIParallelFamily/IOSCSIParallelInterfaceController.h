@@ -73,7 +73,7 @@
 // supports the specified SCSIParallelFeature or false if it does not.
 typedef enum SCSIParallelFeature
 {
-	// The selector for support of Wide Data Transfers.  Only Wide16 is support 
+	// The selector for support of Wide Data Transfers.  Only Wide16 is supported 
 	// as Wide32 has been obsoleted by the SPI-3 specification.
 	kSCSIParallelFeature_WideDataTransfer 					= 0,
 	
@@ -167,7 +167,19 @@ enum
 // Notifications
 enum
 {
-	kSCSIControllerNotificationBusReset			= 0x68000000
+	kSCSIControllerNotificationBusReset			= 0x68000000,
+	kSCSIControllerNotificationPortStatus		= 0x68000001
+};
+
+
+// Port status
+typedef UInt32 SPIPortStatus;
+
+enum
+{
+	kSPIPortStatus_Online	= 0,	// Port is online
+	kSPIPortStatus_Offline	= 1,	// Port is offline (e.g. unplugged cable)
+	kSPIPortStatus_Failure	= 2		// Driver has detected unrecoverable port failure (e.g. hardware port failure)
 };
 
 // Forward declaration for the internally used Parallel Device object.
@@ -377,10 +389,39 @@ protected:
 		This method must be used to perform SCSI Parallel Device creation and 
 		cannot be overridden.
 		@param  targetID SCSIDeviceIdentifier of desired targetID.
-		@result returns true if successful
+		@result returns true if successful.
 	*/
 	
 	bool	CreateTargetForID ( SCSIDeviceIdentifier targetID );
+	
+	 /*!
+		@function CreateTargetForID
+		@abstract Method to perform device creation.
+		@discussion	For HBA child classes that report true to the
+		DoesHBAPerformDeviceManagement method, the child class will be
+		responsible for all device management by using these methods;
+		otherwise, the superclass will be responsible for all device management.
+		This method must be used to perform SCSI Parallel Device creation and
+		cannot be overridden.
+		@param  targetID SCSIDeviceIdentifier of desired targetID.
+		@param	properties A dictionary of properties to associate with the device
+				upon creation. The list of valid property keys is as follows:
+				kIOPropertyFibreChannelNodeWorldWideNameKey,
+				kIOPropertyFibreChannelPortWorldWideNameKey,
+				kIOPropertyFibreChannelAddressIdentifierKey, and
+				kIOPropertyFibreChannelALPAKey.
+				These keys are defined in
+				<IOKit/storage/IOStorageProtocolCharacteristics.h> and the values
+				associated with these keys must be of the proper type/size,
+				or the target creation will not succeed.
+		NB: Correct FibreChannel multipathing requires the kIOPropertyFibreChannelNodeWorldWideNameKey
+		property be passed in and this method used to create the target device. The other keys
+		are optional upon creation and may be added later using SetTargetProperty().
+		@result returns true if successful.
+	*/
+	
+	bool	CreateTargetForID ( SCSIDeviceIdentifier 	targetID,
+								OSDictionary * 			properties );
 	
 	 /*!
 		@function DestroyTargetForID
@@ -398,7 +439,7 @@ protected:
 	
 	/*!
 		@function GetTargetForID
-		@abstract Accessor for Getting pointer to IOSCSIParallelInterfaceDevice.
+		@abstract Accessor for getting pointer to IOSCSIParallelInterfaceDevice.
 		@param targetID SCSIDeviceIdentifier of desired targetID.
 		@result returns pointer to IOSCSIParallelInterfaceDevice or NULL if not 
 		found.
@@ -407,7 +448,75 @@ protected:
 	IOSCSIParallelInterfaceDevice *	GetTargetForID ( 
 							SCSIDeviceIdentifier 		targetID ); 
 	
-	// ---- Methods to retrieve the HBA specifics. ----
+	/*!
+		@function SetTargetProperty
+		@abstract Accessor for setting a property for a specific target.
+		@param device A pointer to a valid IOSCSIParallelInterfaceDevice.
+		@param key A pointer to a valid OSString object which represents the key.
+		A list of valid keys includes:
+			kIOPropertyFibreChannelNodeWorldWideNameKey,
+			kIOPropertyFibreChannelPortWorldWideNameKey,
+			kIOPropertyFibreChannelAddressIdentifierKey, and
+			kIOPropertyFibreChannelALPAKey.
+		NB: These keys and their values are described in <IOKit/storage/IOStorageProtocolCharacteristics.h>
+		@param value Pointer to an OSObject (one of type OSData, OSString, etc.)
+		which represents the value for the property. The value must be of the proper type
+		and size for the specified key.
+		@result returns true if identifier was properly set, otherwise false. 
+	*/
+	
+	bool	SetTargetProperty ( SCSIDeviceIdentifier 		targetID,
+								const char *		 		key,
+								OSObject *					value );
+
+	/*!
+		@function RemoveTargetProperty
+		@abstract Accessor for removing a property from a specific target.
+		@param device A pointer to a valid IOSCSIParallelInterfaceDevice.
+		@param key A pointer to a valid OSString object which represents the key.
+	*/
+	
+	void	RemoveTargetProperty ( SCSIDeviceIdentifier 		targetID,
+								   const char *		 			key );
+	
+	// ---- Methods for HBA specifics. ----
+	
+	/*!
+		@function SetHBAProperty
+		@abstract Accessor for setting a property for this object.
+		@param key A pointer to a valid OSString object which represents the key.
+		A list of valid keys includes:
+			kIOPropertyVendorNameKey,
+			kIOPropertyProductNameKey,
+			kIOPropertyProductRevisionLevelKey,
+			kIOPropertyPortDescriptionKey,
+			kIOPropertyPortSpeedKey,
+			kIOPropertyPortTopologyKey,
+			kIOPropertySCSIParallelSignalingTypeKey,
+			kIOPropertyFibreChannelCableDescriptionKey,
+			kIOPropertyFibreChannelNodeWorldWideNameKey,
+			kIOPropertyFibreChannelPortWorldWideNameKey,
+			kIOPropertyFibreChannelAddressIdentifierKey, and
+			kIOPropertyFibreChannelALPAKey.
+		NB: These keys and their values are described in <IOKit/storage/IOStorageDeviceCharacteristics.h>
+		and <IOKit/storage/IOStorageProtocolCharacteristics.h>
+		@param value Pointer to an OSObject (one of type OSData, OSString, etc.)
+		which represents the value for the property. The value must be of the proper type,
+		and size for the specified key.
+		@result returns true if identifier was properly set, otherwise false. 
+	*/
+	
+	bool	SetHBAProperty ( const char *	key,
+							 OSObject *	 	value );
+
+	/*!
+		@function RemoveHBAProperty
+		@abstract Accessor for removing a property for this object.
+		@param key A pointer to a valid OSString object which represents the key.
+		See the SetHBAProperty() method for a list of valid keys.
+	*/
+	
+	void	RemoveHBAProperty ( const char * key );
 	
 	// These methods will not be called before the InitializeController call,
 	// and will not be called after the TerminateController call.  But in the
@@ -610,7 +719,7 @@ protected:
 		NOTE: This method should only be called from within the
 		FilterInterruptRequest() method and at no other time.
 		
-		Available in 10.3.XXX or later.
+		Available in 10.3.3 or later.
 		
 	*/
 	
@@ -692,6 +801,24 @@ protected:
 	*/
 	
 	void	NotifyClientsOfBusReset ( void );
+	
+	/*!
+		@function NotifyClientsOfPortStatusChange
+		@abstract Method called to notify clients of port status change events.
+		@discussion This method is used by the HBA child class to inform the 
+		parent class and any clients that a port has changed status.
+	*/
+	
+	void	NotifyClientsOfPortStatusChange ( SPIPortStatus newStatus );
+	
+	/*!
+		@function GetSCSIDomainIdentifier
+		@abstract Accessor method to get the SCSI Domain Identifier.
+		@discussion Accessor method to get the SCSI Domain Identifier.
+		@result returns SCSI Domain Identifier.
+	*/
+	
+	SInt32	GetSCSIDomainIdentifier ( void );
 	
 	/*!
 		@function GetProvider

@@ -1,3 +1,356 @@
+=== WebCore-125.8.6 ===
+
+2004-08-05  Vicki Murley  <vicki@apple.com>
+
+	- merge this fix from HEAD for SUPanMoccasin
+
+    2004-08-05  David Hyatt  <hyatt@apple.com>
+
+        Fix for 3752542, stack overflow that crashes Safari at www.dr.dk.  This bug is a regression caused by a fix that
+        attempted to repair <caption> behavior to make it behave like Panther.  This fix was incorrect, and in addition
+        even our <caption> behavior on Panther was incorrect.
+
+        The patch that fixes this bug also makes <caption> handling work when <caption>s are contained inside a <td>, a <tr>,
+        a <th>, or various table section tags (<tbody>, <tfoot>, <thead>).  The <caption> is pulled out and inserted just before
+        the relevant ancestor table section.  This behavior matches other browsers.
+        
+        Reviewed by mjs
+
+        * khtml/html/htmlparser.cpp:
+        (KHTMLParser::insertNode):
+
+=== WebCore-125.8.5 === new versioning for the SUPanXpress, WebCore-125.8.5.  The change for 3534851 has to be backed out of the Security Update too.
+
+=== WebCore-125.8.4 === versioning for SUPanMoccasin, WebCore-125.8.4
+
+2004-08-05  Vicki Murley  <vicki@apple.com>
+
+	- roll out this chang for SUPanMoccasin, since it causes 3751025
+
+    2004-06-18  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Darin
+        
+        - fixed <rdar://problem/3534851> Pop up windows not showing up within SAP's 
+        BW Module (changing location.href on new window created by window.open)
+
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::scheduleRedirection):
+        allow new redirect to win if delay <= current delay, not just <
+
+=== WebCore-125.8.3 === versioning for SUPanXpress, WebCore-125.8.3
+
+=== WebCore-125.8.2 === versioning for SUPanMoccasin, WebCore-125.8.2
+
+2004-07-29  Maciej Stachowiak  <mjs@apple.com>
+
+	Rolled in the change below from HEAD to fix this SU bug:
+
+	<rdar://problem/3745334> *SUPanMoccasin* Seed: WebKit: Table's caption broken
+	
+    2004-07-29  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	<rdar://problem/3745808> Seed: WebKit: Table's caption broken
+	
+        * khtml/html/htmlparser.cpp:
+        (KHTMLParser::insertNode): When a caption appears in an illegal
+	place in a table, pop blocks until we hit a place where it's
+	allowed.
+
+=== WebCore-125.8.1 ===
+
+2004-07-23  Vicki Murley  <vicki@apple.com>
+
+	- roll this change back to the branch for the Security Update
+
+    2004-07-09  Chris Blumenberg  <cblu@apple.com>
+
+        Allowed my change for 3715785 to compile on Jaguar.
+
+        Reviewed by kocienda.
+
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge domain]): new, allows access to the domain without using the DOM API which doesn't exist on Jaguar
+
+=== WebCore-125.8 ===
+
+2004-07-17  Vicki Murley  <vicki@apple.com>
+
+	Roll this Security Update change out for the next SUPanMoccasin 
+	submission. Security Update changes can't be included in Software
+	Updates. 
+
+    2004-07-09  Chris Blumenberg  <cblu@apple.com>
+
+        Allowed my change for 3715785 to compile on Jaguar.
+
+        Reviewed by kocienda.
+
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge domain]): new, allows access to the domain without using the DOM API which doesn't exist on Jaguar
+
+2004-07-16  Adele Amchan <adele@apple.com>
+
+        Reviewed by vicki.
+ 
+ 	- merge these changes from HEAD for SUPanMoccasin, 3730021       
+
+    2004-07-06  Ken Kocienda  <kocienda@apple.com>
+
+        Reviewed by me
+
+        * khtml/html/html_tableimpl.cpp:
+        (HTMLTableElementImpl::addChild): Added a better comment in the
+        code I just checked in a few minutes ago.
+
+    2004-07-06  Ken Kocienda  <kocienda@apple.com>
+
+        Reviewed by Hyatt
+        
+        Fix for this bug:
+        
+        <rdar://problem/3672377> assertion failure in AppendNodeCommandImpl::doApply 
+        due to non-0 exception code trying to insert a DIV markup string
+        
+        The solution was to revert to the code that was rolled out, and removing
+        the child checks from NodeImpl::checkAddChild. However, this time, I added
+        code very similar to this check into the code that runs while HTML is 
+        being parsed to build up tables. This code relies on child-add failure
+        to ensure the proper construction of well-formed tables (as gross as that
+        sounds), so the check needs to be retained there. No other code seems to
+        be so affected. Layout tests are unchanged by this patch.
+
+        * khtml/html/html_tableimpl.cpp:
+        (HTMLTableElementImpl::addChild):
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::checkAddChild):
+
+2004-07-16  Adele Amchan <adele@apple.com>
+
+        Reviewed by vicki.
+
+	- merge this change from HEAD for SUPanMoccasin, 3730017
+
+    2004-07-14  David Hyatt  <hyatt@apple.com>
+
+        Fix for 3595073, setting innerHTML on a <table> should work.
+        
+        Reviewed by rjw
+
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::createContextualFragment):
+
+=== WebCore-125.7.1 ===
+
+2004-07-09  Vicki Murley  <vicki@apple.com>
+
+	- merge this fix from HEAD so that July Security Update will compile on Jaguar
+
+    2004-07-09  Chris Blumenberg  <cblu@apple.com>
+
+        Allowed my change for 3715785 to compile on Jaguar.
+
+        Reviewed by kocienda.
+
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (-[WebCoreBridge domain]): new, allows access to the domain without using the DOM API which doesn't exist on Jaguar
+
+=== WebCore-125.7 ===
+
+2004-06-24  Vicki Murley  <vicki@apple.com>
+
+	- fix a build error that cropped up from the merge for the radio button fix, 3673762
+
+        * khtml/html/html_formimpl.cpp:
+        (HTMLInputElementImpl::parseAttribute):
+        (HTMLInputElementImpl::reset):
+
+2004-06-24  Vicki Murley  <vicki@apple.com>
+
+	- merge this change from HEAD for SUPanMoccasin, 3704509
+
+    2004-06-02  David Hyatt  <hyatt@apple.com>
+
+        Fix for 3673931, negative margins on objects that dodge floats not handled correctly.
+        
+        Reviewed by darin
+
+        * khtml/rendering/render_block.cpp:
+        (khtml::RenderBlock::layoutBlockChildren):
+
+2004-06-24  Vicki Murley  <vicki@apple.com>
+
+	- merge this change from HEAD for SUPanMoccasin, 3703230
+
+    2004-06-18  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Darin
+        
+        - fixed <rdar://problem/3534851> Pop up windows not showing up within SAP's 
+        BW Module (changing location.href on new window created by window.open)
+
+        * khtml/khtml_part.cpp:
+        (KHTMLPart::scheduleRedirection):
+        allow new redirect to win if delay <= current delay, not just <
+
+2004-06-24  Vicki Murley  <vicki@apple.com>
+
+	- merge this change from HEAD for SUPanMoccasin, 3673762
+
+    2004-05-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej.
+
+        - fixed <rdar://problem/3575385>: (multiple radio buttons checked when arriving at sites (poll at www.1170kfaq.com, many others))
+
+        * khtml/html/html_formimpl.cpp:
+        (HTMLInputElementImpl::parseHTMLAttribute): Use setChecked to set the default value if we are still in
+        "use default checked" mode. That way, other radio buttons will be unchecked properly and the proper
+        changed methods will be dispatched.
+        (HTMLInputElementImpl::reset): Ditto.
+        * khtml/html/html_formimpl.h: (DOM::HTMLInputElementImpl::checked): Changed to just return m_checked.
+        The m_useDefaultChecked flag is now only really looked at when you parse a checked attribute; that's
+        because m_checked and m_defaultChecked are kept equal as long as m_useDefaultChecked is true.
+
+=== WebCore-125.6.8 ===
+
+2004-05-20  Maciej Stachowiak  <mjs@apple.com>
+
+	Even more Epiphhany changes.
+
+    2004-05-19  David Hyatt  <hyatt@apple.com>
+	
+	Implement support for notification posting to accessibility clients for layouts and loads.
+
+	* khtml/khtmlview.cpp:
+	(KHTMLView::layout):
+	 khtml/xml/dom_docimpl.cpp:
+	(DocumentImpl::close):
+	* kwq/KWQAccObjectCache.h:
+	(KWQAccObjectCache::enableAccessibility):
+	(KWQAccObjectCache::accessibilityEnabled):
+	* kwq/KWQAccObjectCache.mm:
+	(KWQAccObjectCache::accObject):
+	(KWQAccObjectCache::setAccObject):
+	(KWQAccObjectCache::removeAccObject):
+	(KWQAccObjectCache::detach):
+	(KWQAccObjectCache::childrenChanged):
+	(KWQAccObjectCache::postNotification):
+	* kwq/WebCoreBridge.mm:
+	(-[WebCoreBridge accessibilityTree]):
+
+2004-05-19  Maciej Stachowiak  <mjs@apple.com>
+
+	Merged more Epiphany changes.
+	
+    2004-05-18  David Hyatt  <hyatt@apple.com>
+
+	Add two new attributes for accessibility that can be polled by the screen reader.  AXLayoutCount indicates
+	the number of layouts that have occurred, and AXLoaded indicates whether or not a page has finished loading.
+	
+        * khtml/khtmlview.cpp:
+        (KHTMLViewPrivate::reset):
+        (KHTMLView::layoutCount):
+        (KHTMLView::layout):
+        * khtml/khtmlview.h:
+        * kwq/KWQAccObject.mm:
+        (-[KWQAccObject roleDescription]):
+        (-[KWQAccObject accessibilityAttributeNames]):
+        (-[KWQAccObject accessibilityAttributeValue:]):
+
+    2004-05-18  David Hyatt  <hyatt@apple.com>
+
+	Fix crash when retrieving the AXHelp text.
+	
+        * kwq/KWQAccObject.mm:
+        (-[KWQAccObject helpText]):
+
+=== WebCore-125.6.7 ===
+
+2004-05-16  Maciej Stachowiak  <mjs@apple.com>
+
+        More build breakage in last change, needed to merge this unrelated
+	change from HEAD.
+
+        * khtml/rendering/render_list.h:
+        (khtml::RenderListMarker::text):
+
+=== WebCore-125.6.6 ===
+
+2004-05-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Fix build bustage in last change, merge did not work in older tree.
+
+        * khtml/rendering/render_image.cpp:
+        (RenderImage::imageMap):
+
+=== WebCore-125.6.5 ===
+
+2004-05-14  Maciej Stachowiak  <mjs@apple.com>
+
+	Merge Dave's changes for Epiphany.
+
+    2004-04-29  David Hyatt  <hyatt@apple.com>
+
+	Expose summary on tables.
+	
+	Reviewed by darin
+
+	* kwq/KWQAccObject.mm:
+	(-[KWQAccObject helpText]):
+
+    2004-04-29  David Hyatt  <hyatt@apple.com>
+
+	Implement image maps for accessibility.
+	        
+	Reviewed by darin
+
+	* khtml/html/html_imageimpl.cpp:
+	(HTMLAreaElementImpl::getRect):
+	* khtml/html/html_imageimpl.h:
+	* khtml/rendering/render_image.cpp:
+	(RenderImage::imageMap):
+	(RenderImage::nodeAtPoint):
+	* khtml/rendering/render_image.h:
+	* kwq/KWQAccObject.h:
+	* kwq/KWQAccObject.mm:
+	(-[KWQAccObject initWithRenderer:]):
+	(-[KWQAccObject anchorElement]):
+	(-[KWQAccObject parentObject]):
+	(-[KWQAccObject parentObjectUnignored]):
+	(-[KWQAccObject addChildrenToArray:]):
+	(-[KWQAccObject role]):
+	(-[KWQAccObject helpText]):
+	(-[KWQAccObject value]):
+	(-[KWQAccObject title]):
+	(-[KWQAccObject position]):
+	(-[KWQAccObject size]):
+	(-[KWQAccObject accessibilityIsIgnored]):
+	(-[KWQAccObject accessibilityAttributeNames]):
+	(-[KWQAccObject accessibilityAttributeValue:]):
+	* kwq/KWQRegion.mm:
+	(QRegion::boundingRect):
+
+    2004-04-29  David Hyatt  <hyatt@apple.com>
+
+	1. Change the role of links from AXButton to AXLink.
+	2. Add support for list markers using a new role, AXListMarker.
+	 
+	Reviewed by kocienda
+
+	* khtml/rendering/render_list.h:
+	(khtml::RenderListMarker::text):
+	* kwq/KWQAccObject.mm:
+	(-[KWQAccObject role]):
+	(-[KWQAccObject roleDescription]):
+	(-[KWQAccObject value]):
+	(-[KWQAccObject accessibilityIsIgnored]):
+
 === WebCore-125.6.4 ===
 
 2004-04-27  Vicki Murley  <vicki@apple.com>

@@ -16,6 +16,7 @@ class AppleOnboardAudio;
 
 // Structure Definitions:
 //
+
 typedef enum HardwarePluginType {
 	kCodec_Unknown = 0,
 	kCodec_TAS3004,
@@ -23,7 +24,6 @@ typedef enum HardwarePluginType {
 	kCodec_CS8420,
 	kCodec_CS8416
 } ;
-
 //
 // HardwarePlugin State 
 //	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
@@ -67,7 +67,8 @@ class AppleOnboardAudioUserClient : public IOUserClient
 			kDMASelector,									// DMA format and status
 			kSoftwareProcessingSelector,					// Software processing state 
 			kAppleOnboardAudioSelector,						// Target AppleOnboardAudio (behavior)
-			kTransportInterfaceSelector						// Target Transport Interface instance (sample rate, bit depth, clock source)
+			kTransportInterfaceSelector,					// Target Transport Interface instance (sample rate, bit depth, clock source)
+			kRealTimeCPUUsage
 		} AOAUserClientSelection;
 
 //		static const UInt32 kUserClientStateStructSize;

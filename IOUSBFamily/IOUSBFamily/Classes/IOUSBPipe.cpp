@@ -672,7 +672,11 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     _correctStatus = 0;
     err = _controller->ClearPipeStall(_address, &_endpoint);
 
-    if(!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
+    if (_device->_speed == kUSBDeviceSpeedHigh)
+    {
+	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
+    }
+    else if(!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
     {
 	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
 	// Now, we need to tell our parent to issue a port reset to our port.  Our parent is an IOUSBDevice
@@ -682,11 +686,11 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	//
 	if( (_device != NULL) && (_device->_expansionData->_usbPlaneParent ) )
 	{
-	IOUSBHubPortClearTTParam params;
-	UInt8 	 deviceAddress;  //<<0
-	UInt8	 endpointNum;    //<<8
-	UInt8 	 endpointType;	 //<<16 // As split transaction. 00 Control, 10 Bulk
-	UInt8 	 in;		 //<<24 // Direction, 1 = IN, 0 = OUT};
+	    IOUSBHubPortClearTTParam params;
+	    UInt8 	 deviceAddress;  //<<0
+	    UInt8	 endpointNum;    //<<8
+	    UInt8 	 endpointType;	 //<<16 // As split transaction. 00 Control, 10 Bulk
+	    UInt8 	 in;		 //<<24 // Direction, 1 = IN, 0 = OUT};
 	
 	    params.portNumber = _device->_expansionData->_portNumber;
 	    deviceAddress = _device->_address;
@@ -698,7 +702,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	    }
 	    else
 	    {
-		endpointType = 2;	// As split transaction. 00 Control, 10 Bulk
+		endpointType = 2;		// As split transaction. 00 Control, 10 Bulk
 		if(_endpoint.direction == kUSBIn)
 		{
 		    in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
@@ -718,7 +722,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     }
     else
     {
-	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err:%lx)",this, err);
+	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err:%p)",this, err);
     }
     
     if (!err && withDeviceRequest)

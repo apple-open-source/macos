@@ -75,6 +75,10 @@ arp_session_set_debug(arp_session_t * session, int debug);
 /**
  ** arp client functions
  **/
+void
+arp_client_set_probes_are_collisions(arp_client_t * client, 
+				     boolean_t probes_are_collisions);
+
 arp_client_t *
 arp_client_init(arp_session_t * session, interface_t * if_p);
 

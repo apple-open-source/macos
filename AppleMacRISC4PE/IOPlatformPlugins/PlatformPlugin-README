@@ -1,5 +1,8 @@
 
 $Log: PlatformPlugin-README,v $
+Revision 1.6  2004/06/07 21:28:48  eem
+Dummy checkin to test commit email messages.
+
 Revision 1.5  2003/10/11 00:18:26  eem
 Added comments, reorganized code for clarity/readability.
 
@@ -25,6 +28,7 @@ This document is intended to describe and otherwise provide information useful t
 programmers who write and maintain Platform Plugins for use in MacRISC4-based
 platforms.  This will be a constantly evolving body of work so if something in
 this document is incorrect or incomplete, please update it!
+
 
 --------------------------------------------------------------------------------
 What is the Platform Plugin?

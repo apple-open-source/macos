@@ -41,7 +41,6 @@
 #import "AuthoringDeviceTester.h"
 
 #import <string.h>
-#import <mach/mach_error.h>
 #import <libkern/OSByteOrder.h>
 #import <IOKit/IOTypes.h>
 #import <IOKit/IOCFPlugIn.h>
@@ -224,7 +223,7 @@ ErrorExit:
 									sizeof ( inqBuffer ),
 									&taskStatus,
 									&senseBuffer );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "Inquiry failed err = 0x%08x\n", err ) );
 	
 	[ [ self parentDoc ] appendLogText:
 		[ NSString stringWithFormat: @"taskStatus = %d (%@)\n", taskStatus,
@@ -288,7 +287,7 @@ ErrorExit:
 	
 	// Issue a TEST_UNIT_READY through the non-exclusive MMCDeviceInterface
 	err = ( *interface )->TestUnitReady ( interface, &taskStatus, &senseBuffer );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "TestUnitReady failed err = 0x%08x\n", err ) );
 	
 	[ [ self parentDoc ] appendLogText:
 		[ NSString stringWithFormat: @"taskStatus = %d (%@)\n", taskStatus,
@@ -340,7 +339,7 @@ ErrorExit:
 										kModeSenseParameterHeaderSize,
 										&taskStatus,
 										&senseData );
-	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), ErrorExit, printf ( "ModeSense10 failed err = 0x%08x\n", err ) );
 
 	[ [ self parentDoc ] appendLogText:
 		[ NSString stringWithFormat: @"taskStatus = %d (%@)\n", taskStatus,
@@ -369,7 +368,7 @@ ErrorExit:
 										size,
 										&taskStatus,
 										&senseData );
-	require_action ( ( err == kIOReturnSuccess ), FreeBuffer, printf ( mach_error_string ( err ) ) );
+	require_action ( ( err == kIOReturnSuccess ), FreeBuffer, printf ( "ModeSense10 failed err = 0x%08x\n", err ) );
 	
 	[ [ self parentDoc ] appendLogText:
 		[ NSString stringWithFormat: @"taskStatus = %d (%@)\n", taskStatus,
@@ -954,7 +953,7 @@ ErrorExit:
 												 &senseData );
 	require_action ( ( err == kIOReturnSuccess ),
 					 ErrorExit,
-					 NSLog ( [ NSString stringWithFormat: @"%s", mach_error_string ( err ) ] ) );
+					 NSLog ( [ NSString stringWithFormat: @"ReadFormatCapacities failed err = 0x%08x", err ] ) );
 	
 	[ [ self parentDoc ] appendLogText:
 		[ NSString stringWithFormat: @"taskStatus = %d (%@)\n", taskStatus,

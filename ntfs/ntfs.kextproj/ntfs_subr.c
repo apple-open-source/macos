@@ -675,15 +675,15 @@ ntfs_runtovrun(
 	       u_long * rcntp,
 	       u_int8_t * run)	/* Raw info from disk filerec */
 {
-	u_int32_t       off;
-	u_int32_t       sz, i;
-	cn_t           *cn;	/* Starting cluster numbers of each run */
-	cn_t           *cl;	/* Length (in clusters) of each run */
+	u_int32_t	off;
+	u_int32_t	sz, i;
+	cn_t		*cn;	/* Starting cluster numbers of each run */
+	cn_t		*cl;	/* Length (in clusters) of each run */
 	u_long		cnt;	/* Count or runs, index into cn[] and cl[] */
 	cn_t		prev;
 	cn_t		tmp;
 
-        /* Count the number of runs and allocate space for storing them in memory */
+	/* Count the number of runs and allocate space for storing them in memory */
 	off = 0;
 	cnt = 0;
 	i = 0;
@@ -694,39 +694,36 @@ ntfs_runtovrun(
 	MALLOC(cn, cn_t *, cnt * sizeof(cn_t), M_NTFSRUN, M_WAITOK);
 	MALLOC(cl, cn_t *, cnt * sizeof(cn_t), M_NTFSRUN, M_WAITOK);
 
-        /* Go back over the compacted run list and expand the offsets/lengths */
+	/* Go back over the compacted run list and expand the offsets/lengths */
 	off = 0;	/* First run is always absolute (relative to cluster #0) */
 	cnt = 0;
 	prev = 0;
 	while (run[off]) {
 
-                /*
-                 * Each run is a variable-length structure.  The first
-                 * byte is broken into two nibbles.  The lower nibble
-                 * contains the number of bytes used to hold the run
-                 * length.  The upper nibble contains the number of
-                 * bytes used to hold the run offset.
-                 *
-                 * After that first length byte (two nibbles) comes
-                 * the length of the run as an unsigned value.  Then
-                 * comes the run start, which is a signed value interpretted
-                 * relative to the start of the previous run.
-                 */
+		/*
+		 * Each run is a variable-length structure.  The first
+		 * byte is broken into two nibbles.  The lower nibble
+		 * contains the number of bytes used to hold the run
+		 * length.  The upper nibble contains the number of
+		 * bytes used to hold the run offset.
+		 *
+		 * After that first length byte (two nibbles) comes
+		 * the length of the run as an unsigned value.	Then
+		 * comes the run start, which is a signed value interpretted
+		 * relative to the start of the previous run.
+		 */
 		sz = run[off++];	/* Get the sizes */
 
-                /* Gather the bytes of the run length */
+		/* Gather the bytes of the run length */
 		cl[cnt] = 0;
 
 		for (i = 0; i < (sz & 0xF); i++)
 			cl[cnt] += (u_int32_t) run[off++] << (i << 3);
 
-                /* Gather the bytes of the run start (offset) */
+		/* Gather the bytes of the run start (offset) */
 		sz >>= 4;	/* May become zero here. */
-		if (run[off + sz - 1] & 0x80) {
-                        /*¥¥ This could be wrong if sz==0. */
-                        if (sz==0)
-                            panic("ntfs_runtovrun: sparse run offset incorrect");
-                        /* Offset is negative; sign extend. */
+		if (sz && run[off + sz - 1] & 0x80) {
+			/* Offset is negative; sign extend. */
 			tmp = ((u_int64_t) - 1) << (sz << 3);
 			for (i = 0; i < sz; i++)
 				tmp |= (u_int64_t) run[off++] << (i << 3);
@@ -735,19 +732,19 @@ ntfs_runtovrun(
 			for (i = 0; i < sz; i++)
 				tmp |= (u_int64_t) run[off++] << (i << 3);
 		}
-                /* Might it be better to test sz instead of tmp? */
+		/* Might it be better to test sz instead of tmp? */
 		if (tmp) {
-                        /* Non-sparse, so add offset to previous run's start */
+			/* Non-sparse, so add offset to previous run's start */
 			prev = cn[cnt] = prev + tmp;
 		} else {
-                        /* Zero offset means sparse.  Store zero as starting block. */
+			/* Zero offset means sparse.  Store zero as starting block. */
 			cn[cnt] = 0;
-                }
-                
+		}
+		
 		cnt++;
 	}
-        
-        /* Return the start and length arrays, and their size */
+	
+	/* Return the start and length arrays, and their size */
 	*rcnp = cn;
 	*rclp = cl;
 	*rcntp = cnt;
@@ -1250,7 +1247,7 @@ ntfs_ntreaddir(
 	if (fp->f_dirblbuf == NULL) {
 		fp->f_dirblsz = le32toh(vap->va_a_iroot->ir_size);
 		MALLOC(fp->f_dirblbuf, caddr_t,
-		       max(vap->va_datalen,fp->f_dirblsz), M_NTFSDIR, M_WAITOK);
+		       MAX(vap->va_datalen,fp->f_dirblsz), M_NTFSDIR, M_WAITOK);
 	}
 
 	blsize = fp->f_dirblsz;
@@ -1518,7 +1515,7 @@ ntfs_writeattr_plain(
 					ntfs_btocn(off), &vap);
 		if (error)
 			return (error);
-		towrite = min(left, ntfs_cntob(vap->va_vcnend + 1) - off);
+		towrite = MIN(left, ntfs_cntob(vap->va_vcnend + 1) - off);
 		ddprintf(("ntfs_writeattr_plain: o: %d, s: %d (%d - %d)\n",
 			 (u_int32_t) off, (u_int32_t) towrite,
 			 (u_int32_t) vap->va_vcnstart,
@@ -1564,7 +1561,7 @@ ntfs_writentvattr_plain(
 	struct uio *uio)
 {
 	int             error = 0;
-	int             off;
+	off_t           off;
 	int             cnt;
 	cn_t            ccn, ccl, cn, left, cl;
 	caddr_t         data = rdata;
@@ -1608,8 +1605,8 @@ ntfs_writentvattr_plain(
 		off = ntfs_btocnoff(off);
 
 		while (left && ccl) {
-			tocopy = min(left,
-				  min(ntfs_cntob(ccl) - off, MAXBSIZE - off));
+			tocopy = MIN(left,
+				  MIN(ntfs_cntob(ccl) - off, MAXBSIZE - off));
 			cl = ntfs_btocl(tocopy + off);
 			ddprintf(("ntfs_writentvattr_plain: write: " \
 				"cn: 0x%x cl: %d, off: %d len: %d, left: %d\n",
@@ -1678,7 +1675,7 @@ ntfs_readntvattr_plain(
 	struct uio *uio)
 {
 	int             error = 0;
-	int             off;
+	off_t           off;
 
 	*initp = 0;
 	if (vap->va_flag & NTFS_AF_INRUN) {
@@ -1710,7 +1707,7 @@ ntfs_readntvattr_plain(
 				 (u_int32_t) left, (u_int32_t) ccn, \
 				 (u_int32_t) ccl, (u_int32_t) off));
 
-			if (ntfs_cntob(ccl) < off) {
+			if (ntfs_cntob(ccl) <= off) {
                                 /* current run is entirely before start of range; skip it */
 				off -= ntfs_cntob(ccl);
 				cnt++;
@@ -1724,8 +1721,8 @@ ntfs_readntvattr_plain(
 
                                 /*¥¥ Could this be improved with cluster I/O? */
 				while (left && ccl) {
-					tocopy = min(left,
-						  min(ntfs_cntob(ccl) - off,
+					tocopy = MIN(left,
+						  MIN(ntfs_cntob(ccl) - off,
 						      MAXBSIZE - off));
 					cl = ntfs_btocl(tocopy + off);	/* Number of clusters to read */
 					ddprintf(("ntfs_readntvattr_plain: " \
@@ -1763,7 +1760,7 @@ ntfs_readntvattr_plain(
 				}
 			} else {
                                 /* Current run is sparse; zero fill buffer */
-				tocopy = min(left, ntfs_cntob(ccl) - off);
+				tocopy = MIN(left, ntfs_cntob(ccl) - off);
 				ddprintf(("ntfs_readntvattr_plain: "
 					"hole: ccn: 0x%x ccl: %d, off: %d, " \
 					" len: %d, left: %d\n", 
@@ -1829,7 +1826,8 @@ ntfs_readattr_plain(
 					ntfs_btocn(off), &vap);
 		if (error)
 			return (error);
-		toread = min(left, ntfs_cntob(vap->va_vcnend + 1) - off);
+
+		toread = MIN(left, ntfs_cntob(vap->va_vcnend + 1) - off);
 		ddprintf(("ntfs_readattr_plain: o: %d, s: %d (%d - %d)\n",
 			 (u_int32_t) off, (u_int32_t) toread,
 			 (u_int32_t) vap->va_vcnstart,
@@ -1894,31 +1892,38 @@ ntfs_readattr(
 		u_int8_t       *uup;	/* buffer for uncompressed data */
 		off_t           off = roff, left = rsize, tocopy;
 		caddr_t         data = rdata;
-		cn_t            cn;
+		cn_t            cn;		/* Offset in terms of compression units */
+		size_t			comp_unit_size;		/* Bytes per compression unit */
 
+		comp_unit_size = (ntmp->ntm_bps * ntmp->ntm_spc) << vap->va_compressalg;
+		
 		ddprintf(("ntfs_ntreadattr: compression: %d\n",
 			 vap->va_compressalg));
 
-		MALLOC(cup, u_int8_t *, ntfs_cntob(NTFS_COMPUNIT_CL),
-		       M_NTFSDECOMP, M_WAITOK);
-		MALLOC(uup, u_int8_t *, ntfs_cntob(NTFS_COMPUNIT_CL),
-		       M_NTFSDECOMP, M_WAITOK);
+		MALLOC(cup, u_int8_t *, comp_unit_size, M_NTFSDECOMP, M_WAITOK);
+		if (rdata && rsize == comp_unit_size && (roff % comp_unit_size) == 0)
+			uup = rdata;		/* Decompress straight into caller's buffer */
+		else
+			MALLOC(uup, u_int8_t *, comp_unit_size, M_NTFSDECOMP, M_WAITOK);
 
-		cn = (ntfs_btocn(roff)) & (~(NTFS_COMPUNIT_CL - 1));
+		/*
+		 * Determine cluster number of start of compression unit,
+		 * and byte offset within that compression unit.
+		 */
+		cn = ntfs_btocn(roff) & ~((1 << vap->va_compressalg) - 1);
 		off = roff - ntfs_cntob(cn);
 
 		while (left) {
                         /* Read the raw data into our buffer */
 			error = ntfs_readattr_plain(ntmp, ip, attrnum,
 						  attrname, ntfs_cntob(cn),
-					          ntfs_cntob(NTFS_COMPUNIT_CL),
-						  cup, &init, NULL);
+					      comp_unit_size, cup, &init, NULL);
 			if (error)
 				break;
 
-			tocopy = min(left, ntfs_cntob(NTFS_COMPUNIT_CL) - off);
+			tocopy = MIN(left, comp_unit_size - off);
 
-			if (init == ntfs_cntob(NTFS_COMPUNIT_CL)) {
+			if (init == comp_unit_size) {
                                 /*
                                  * The size on disk is an entire compression unit,
                                  * which means this chunk isn't actually compressed.
@@ -1934,32 +1939,32 @@ ntfs_readattr(
                                  * sparse (all zeroes).
                                  */
 				if (uio) {
-                                        /*¥¥ There must be a better way to uiomove all zeroes... */
-                                        /*¥¥ Hasn't cup already been zero filled? */
-					size_t remains = tocopy;
-					for(; remains; remains--)
-						uiomove("", 1, uio);
+					/* Zero out tocopy bytes and uimove them. */
+					/* I wish there was a uizero() call. */
+					bzero(uup, tocopy);
+					uiomove(uup, tocopy, uio);
 				}
 				else
 					bzero(data, tocopy);
 			} else {
                                 /* Uncompress one chunk and move the uncompressed data */
-				error = ntfs_uncompunit(ntmp, uup, cup);
+				error = ntfs_uncompunit(ntmp, uup, cup, comp_unit_size);
 				if (error)
 					break;
 				if (uio)
 					uiomove(uup + off, tocopy, uio);
-				else
+				else if (data != uup)
 					memcpy(data, uup + off, tocopy);
 			}
 
 			left -= tocopy;
 			data = data + tocopy;
-			off += tocopy - ntfs_cntob(NTFS_COMPUNIT_CL);
-			cn += NTFS_COMPUNIT_CL;
+			off += tocopy - comp_unit_size;
+			cn += 1 << vap->va_compressalg;
 		}
 
-		FREE(uup, M_NTFSDECOMP);
+		if (rdata != uup)
+			FREE(uup, M_NTFSDECOMP);
 		FREE(cup, M_NTFSDECOMP);
 	} else
 		error = ntfs_readattr_plain(ntmp, ip, attrnum, attrname,

@@ -633,7 +633,7 @@ sInt32 CLDAPv3Plugin::Initialize ( void )
 					int serverIndex = 1;
 					while( ParseNextDHCPLDAPServerString(&server, &searchBase, &portNumber, &bIsSSL, serverIndex) )
 					{
-						sInt32 resultAddingDHCPLDAP = pConfigFromXML->MakeServerBasedMappingsLDAPConfig( server, searchBase, 15, 2, 120, 120, portNumber, bIsSSL, true);
+						sInt32 resultAddingDHCPLDAP = pConfigFromXML->MakeServerBasedMappingsLDAPConfig( server, searchBase, 15, 2, 120, 120, portNumber, bIsSSL, true, true);
 
 						if (resultAddingDHCPLDAP == eDSNoErr)
 						{

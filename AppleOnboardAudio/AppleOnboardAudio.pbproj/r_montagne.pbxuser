@@ -20,40 +20,44 @@
 	};
 	089C1669FE841209C02AAC07 = {
 		activeBuildStyle = 06AA1266FFB2107B11CA28AA;
-		activeTarget = 4D81053D03F4396500CD2599;
+		activeTarget = F5A720E803FD6B9501CD2541;
 		addToTargets = (
 			F5A720E803FD6B9501CD2541,
 		);
 		breakpoints = (
 		);
 		perUserDictionary = {
-			PBXPerProjectTemplateStateSaveDate = 100138126;
+			PBXPerProjectTemplateStateSaveDate = 100484930;
 			PBXWorkspaceContents = (
 				{
 					LeftSlideOut = {
 						Split0 = {
 							Split0 = {
 								NavContent0 = {
-									bookmark = 8EC3C42405F7E4790041C4A0;
+									bookmark = 8E47465205FD475000CA6B4D;
 									history = (
-										8EC3C41905F7E4790041C4A0,
-										8EC3C41A05F7E4790041C4A0,
-										8EC3C41B05F7E4790041C4A0,
-										8EC3C41C05F7E4790041C4A0,
-										8EC3C41D05F7E4790041C4A0,
-										8EC3C41E05F7E4790041C4A0,
+										8EC1275105E2DB1B00E1BE8B,
+										8E8C2FC005F64F3F009754A2,
+										8E8C2FC105F64F3F009754A2,
+										8EE07BA305FD46CF003550E6,
+										8E47465005FD475000CA6B4D,
+										8EE07BA405FD46CF003550E6,
 									);
 									prevStack = (
-										8EC3C41F05F7E4790041C4A0,
-										8EC3C42005F7E4790041C4A0,
-										8EC3C42105F7E4790041C4A0,
-										8EC3C42205F7E4790041C4A0,
-										8EC3C42305F7E4790041C4A0,
+										8EC1275305E2DB1B00E1BE8B,
+										8EC1275405E2DB1B00E1BE8B,
+										8EC1275505E2DB1B00E1BE8B,
+										8E8CC1F205EF8E3500FC9E7F,
+										8E8C2FC305F64F3F009754A2,
+										8E8C2FC405F64F3F009754A2,
+										8EE07BA605FD46CF003550E6,
+										8EE07BA705FD46CF003550E6,
+										8E47465105FD475000CA6B4D,
 									);
 								};
 								NavCount = 1;
 								NavGeometry0 = {
-									Frame = "{{0, 0}, {1131, 871}}";
+									Frame = "{{0, 0}, {972, 883}}";
 									NavBarVisible = YES;
 								};
 								NavSplitVertical = NO;
@@ -86,17 +90,17 @@
 			);
 			PBXWorkspaceGeometries = (
 				{
-					ContentSize = "{1414, 918}";
+					ContentSize = "{1235, 930}";
 					LeftSlideOut = {
-						ActiveTab = 0;
-						ActiveTabName = PBXGroupTreeModule;
+						ActiveTab = 3;
+						ActiveTabName = PBXTargetTreeModule;
 						Collapsed = NO;
-						Frame = "{{0, 23}, {1414, 895}}";
+						Frame = "{{0, 23}, {1235, 907}}";
 						Split0 = {
 							Collapsed = NO;
-							Frame = "{{283, 0}, {1131, 895}}";
+							Frame = "{{263, 0}, {972, 907}}";
 							Split0 = {
-								Frame = "{{0, 24}, {1131, 871}}";
+								Frame = "{{0, 24}, {972, 883}}";
 							};
 							SplitCount = 1;
 							Tab0 = {
@@ -145,10 +149,10 @@
 								};
 							};
 							Tab3 = {
-								BuildMessageFrame = "{{0, 0}, {1152, 233}}";
-								BuildTranscriptFrame = "{{0, 242}, {1152, 0}}";
+								BuildMessageFrame = "{{0, 0}, {973, 233}}";
+								BuildTranscriptFrame = "{{0, 242}, {973, 0}}";
 								BuildTranscriptFrameExpanded = YES;
-								Frame = "{{0, 0}, {1150, 264}}";
+								Frame = "{{0, 0}, {971, 264}}";
 							};
 							Tab4 = {
 								Frame = "{{0, 0}, {883, 295}}";
@@ -158,7 +162,7 @@
 						};
 						SplitCount = 1;
 						Tab0 = {
-							Frame = "{{0, 0}, {259, 895}}";
+							Frame = "{{0, 0}, {259, 907}}";
 							GroupTreeTableConfiguration = (
 								SCMStatusColumn,
 								22,
@@ -189,12 +193,12 @@
 							Frame = "{{0, 0}, {226, 549}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {240, 895}}";
+							Frame = "{{0, 0}, {239, 907}}";
 							TargetTableConfiguration = (
 								ActiveObject,
 								16,
 								ObjectNames,
-								207.296,
+								206.296,
 							);
 						};
 						Tab4 = {
@@ -213,24 +217,28 @@
 					StatusViewVisible = YES;
 					Template = F5F68CF101725D4C0D7A8F4C;
 					ToolbarVisible = YES;
-					WindowLocation = "{199, 34}";
+					WindowLocation = "{92, 27}";
 				},
 			);
-			PBXWorkspaceStateSaveDate = 100138126;
+			PBXWorkspaceStateSaveDate = 100484930;
 		};
 		perUserProjectItems = {
-			8EC3C41905F7E4790041C4A0 = 8EC3C41905F7E4790041C4A0;
-			8EC3C41A05F7E4790041C4A0 = 8EC3C41A05F7E4790041C4A0;
-			8EC3C41B05F7E4790041C4A0 = 8EC3C41B05F7E4790041C4A0;
-			8EC3C41C05F7E4790041C4A0 = 8EC3C41C05F7E4790041C4A0;
-			8EC3C41D05F7E4790041C4A0 = 8EC3C41D05F7E4790041C4A0;
-			8EC3C41E05F7E4790041C4A0 = 8EC3C41E05F7E4790041C4A0;
-			8EC3C41F05F7E4790041C4A0 = 8EC3C41F05F7E4790041C4A0;
-			8EC3C42005F7E4790041C4A0 = 8EC3C42005F7E4790041C4A0;
-			8EC3C42105F7E4790041C4A0 = 8EC3C42105F7E4790041C4A0;
-			8EC3C42205F7E4790041C4A0 = 8EC3C42205F7E4790041C4A0;
-			8EC3C42305F7E4790041C4A0 = 8EC3C42305F7E4790041C4A0;
-			8EC3C42405F7E4790041C4A0 = 8EC3C42405F7E4790041C4A0;
+			8E47465005FD475000CA6B4D = 8E47465005FD475000CA6B4D;
+			8E47465105FD475000CA6B4D = 8E47465105FD475000CA6B4D;
+			8E47465205FD475000CA6B4D = 8E47465205FD475000CA6B4D;
+			8E8C2FC005F64F3F009754A2 = 8E8C2FC005F64F3F009754A2;
+			8E8C2FC105F64F3F009754A2 = 8E8C2FC105F64F3F009754A2;
+			8E8C2FC305F64F3F009754A2 = 8E8C2FC305F64F3F009754A2;
+			8E8C2FC405F64F3F009754A2 = 8E8C2FC405F64F3F009754A2;
+			8E8CC1F205EF8E3500FC9E7F = 8E8CC1F205EF8E3500FC9E7F;
+			8EC1275105E2DB1B00E1BE8B = 8EC1275105E2DB1B00E1BE8B;
+			8EC1275305E2DB1B00E1BE8B = 8EC1275305E2DB1B00E1BE8B;
+			8EC1275405E2DB1B00E1BE8B = 8EC1275405E2DB1B00E1BE8B;
+			8EC1275505E2DB1B00E1BE8B = 8EC1275505E2DB1B00E1BE8B;
+			8EE07BA305FD46CF003550E6 = 8EE07BA305FD46CF003550E6;
+			8EE07BA405FD46CF003550E6 = 8EE07BA405FD46CF003550E6;
+			8EE07BA605FD46CF003550E6 = 8EE07BA605FD46CF003550E6;
+			8EE07BA705FD46CF003550E6 = 8EE07BA705FD46CF003550E6;
 		};
 		projectwideBuildSettings = {
 		};
@@ -255,110 +263,140 @@
 	4DE28F2304058A3500CD2599 = {
 		activeExec = 0;
 	};
+	8E47465005FD475000CA6B4D = {
+		fRef = 010D072FFFFA58D511CE168A;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareConstants.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2784;
+		vrLoc = 0;
+	};
+	8E47465105FD475000CA6B4D = {
+		fRef = 010D072FFFFA58D511CE168A;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareConstants.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 2784;
+		vrLoc = 0;
+	};
+	8E47465205FD475000CA6B4D = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
+		uiCtxt = {
+			TOCViewDetailVisibleRect = "{{0, 0}, {667, 385}}";
+			TOCViewExpandedItems = (
+				"com.apple.target-editor-pane.settings",
+				"com.apple.target-editor-pane.settings.simple",
+				"com.apple.target-editor-pane.info-plist",
+				"com.apple.target-editor-pane.info-plist.simple",
+				"com.apple.target-editor-pane.buildphases",
+			);
+			TOCViewMasterVisibleRect = "{{0, 0}, {266, 829}}";
+			TOCViewSelectedItems = (
+				PBXBSExpertAspectModule,
+			);
+		};
+	};
 	8E7432120537263200A8101D = {
 		activeExec = 0;
 	};
-	8EC3C41905F7E4790041C4A0 = {
+	8E8C2FC005F64F3F009754A2 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	8E8C2FC105F64F3F009754A2 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 5";
+		rLen = 0;
+		rLoc = 165;
+		rType = 0;
+		vrLen = 281;
+		vrLoc = 0;
+	};
+	8E8C2FC305F64F3F009754A2 = {
+		isa = PBXTargetBookmark;
+		trg = 4DE28EFA04055CA300CD2599;
+	};
+	8E8C2FC405F64F3F009754A2 = {
+		fRef = 089C167EFE841241C02AAC07;
+		isa = PBXTextBookmark;
+		name = "English: 5";
+		rLen = 0;
+		rLoc = 165;
+		rType = 0;
+		vrLen = 281;
+		vrLoc = 0;
+	};
+	8E8CC1F205EF8E3500FC9E7F = {
 		isa = PBXTargetBookmark;
 		trg = F5A720E803FD6B9501CD2541;
 	};
-	8EC3C41A05F7E4790041C4A0 = {
-		fRef = 4DEC2BF6041827EF00CD2599;
+	8EC1275105E2DB1B00E1BE8B = {
+		fRef = F5A720ED03FD714C01CD2541;
 		isa = PBXTextBookmark;
-		name = "AudioHardwareObjectInterface.cpp: __GNUC__";
+		name = "AppleOnboardAudio.cpp: 851";
+		rLen = 0;
+		rLoc = 30214;
+		rType = 0;
+		vrLen = 2488;
+		vrLoc = 29059;
+	};
+	8EC1275305E2DB1B00E1BE8B = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: __GNUC__";
 		rLen = 0;
 		rLoc = 0;
 		rType = 0;
-		vrLen = 2422;
+		vrLen = 1838;
 		vrLoc = 0;
 	};
-	8EC3C41B05F7E4790041C4A0 = {
-		fRef = 4DE28EBC0402EF8600CD2599;
-		isa = PBXTextBookmark;
-		name = "AudioHardwareObjectInterface.h: getDefaultInputGain";
-		rLen = 19;
-		rLoc = 2689;
-		rType = 0;
-		vrLen = 2771;
-		vrLoc = 0;
-	};
-	8EC3C41C05F7E4790041C4A0 = {
-		fRef = F5A720ED03FD714C01CD2541;
-		isa = PBXTextBookmark;
-		name = "AppleOnboardAudio.cpp: 2873";
-		rLen = 16;
-		rLoc = 118120;
-		rType = 0;
-		vrLen = 3908;
-		vrLoc = 116495;
-	};
-	8EC3C41D05F7E4790041C4A0 = {
-		fRef = F5A720F303FD71D001CD2541;
-		isa = PBXTextBookmark;
-		name = "AppleTAS3004Audio.h: getDefaultInputGain";
-		rLen = 16;
-		rLoc = 3622;
-		rType = 0;
-		vrLen = 2751;
-		vrLoc = 2209;
-	};
-	8EC3C41E05F7E4790041C4A0 = {
-		fRef = F5A720EF03FD718101CD2541;
-		isa = PBXBookmark;
-	};
-	8EC3C41F05F7E4790041C4A0 = {
+	8EC1275405E2DB1B00E1BE8B = {
 		isa = PBXTargetBookmark;
 		trg = F5A720E803FD6B9501CD2541;
 	};
-	8EC3C42005F7E4790041C4A0 = {
-		fRef = 4DEC2BF6041827EF00CD2599;
-		isa = PBXTextBookmark;
-		name = "AudioHardwareObjectInterface.cpp: __GNUC__";
-		rLen = 0;
-		rLoc = 0;
-		rType = 0;
-		vrLen = 2422;
-		vrLoc = 0;
-	};
-	8EC3C42105F7E4790041C4A0 = {
-		fRef = 4DE28EBC0402EF8600CD2599;
-		isa = PBXTextBookmark;
-		name = "AudioHardwareObjectInterface.h: getDefaultInputGain";
-		rLen = 19;
-		rLoc = 2689;
-		rType = 0;
-		vrLen = 2771;
-		vrLoc = 0;
-	};
-	8EC3C42205F7E4790041C4A0 = {
+	8EC1275505E2DB1B00E1BE8B = {
 		fRef = F5A720ED03FD714C01CD2541;
 		isa = PBXTextBookmark;
-		name = "AppleOnboardAudio.cpp: 2873";
-		rLen = 16;
-		rLoc = 118120;
-		rType = 0;
-		vrLen = 3908;
-		vrLoc = 116495;
-	};
-	8EC3C42305F7E4790041C4A0 = {
-		fRef = F5A720F303FD71D001CD2541;
-		isa = PBXTextBookmark;
-		name = "AppleTAS3004Audio.h: getDefaultInputGain";
-		rLen = 16;
-		rLoc = 3622;
-		rType = 0;
-		vrLen = 2751;
-		vrLoc = 2209;
-	};
-	8EC3C42405F7E4790041C4A0 = {
-		fRef = F5A720EF03FD718101CD2541;
-		isa = PBXTextBookmark;
-		name = "AppleTAS3004Audio.cpp: 496";
+		name = "AppleOnboardAudio.cpp: 851";
 		rLen = 0;
-		rLoc = 19327;
+		rLoc = 30214;
 		rType = 0;
-		vrLen = 2380;
-		vrLoc = 18074;
+		vrLen = 2488;
+		vrLoc = 29059;
+	};
+	8EE07BA305FD46CF003550E6 = {
+		fRef = 4DC9F8F9049E915B00CD2599;
+		isa = PBXTextBookmark;
+		name = "English: 5";
+		rLen = 0;
+		rLoc = 177;
+		rType = 0;
+		vrLen = 293;
+		vrLoc = 0;
+	};
+	8EE07BA405FD46CF003550E6 = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
+	};
+	8EE07BA605FD46CF003550E6 = {
+		fRef = 4DC9F8F9049E915B00CD2599;
+		isa = PBXTextBookmark;
+		name = "English: 5";
+		rLen = 0;
+		rLoc = 177;
+		rType = 0;
+		vrLen = 293;
+		vrLoc = 0;
+	};
+	8EE07BA705FD46CF003550E6 = {
+		isa = PBXTargetBookmark;
+		trg = F5A720E803FD6B9501CD2541;
 	};
 	AD440DB0017FA6A304CE15E3 = {
 		activeExec = 0;

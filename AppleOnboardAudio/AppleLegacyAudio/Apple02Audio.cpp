@@ -855,7 +855,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 			}
 			break;
 		case kIOAudioToggleControlSubTypeMute:
-			if (audioDevice->gVolLeft != 0 && audioDevice->gVolRight != 0) {
+			if (audioDevice->gVolLeft != 0 || audioDevice->gVolRight != 0) {
 				result = audioDevice->outputMuteChange (newValue);
 				if (kIOReturnSuccess == result) {
 					// Have to set this here, because we'll call outputMuteChange just to avoid pops, and we don't want gIsMute set in that case.

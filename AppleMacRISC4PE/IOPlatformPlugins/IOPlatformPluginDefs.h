@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -94,6 +91,7 @@
 
 // Sensor polling period key (optional)
 #define kIOPPluginPollingPeriodKey			"polling-period"
+#define kIOPPluginPollingPeriodNSKey		"polling-period-ns"
 
 // Boolean to flag whether or not a driver has registered as this sensor/control
 #define kIOPPluginRegisteredKey				"registered"
@@ -136,6 +134,10 @@
 // Maximum value -- used in IOPlatformControl as an upper bound for target-value
 // and current-value
 #define kIOPPluginControlMaxValueKey		"max-value"
+
+// Safe value -- maximum safe target-value when the chassis is open (used in
+// IOPlatformControl, IOPlatformPIDCtrlLoop, etc.)
+#define kIOPPluginControlSafeValueKey		"safe-value"
 
 // for interaction with IOHWSensor class
 #define kIOPPluginNoThreshold				-1
@@ -181,6 +183,29 @@
 
 // if a control failed it will be flagged here.  OSArray value.
 #define kIOPPluginEnvControlFailed			"control-failed"
+
+// if a control loop is driving its output control at max, it can set
+// this environment array flag so other control loops know it's maxed
+// out
+#define kIOPPluginEnvCtrlLoopOutputAtMax	"ctrlloop-output-at-max"
+
+// state of the chassis intrusion switch -- depending on the platform, this
+// corresponds to the clamshell switch, or door ajar switch, etc.
+#define kIOPPluginEnvChassisSwitch			"chassis-switch"
+
+// platform flags bitfield defined in at the top level of the thermal
+// profile:
+// Thermal Profile property key
+#define kIOPPluginPlatformFlagsKey			"PlatformFlags"
+// Environment dictionary property key
+#define kIOPPluginEnvPlatformFlags			"platform-flags"
+
+// platform flags bit definitions -- 32-bit field
+enum
+{
+	// [3696669] temporary flag to isolate door-ajar response to PowerMac9,1
+	kIOPPluginFlagEnableSafeModeHack	= 0x00000001
+};
 
 /*
  * Keys for parsing out the thermal profile

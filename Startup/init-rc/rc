@@ -266,6 +266,7 @@ LCACOOKIE="/var/db/.RunLanguageChooserToo"
 STARTLCA="/System/Library/CoreServices/Language Chooser.app/Contents/MacOS/Language Chooser"
 
 if [ -x "$STARTLCA" -a -x "$STARTPBS" -a ! -f "$BUDDYCOOKIE" -a -f "$LCACOOKIE" ]; then
+	SystemStarter -g start Core\ Graphics
 	"$STARTPBS" &
 	pbspid=$!
 	"$STARTLCA"

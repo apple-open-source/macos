@@ -71,6 +71,8 @@ class IOSCSIPeripheralDeviceNub : public IOSCSIProtocolServices
 	
 private:
 	
+	static void		sStripWhitespace ( char * string, UInt32 length );
+	
 	static bool		sCompareIOProperty (
 										IOService *		object,
 										OSDictionary *	table,
@@ -78,7 +80,11 @@ private:
 										bool *			matches );
 	
 	static void		TaskCallback ( SCSITaskIdentifier completedTask );
-
+	void			TaskCompletion ( SCSITaskIdentifier completedTask );
+	
+	static IOReturn	sWaitForTask ( void * object, SCSITask * request );
+	IOReturn		GatedWaitForTask ( SCSITask * request );
+	
 protected:
 
 	SCSIServiceResponse SendTask ( SCSITask * request );
@@ -117,8 +123,6 @@ public:
 	
 	virtual IOReturn	message ( UInt32 type, IOService * nub, void * arg );
 										
-	virtual void		joinPMtree ( IOService * driver );
-	
 	virtual bool		matchPropertyTable ( OSDictionary * table,
 											 SInt32 * score );
 	
@@ -128,19 +132,19 @@ public:
 	
 	// The Task Management function to allow the SCSI Application Layer client to request
 	// that a specific task be aborted.
-	virtual SCSIServiceResponse		AbortTask( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag );
+	virtual SCSIServiceResponse		AbortTask ( UInt8 theLogicalUnit, SCSITaggedTaskIdentifier theTag );
 
 	// The Task Management function to allow the SCSI Application Layer client to request
 	// that a all tasks curerntly in the task set be aborted.
-	virtual SCSIServiceResponse		AbortTaskSet( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		AbortTaskSet ( UInt8 theLogicalUnit );
 
-	virtual SCSIServiceResponse		ClearACA( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		ClearACA ( UInt8 theLogicalUnit );
 
-	virtual SCSIServiceResponse		ClearTaskSet( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		ClearTaskSet ( UInt8 theLogicalUnit );
     
-	virtual SCSIServiceResponse		LogicalUnitReset( UInt8 theLogicalUnit );
+	virtual SCSIServiceResponse		LogicalUnitReset ( UInt8 theLogicalUnit );
 
-	virtual SCSIServiceResponse		TargetReset( void );
+	virtual SCSIServiceResponse		TargetReset ( void );
 
     // ************* Obsoleted Member Routine ****************
     // The AbortCommand method is replaced by the AbortTask Management function and
@@ -191,6 +195,8 @@ public:
 	virtual bool		start	( IOService * provider );
 	
 	virtual void		SetLogicalUnitNumber ( UInt8 newLUN );
+	
+	UInt8				GetLogicalUnitNumber ( void );
 	
 	// The ExecuteCommand method will take a SCSITask object and transport
 	// it across the physical wires to the device

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -259,6 +256,35 @@ IOReturn IOPlatformControl::registerDriver( IOService * driver, const OSDictiona
 					controlDriver->getName());
 		}
 	}
+
+	// Are there min-value, max-value or safe-value keys?
+
+	if ( infoDict->getObject( gIOPPluginControlMinValueKey ) == NULL )
+		{
+		if ( ( ( number = OSDynamicCast( OSNumber, controlDriver->getProperty( gIOPPluginControlMinValueKey ) ) ) != NULL ) ||
+		    ( ( number = OSDynamicCast( OSNumber, dict->getObject( gIOPPluginControlMinValueKey ) ) ) != NULL ) )
+			{
+			infoDict->setObject( gIOPPluginControlMinValueKey, number );
+			}
+		}
+
+	if ( infoDict->getObject( gIOPPluginControlMaxValueKey ) == NULL )
+		{
+		if ( ( ( number = OSDynamicCast( OSNumber, controlDriver->getProperty( gIOPPluginControlMaxValueKey ) ) ) != NULL ) ||
+		    ( ( number = OSDynamicCast( OSNumber, dict->getObject( gIOPPluginControlMaxValueKey ) ) ) != NULL ) )
+			{
+			infoDict->setObject( gIOPPluginControlMaxValueKey, number );
+			}
+		}
+
+	if ( infoDict->getObject( gIOPPluginControlSafeValueKey ) == NULL )
+		{
+		if ( ( ( number = OSDynamicCast( OSNumber, controlDriver->getProperty( gIOPPluginControlSafeValueKey ) ) ) != NULL ) ||
+		    ( ( number = OSDynamicCast( OSNumber, dict->getObject( gIOPPluginControlSafeValueKey ) ) ) != NULL ) )
+			{
+			infoDict->setObject( gIOPPluginControlSafeValueKey, number );
+			}
+		}
 
 	if (getControlLocation() == NULL)
 	{
@@ -540,6 +566,13 @@ ControlValue IOPlatformControl::getControlMaxValue( void )
 	return getValue( gIOPPluginControlMaxValueKey, 0xFFFFFFFF );
 }
 
+ControlValue IOPlatformControl::getControlSafeValue( void )
+{
+	// default value is 0xFFFF because this corresponds to an
+	// "unpopulated" value in the SMU data block
+	return getValue( gIOPPluginControlSafeValueKey, 0xFFFF );
+}
+
 void IOPlatformControl::setControlMinValue( ControlValue min )
 {
 	setValue( gIOPPluginControlMinValueKey, min );
@@ -550,6 +583,11 @@ void IOPlatformControl::setControlMaxValue( ControlValue max )
 	setValue( gIOPPluginControlMaxValueKey, max );
 }
 
+void IOPlatformControl::setControlSafeValue( ControlValue safe )
+{
+	setValue( gIOPPluginControlSafeValueKey, safe );
+}
+
 ControlValue IOPlatformControl::getCurrentValue( void )
 {
 	return getValue( gIOPPluginCurrentValueKey, 0x0 );
@@ -558,6 +596,19 @@ ControlValue IOPlatformControl::getCurrentValue( void )
 void IOPlatformControl::setCurrentValue( ControlValue newValue )
 {
 	setValue( gIOPPluginCurrentValueKey, newValue );
+
+	// notify control loops that the value changed
+	if (ctrlLoops)
+	{
+		IOPlatformCtrlLoop * aCtrlLoop;
+		int index, count;
+		count = ctrlLoops->getCount();
+		for (index = 0; index < count; index++)
+		{
+			if ((aCtrlLoop = OSDynamicCast( IOPlatformCtrlLoop, ctrlLoops->getObject(index) )) != NULL)
+				aCtrlLoop->controlCurrentValueWasSet( this, newValue );
+		}
+	}
 }
 
 ControlValue IOPlatformControl::forceAndFetchCurrentValue( void )
@@ -643,6 +694,19 @@ ControlValue IOPlatformControl::getTargetValue( void )
 void IOPlatformControl::setTargetValue( ControlValue target )
 {
 	setValue( gIOPPluginTargetValueKey, target );
+
+	// notify control loops that the value changed
+	if (ctrlLoops)
+	{
+		IOPlatformCtrlLoop * aCtrlLoop;
+		int index, count;
+		count = ctrlLoops->getCount();
+		for (index = 0; index < count; index++)
+		{
+			if ((aCtrlLoop = OSDynamicCast( IOPlatformCtrlLoop, ctrlLoops->getObject(index) )) != NULL)
+				aCtrlLoop->controlTargetValueWasSet( this, target );
+		}
+	}
 }
 
 IOReturn IOPlatformControl::sendMessage( OSDictionary * msg )
@@ -714,4 +778,9 @@ IOReturn IOPlatformControl::sendForceUpdate( void )
 	forceUpdateDict->release();
 
 	return(status);
+}
+
+IOService *IOPlatformControl::getControlDriver( void )
+{
+	return controlDriver;
 }

@@ -43,6 +43,8 @@
 //083
 //084
 		08FB7793FE84155DC02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				014CEA490018CE3211CA2923,
 				014CEA4A0018CE3211CA2923,
@@ -96,9 +98,9 @@
 //093
 //094
 		09AB6884FE841BABC02AAC07 = {
-			expectedFileType = wrapper.framework;
 			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
@@ -134,9 +136,9 @@
 //833
 //834
 		83D0B6F804D32AD000DCD9D5 = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = AuthoringUnitTestUnixTool.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -148,8 +150,8 @@
 			};
 		};
 		83F62A1B04D37F0100A22E88 = {
-			expectedFileType = wrapper.framework;
 			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
@@ -198,7 +200,7 @@
 				PRODUCT_NAME = AuthoringUnitTestUnixTool;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -256,7 +258,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		8DD76F7E0486A8DE00D96B5E = {
-			expectedFileType = "compiled.mach-o.executable";
+			explicitFileType = "compiled.mach-o.executable";
 			includeInIndex = 0;
 			isa = PBXFileReference;
 			path = AuthoringUnitTestUnixTool;

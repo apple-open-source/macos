@@ -1,0 +1,25 @@
+/* Localized versions of specific keys */
+
+NoControllersFoundTitle = "Error: No SCSI Controllers found.";
+NoControllersFoundText = "No reprobable SCSI Controllers were found in your computer. Please make sure your SCSI Card is seated properly in its slot and is properly terminated. \n\nThis application will now quit.";
+
+GetInfoMenuItemTitle = "Get Info";
+HideInfoMenuItemTitle = "Hide Info";
+GetInfoToolbarItemTitle = "Get Info";
+HideInfoToolbarItemTitle = "Hide Info";
+GetInfoToolbarItemToolTip = "Show Detailed Information";
+HideInfoToolbarItemToolTip = "Hide Detailed Information";
+ShowPrefsToolbarItemTitle = "Preferences";
+ShowPrefsToolbarItemToolTip = "Preferences";
+
+ID = "ID";
+Description = "Description";
+Revision = "Revision";
+Features = "Features";
+PDT = "PDT";
+
+Sync = "Sync";
+Wide = "Wide";
+QAS = "QAS";
+DT = "DT";
+IU = "IU";

@@ -82,6 +82,24 @@ public:
 	virtual IOReturn				setI2SIOMIntControl(UInt32 intCntrl);
 	virtual UInt32					getI2SIOMIntControl();
 	
+	virtual IOReturn				setI2SIOM_CodecMsgOut(UInt32 value);
+	virtual UInt32					getI2SIOM_CodecMsgOut();
+	
+	virtual IOReturn				setI2SIOM_CodecMsgIn(UInt32 value);
+	virtual UInt32					getI2SIOM_CodecMsgIn();
+	
+	virtual IOReturn				setI2SIOM_FrameMatch(UInt32 value);
+	virtual UInt32					getI2SIOM_FrameMatch();
+	
+	virtual IOReturn				setI2SIOM_PeakLevelSel(UInt32 value);
+	virtual UInt32					getI2SIOM_PeakLevelSel();
+	
+	virtual IOReturn				setI2SIOM_PeakLevelIn0(UInt32 value);
+	virtual UInt32					getI2SIOM_PeakLevelIn0();
+	
+	virtual IOReturn				setI2SIOM_PeakLevelIn1(UInt32 value);
+	virtual UInt32					getI2SIOM_PeakLevelIn1();
+	
 	virtual IOReturn				setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue );
 	virtual UInt32					getPeakLevel ( UInt32 channelTarget );
 	

@@ -1028,7 +1028,6 @@ IOReturn Portable2003_PlatformMonitor::monitorPower (OSDictionary *dict, IOServi
 		if (num = OSDynamicCast (OSNumber, dict->getObject (gIOPMonCurrentValueKey))) {
 			value = num->unsigned32BitValue();
 			value &= ~kIOPMForceLowSpeed;  		// Clear low speed bit
-                        
                         // if we're a Q16 or Q41 with a 65W adapter plugged in (actually anything >= 65W), 
                         // or an airline adapter plugged in,
                         // then don't enforce force-reduced-speed conditions....

@@ -37,7 +37,11 @@ typedef enum {
 	kMachine2_setRxd_AES3
 } STATE_MACHINE_2;
 
-#define	kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT	3
+#define	kCLOCK_UNLOCK_ERROR_TERMINAL_COUNT					 3
+#define kINITIAL_VALUE_FOR_POLL_FOR_USER_CLIENT_COUNT		 5
+
+#define kMinimumSupportedCS84xxSampleRate				 31200		/*  [3864994]   32.000 kHz - 2.5%   */
+#define kMaximumSupportedCS84xxSampleRate				196800		/*  [3864994]   32.000 kHz - 2.5%   */
 
 class AppleTopazAudio : public AudioHardwareObjectInterface
 {
@@ -79,6 +83,7 @@ public:
 	virtual bool 			requestTerminate ( IOService * provider, IOOptionBits options );
 	
 	virtual void			poll ( void );
+
 	void					stateMachine1 ( void );
 	void					stateMachine2 ( void );
 	
@@ -115,6 +120,7 @@ private:
 	bool					mAttemptingExternalLock;
 	
 	UInt32 					mClockSource;
+	UInt32					mDigitalInStatus;
 	
 	AppleTopazPlugin *		mTopazPlugin;
 
@@ -123,4 +129,10 @@ protected:
 	
 	UInt32					mSampleRate;
 	UInt32					mSampleDepth;
+	
+	bool					mGeneralRecoveryInProcess;
+	
+	UInt32					mOptimizePollForUserClient_counter;
+	
+	UInt8					mTopaz_I2C_Address;						//  [3648867]
 };

@@ -30,7 +30,6 @@
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-
 #include <IOKit/scsi/SCSITask.h>
 
 // Generic IOKit related headers
@@ -105,6 +104,8 @@ private:
     // are declared as void * so that they will scale to a 64-bit system.
     void *						fProtocolLayerReference;
     void *						fApplicationLayerReference;
+    void *						fTargetLayerReference;
+    void *						fPathLayerReference;
     
     // Pointer to the next SCSI Task in the queue.  This can only be used by the SCSI
     // Protocol Layer
@@ -114,10 +115,6 @@ private:
 	// indicating whether the command currently being executed is the client's
 	// command or the AutoSense RequestSense command.
 	SCSITaskMode				fTaskExecutionMode;
-	
-    // Reserve space for future expansion.
-    struct SCSITaskExpansionData { };
-    SCSITaskExpansionData *		fSCSITaskReserved;
 	
 public:
     
@@ -276,6 +273,8 @@ public:
 									 UInt8				senseDataSize,
 									 task_t				task );
 	
+	void	EnsureAutosenseDescriptorExists ( void );
+
 	// Get the auto sense data that was returned for the SCSI Task.  A return 
 	// value of true indicates that valid auto sense data has been returned in 
 	// the receivingBuffer.
@@ -300,6 +299,16 @@ public:
 	// retrieving a reference number that is specific to that client.
 	bool	SetApplicationLayerReference ( void * newReferenceValue );
 	void *	GetApplicationLayerReference ( void );
+	
+	// These are used by the SCSI Target Layer object for storing and
+	// retrieving a reference number that is specific to that client.
+	bool	SetTargetLayerReference ( void * newReferenceValue );
+	void *	GetTargetLayerReference ( void );
+
+	// These are used by the SCSI Pathing Layer object for storing and
+	// retrieving a reference number that is specific to that client.
+	bool	SetPathLayerReference ( void * newReferenceValue );
+	void *	GetPathLayerReference ( void );
 	
 	// These methods are only for the SCSI Protocol Layer to set the command
 	// execution mode of the command.  There currently are two modes, standard
@@ -364,18 +373,7 @@ public:
 	// task.
 	SCSITask * ReplaceFollowingSCSITask ( SCSITask * newFollowingTask );
 	
-private:
-	
-	// Space reserved for future expansion.
-    OSMetaClassDeclareReservedUnused ( SCSITask, 1 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 2 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 3 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 4 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 5 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 6 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 7 );
-    OSMetaClassDeclareReservedUnused ( SCSITask, 8 );
-	
 };
+
 
 #endif /* _IOKIT_SCSI_TASK_DEFINITION_H_ */

@@ -180,6 +180,7 @@ public:
 	
 	virtual IOReturn		setI2SSWReset(bool enable);
 	virtual bool			getI2SSWReset();
+	
 	//
 	// I2S Methods: IOM Control
 	//
@@ -194,6 +195,25 @@ public:
 
 	virtual IOReturn		setI2SIOMIntControl(UInt32 intCntrl);
 	virtual UInt32			getI2SIOMIntControl();
+	
+	virtual IOReturn		setI2SIOM_CodecMsgOut(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_CodecMsgOut();
+	
+	virtual IOReturn		setI2SIOM_CodecMsgIn(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_CodecMsgIn();
+	
+	virtual IOReturn		setI2SIOM_FrameMatch(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_FrameMatch();
+	
+	virtual IOReturn		setI2SIOM_PeakLevelSel(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_PeakLevelSel();
+	
+	virtual IOReturn		setI2SIOM_PeakLevelIn0(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_PeakLevelIn0();
+	
+	virtual IOReturn		setI2SIOM_PeakLevelIn1(UInt32 intCntrl);
+	virtual UInt32			getI2SIOM_PeakLevelIn1();
+	
 	//
 	// GPIO Methods
 	//
@@ -398,6 +418,8 @@ protected:
 	GpioAttributes			mAppleGPIO_LineOutMute;
 	GpioAttributes			mAppleGPIO_InternalSpeakerID;
 	GpioAttributes			mAppleGPIO_SpeakerID;
+	
+	bool					mI2S_Enable;
 
 	//
 	// I2C
@@ -445,7 +467,7 @@ protected:
 
 	GpioAttributes			GetCachedAttribute ( GPIOSelector selector, GpioAttributes defaultResult );
 	static void				gpioTimerCallback ( OSObject *target, IOAudioDevice *device );
-	bool					interruptUsesTimerPolling( PlatformInterruptSource source );
+	virtual bool			interruptUsesTimerPolling( PlatformInterruptSource source );					//  [3629501]   now virtual!
 	void					poll ( void );
 	void					pollGpioInterrupts ( void );
 	GpioAttributes			readGpioState ( GPIOSelector selector );

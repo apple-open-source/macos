@@ -58,6 +58,7 @@
 #include <sys/attr.h>
 #include <sys/ubc.h>
 #include <vfs/vfs_support.h>
+#include <miscfs/specfs/specdev.h>
 #else
 #include <vm/vm.h>
 #include <vm/vm_param.h>
@@ -123,29 +124,78 @@ ntfs_read(ap)
 	struct ntfsmount *ntmp = ip->i_mp;
 	struct buf *bp;
 	daddr_t cn;
-	int resid, off, toread;
+	off_t off, toread;
+	size_t bsize;	/* Best size for each buffer cache block of this file */
 	int error;
+	int io_resid;
 
 	dprintf(("ntfs_read: ino: %d, off: %d resid: %d, segflg: %d\n",ip->i_number,(u_int32_t)uio->uio_offset,uio->uio_resid,uio->uio_segflg));
 
 	dprintf(("ntfs_read: filesize: %d",(u_int32_t)fp->f_size));
 
+	/* exit quickly if there is nothing to read */
+	if (uio->uio_resid == 0)
+		return 0;
+
 	/* don't allow reading after end of file */
-	if (uio->uio_offset > fp->f_size)
+	if (uio->uio_offset >= fp->f_size)
 		return (0);
 
-	resid = min(uio->uio_resid, fp->f_size - uio->uio_offset);
-
-	dprintf((", resid: %d\n", resid));
+	/* If this is a non-compressed non-resident file, use Cluster I/O */
+	if (UBCISVALID(vp) && (fp->f_flag & FN_NONRESIDENT) && (fp->f_compsize == 0))
+	{
+		int dev_block_size;
+        
+		VOP_DEVBLOCKSIZE(ntmp->ntm_devvp, &dev_block_size);
+		return cluster_read(vp, uio, fp->f_size, dev_block_size, 0);
+	}
+	
+	if (fp->f_compsize != 0)
+		bsize = fp->f_compsize;		/* Read compressed files one compression unit at a time */
+	else
+		bsize = ntfs_cntob(1);		/* Otherwise, read one cluster at a time */
 
 	error = 0;
-	while (resid) {
-		cn = ntfs_btocn(uio->uio_offset);
-		off = ntfs_btocnoff(uio->uio_offset);
+	while (uio->uio_resid > 0 && uio->uio_offset < fp->f_size) {
+		/*
+		 * See if there is any cached data available to copy
+		 */
+		io_resid = uio->uio_resid;
+		off = fp->f_size - uio->uio_offset;
+		if (off < io_resid)
+			io_resid = off;
+		if (io_resid > 0) {
+			error = cluster_copy_ubc_data(vp, uio, &io_resid, 0);
+			if (error)
+				return error;
+		}
+		if (uio->uio_resid <= 0 || uio->uio_offset >= fp->f_size)
+			return 0;
 
-		toread = min(off + resid, ntfs_cntob(1));
+		/*
+		 * Consider doing read-ahead here.  The thing is, we'd have to read
+		 * ahead from the uncompressed stream, into a spot where ntfs_readattr
+		 * could find it.
+		 *
+		 * One possibility: have a separate vnode for the uncompressed stream.
+		 * Read ahead on that stream, and invalidate buffers once we
+		 * do the decompression.  Perhaps merely reading that stream with
+		 * cluster_read would be enough.
+		 *
+		 * Another possibility: map the physical blocks and read ahead
+		 * from the disk device (again, probably need to invalidate them
+		 * once the decompression is done).
+		 */
 
-		error = bread(vp, cn, ntfs_cntob(1), NOCRED, &bp);
+		/*
+		 * Data was not already in UBC, so read it in now.
+		 */
+		cn = uio->uio_offset / bsize;
+		off = uio->uio_offset % bsize;
+
+		toread = MIN(bsize - off, io_resid);
+
+		error = bread(vp, cn, bsize, NOCRED, &bp);
 		if (error) {
 			brelse(bp);
 			break;
@@ -157,8 +207,6 @@ ntfs_read(ap)
 			break;
 		}
 		brelse(bp);
-
-		resid -= toread - off;
 	}
 
 	return (error);
@@ -279,6 +327,102 @@ ntfs_print(ap)
 
 
 #ifdef APPLE
+
+static int
+ntfs_cmap(struct vop_cmap_args /* {
+	struct vnode *a_vp;
+	off_t a_foffset;    Starting (logical) offset in the file
+	size_t a_size;		Number of bytes to map (maximum)
+	daddr_t *a_bpn;		Physical (device) block number containing a_foffset, or -1 for sparse run
+	size_t *a_run;		Number of bytes contiguous starting at that block # (no larger than a_size)
+	void *a_poff;		Offset into physical (device) block
+	} */ *ap)
+{
+    register struct fnode *fp = VTOF(ap->a_vp);
+    register struct ntnode *ip = FTONT(fp);
+    register struct ntfsmount *ntmp = ip->i_mp;
+	struct ntvattr *vap;
+	int error;
+	off_t off;
+	off_t size;
+	cn_t cn, cl;	/* Cluster number and length of a run */
+	daddr_t bn;		/* Disk block (sector) number */
+	int cnt;		/* Index into run list */
+	
+	off = ap->a_foffset;
+	
+	error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, ntfs_btocn(off), &vap);
+	if (error)
+		return error;
+	
+	/* The attribute must be non-resident and non-compressed */
+	if ((vap->va_flag & NTFS_AF_INRUN) == 0)
+		panic("ntfs_cmap: attribute is MFT resident");
+	if (vap->va_compression && vap->va_compressalg)
+		panic("ntfs_cmap: attribute is compressed");
+
+	/* Need to check whether offset or offset+size is past end of file? */
+	
+	/*
+	 * Adjust offset and size to be relative to this attribute's start/end.
+	 * ¥¥Is that right?  What do va_cnstart and va_cnend really mean?
+	 */
+	size = MIN(ap->a_size, ntfs_cntob(vap->va_vcnend+1) - off);
+	off -= ntfs_cntob(vap->va_vcnstart);
+	
+	/*
+	 * Loop over all of the runs for this attribute, ignoring runs
+	 * containing data before the start of the requested range.
+	 */
+	cnt = 0;
+	cn = 0;
+	cl = 0;
+	while (cnt < vap->va_vruncnt)
+	{
+		cn = vap->va_vruncn[cnt];	/* Start of this run */
+		cl = vap->va_vruncl[cnt];	/* Length of this run */
+
+		if (ntfs_cntob(cl) <= off)
+		{
+			/* current run is entirely before start of range; skip it */
+			off -= ntfs_cntob(cl);
+			cnt++;
+			continue;
+		}
+		
+		/* We've found the run containing the start of the range */
+		cl -= ntfs_btocn(off);		/* Skip over clusters before start of range */
+		if (cn || ip->i_number == NTFS_BOOTINO)
+		{
+			/* Current run is not sparse */
+			cn += ntfs_btocn(off);		/* Cluster containing start of range */
+			bn = ntfs_cntobn(cn);
+		}
+		else
+		{
+			/* Current run is sparse */
+			bn = -1;
+		}
+		off = ntfs_btocnoff(off);	/* Offset of range with cluster #cn */
+		size = MIN(size, ntfs_cntob(cl) - off);	/* Limit size to end of run */
+		break;
+	}
+	if (cnt >= vap->va_vruncnt)
+		panic("ntfs_cmap: tried to map past end of attribute");
+
+	ntfs_ntvattrrele(vap);
+	
+	if (ap->a_bpn)
+		*ap->a_bpn = bn;
+	if (ap->a_run)
+		*ap->a_run = size;
+	if (ap->a_poff)
+		*(int *)ap->a_poff = 0;
+	
+	return error;
+}
+
+
 static int
 ntfs_bmap(ap)
     struct vop_bmap_args /* {
@@ -309,7 +453,7 @@ ntfs_bmap(ap)
         *ap->a_bnp = -99;
 
     if (ap->a_runp != NULL)
-        ap->a_runp = 0;
+        *ap->a_runp = 0;
     
     return 0;
 }
@@ -324,9 +468,25 @@ ntfs_blktooff(ap)
 		off_t *a_offset;    
 	} */ *ap;
 {
-	if (ap->a_vp == NULL)
+	struct vnode *vp;
+	struct fnode *fp;
+	struct ntnode *ip;
+	struct ntfsmount *ntmp;
+	size_t bsize;	/* Block size for this file (cluster, or compression unit) */
+
+	vp = ap->a_vp;
+	if (vp == NULL)
 		return (EINVAL);
-	*ap->a_offset = (off_t)ap->a_lblkno * PAGE_SIZE_64;
+	fp = VTOF(vp);
+	ip = FTONT(fp);
+	ntmp = ip->i_mp;
+	
+	if (fp->f_compsize != 0)
+		bsize = fp->f_compsize;		/* Compressed file: block == compression unit */
+	else
+		bsize = ntfs_cntob(1);		/* Others: block == cluster */
+
+	*ap->a_offset = (off_t)ap->a_lblkno * bsize;
 
 	return(0);
 }
@@ -340,12 +500,27 @@ struct vop_offtoblk_args /* {
 	daddr_t *a_lblkno;
 	} */ *ap;
 {
+	struct vnode *vp;
+	struct fnode *fp;
+	struct ntnode *ip;
+	struct ntfsmount *ntmp;
+	size_t bsize;	/* Block size for this file (cluster, or compression unit) */
 
-    if (ap->a_vp == NULL)
-        return (EINVAL);
-    *ap->a_lblkno = ap->a_offset / PAGE_SIZE_64;
+	vp = ap->a_vp;
+	if (vp == NULL)
+		return (EINVAL);
+	fp = VTOF(vp);
+	ip = FTONT(fp);
+	ntmp = ip->i_mp;
 
-    return(0);
+	if (fp->f_compsize != 0)
+		bsize = fp->f_compsize;		/* Compressed file: block == compression unit */
+	else
+		bsize = ntfs_cntob(1);		/* Others: block == cluster */
+
+	*ap->a_lblkno = ap->a_offset / bsize;
+
+	return(0);
 }
 #endif
 
@@ -365,6 +540,8 @@ ntfs_strategy(ap)
 	register struct fnode *fp = VTOF(vp);
 	register struct ntnode *ip = FTONT(fp);
 	struct ntfsmount *ntmp = ip->i_mp;
+	off_t offset;
+	size_t bsize;
 	int error;
 
 #ifdef APPLE
@@ -381,23 +558,43 @@ ntfs_strategy(ap)
 		(u_int32_t)bp->b_bcount,bp->b_flags));
 
 #ifdef APPLE
+	/*
+	 * If we're being called with a vector list, then just
+	 * pass the call through to the device.  This happens when
+	 * cluster_read calls us, with everything mapped.
+	 */
+	if (bp->b_flags & B_VECTORLIST)
+	{
+		vp = ip->i_devvp;
+		bp->b_dev = vp->v_rdev;
+		return VOCALL(vp->v_op, VOFFSET(vop_strategy), ap);
+	}
+#endif
+	
+	if (fp->f_compsize != 0)
+		bsize = fp->f_compsize;		/* Compressed files: one block = one compression unit */
+	else
+		bsize = ntfs_cntob(1);		/* Otherwise, one block = one cluster */
+	offset = (off_t) bp->b_blkno * (off_t) bsize;
+
+#ifdef APPLE
 	if (bp->b_flags & B_READ) {
 #else
 	if (bp->b_iocmd == BIO_READ) {
 #endif
 		u_int32_t toread;
 
-		if (ntfs_cntob(bp->b_blkno) >= fp->f_size) {
+		if (offset >= fp->f_size) {
 			clrbuf(bp);
 			error = 0;
 		} else {
-			toread = min(bp->b_bcount,
-				 fp->f_size-ntfs_cntob(bp->b_blkno));
+			toread = MIN(bp->b_bcount,
+				 fp->f_size-offset);
 			dprintf(("ntfs_strategy: toread: %d, fsize: %d\n",
 				toread,(u_int32_t)fp->f_size));
 
 			error = ntfs_readattr(ntmp, ip, fp->f_attrtype,
-				fp->f_attrname, ntfs_cntob(bp->b_blkno),
+				fp->f_attrname, offset,
 				toread, bp->b_data, NULL);
 
 			if (error) {
@@ -416,7 +613,7 @@ ntfs_strategy(ap)
 		size_t tmp;
 		u_int32_t towrite;
 
-		if (ntfs_cntob(bp->b_blkno) + bp->b_bcount >= fp->f_size) {
+		if (offset + bp->b_bcount >= fp->f_size) {
 			printf("ntfs_strategy: CAN'T EXTEND FILE\n");
 			bp->b_error = error = EFBIG;
 #ifdef APPLE
@@ -425,13 +622,13 @@ ntfs_strategy(ap)
 			bp->b_ioflags |= BIO_ERROR;
 #endif
 		} else {
-			towrite = min(bp->b_bcount,
-				fp->f_size-ntfs_cntob(bp->b_blkno));
+			towrite = MIN(bp->b_bcount,
+				fp->f_size - offset);
 			dprintf(("ntfs_strategy: towrite: %d, fsize: %d\n",
 				towrite,(u_int32_t)fp->f_size));
 
 			error = ntfs_writeattr_plain(ntmp, ip, fp->f_attrtype,	
-				fp->f_attrname, ntfs_cntob(bp->b_blkno),towrite,
+				fp->f_attrname, offset, towrite,
 				bp->b_data, &tmp, NULL);
 
 			if (error) {
@@ -467,7 +664,7 @@ ntfs_write(ap)
 	register struct ntnode *ip = FTONT(fp);
 	struct uio *uio = ap->a_uio;
 	struct ntfsmount *ntmp = ip->i_mp;
-	u_int64_t towrite;
+	off_t towrite;
 	size_t written;
 	int error;
 
@@ -479,7 +676,7 @@ ntfs_write(ap)
 		return (EFBIG);
 	}
 
-	towrite = min(uio->uio_resid, fp->f_size - uio->uio_offset);
+	towrite = MIN(uio->uio_resid, fp->f_size - uio->uio_offset);
 
 	dprintf((", towrite: %d\n",(u_int32_t)towrite));
 
@@ -602,13 +799,39 @@ ntfs_open(ap)
 		struct thread *a_td;
 	} */ *ap;
 {
-#if NTFS_DEBUG
-	register struct vnode *vp = ap->a_vp;
-	register struct ntnode *ip = VTONT(vp);
-
-	printf("ntfs_open: %d\n",ip->i_number);
-#endif
-
+	struct vnode *vp = ap->a_vp;
+	
+	/*
+	 * When opening files, set up the non-resident flag amd the
+	 * compression unit size.  This makes those values available
+	 * for read and page-in.  However, this breaks execution of
+	 * compressed files because exec() never calls VOP_OPEN
+	 * (though I think it should).
+	 */
+	if (vp->v_type == VREG) {
+		register struct fnode *fp = VTOF(vp);
+		register struct ntnode *ip = FTONT(fp);
+		struct ntfsmount *ntmp = ip->i_mp;
+		struct ntvattr *vap;
+		int error;
+	
+		fp->f_compsize = 0;		/* Assume not compressed */
+		
+		error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, 0, &vap);
+		if (error)
+			return error;
+		
+		if (vap->va_flag & NTFS_AF_INRUN) {
+			fp->f_flag |= FN_NONRESIDENT;
+			if ((vap->va_compression != 0) && (vap->va_compressalg != 0))
+				fp->f_compsize = ntfs_cntob(1) << vap->va_compressalg;
+		} else {
+			fp->f_flag &= ~FN_NONRESIDENT;
+		}
+		
+		ntfs_ntvattrrele(vap);
+	}
+	
 	/*
 	 * Files marked append-only must be opened for appending.
 	 */
@@ -1135,12 +1358,11 @@ static int ntfs_pagein(struct vop_pagein_args *args)
     if (UBCINFOMISSING(vp))
         panic("ntfs_pagein: ubc missing vp=%x", vp);
 
-    /*
-     * We don't currently support cluster I/O.  In the future, we
-     * could support it for uncompressed runs in non-resident
-     * attributes.
-     */
-    if (0)
+	/*
+	 * Determine whether we can use Cluster I/O on this attribute.  We can
+	 * use it if the attribute is not MFT resident, and if it is not compressed.
+	 */
+    if ((fp->f_flag & FN_NONRESIDENT) && (fp->f_compsize == 0))
     {
         int dev_block_size;
         
@@ -1516,7 +1738,7 @@ struct vnodeopv_entry_desc ntfs_vnodeop_entries[] = {
 
 #ifdef APPLE
 	{ &vop_bmap_desc, (vop_t *)ntfs_bmap },
-/*	{ &vop_cmap_desc, (vop_t *) ntfs_cmap },		Needed if we do cluster I/O */
+	{ &vop_cmap_desc, (vop_t *) ntfs_cmap },
 	{ &vop_blktooff_desc, (vop_t *)ntfs_blktooff },
 	{ &vop_offtoblk_desc, (vop_t *)ntfs_offtoblk },
 #endif

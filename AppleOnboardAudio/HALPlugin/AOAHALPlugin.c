@@ -79,6 +79,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 	char						theProp[5];
 	OSStatus					theResult;
 	CFDictionaryRef				theDict;
+	CFNumberRef					theNumber;
 
 	convertDecTo4cc (inPropertyID, theProp);
 
@@ -96,6 +97,24 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			theDict = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
 			if (theDict) {
 				CFRelease (theDict);
+				if (outWritable) *outWritable = FALSE;
+				if (outSize) *outSize = sizeof (UInt32);
+				theResult = noErr;
+			}
+			break;
+		case kAOAPropertyAvailableInputsBitmap:
+			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("InputsBitmap"), kCFAllocatorDefault, 0);
+			if (theNumber) {
+				CFRelease (theNumber);
+				if (outWritable) *outWritable = FALSE;
+				if (outSize) *outSize = sizeof (UInt32);
+				theResult = noErr;
+			}
+			break;
+		case kAOAPropertyAvailableOutputsBitmap:
+			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("OutputsBitmap"), kCFAllocatorDefault, 0);
+			if (theNumber) {
+				CFRelease (theNumber);
 				if (outWritable) *outWritable = FALSE;
 				if (outSize) *outSize = sizeof (UInt32);
 				theResult = noErr;
@@ -131,6 +150,8 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 	char						theProp[5];
 	OSStatus					theResult;
 	CFDictionaryRef				theDict;
+	CFNumberRef					theNumber;
+	CFStringRef					entryname;
 
 	theResult = kAudioHardwareUnknownPropertyError;
 
@@ -149,12 +170,36 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 			if (theDict) {
 				if (outPropertyData) *(CFDictionaryRef *)outPropertyData = theDict;
 				else CFRelease (theDict);
-				if (!theResult) {
-					if (ioPropertyDataSize) *ioPropertyDataSize = sizeof (UInt32);
-				}
+				if (ioPropertyDataSize) *ioPropertyDataSize = sizeof (UInt32);
 				// Don't release it, the caller will.
 			}
 			theResult = noErr;
+			break;
+		case kAOAPropertyAvailableInputsBitmap:
+		case kAOAPropertyAvailableOutputsBitmap:
+			entryname = ( inPropertyID == kAOAPropertyAvailableInputsBitmap) ? CFSTR ("InputsBitmap") : CFSTR ("OutputsBitmap");
+		
+			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, entryname, kCFAllocatorDefault, 0);
+			if (theNumber) {
+				if (outPropertyData)
+				{
+					if ( CFNumberGetValue( theNumber, kCFNumberSInt32Type, outPropertyData ))
+					{
+						if (ioPropertyDataSize) *ioPropertyDataSize = sizeof (UInt32);
+
+						theResult = noErr;
+					}
+					else
+					{
+						theResult = kAudioHardwareBadPropertySizeError;
+					}
+				}
+				else
+				{
+					theResult = noErr;
+				}
+				CFRelease (theNumber);
+			}
 			break;
 		default:
 			break;
@@ -177,6 +222,8 @@ OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const Audio
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
 		case kAOAPropertySelectionsReference:
+		case kAOAPropertyAvailableInputsBitmap:
+		case kAOAPropertyAvailableOutputsBitmap:
 			theResult = kAudioHardwareIllegalOperationError;
 			break;
 		default:

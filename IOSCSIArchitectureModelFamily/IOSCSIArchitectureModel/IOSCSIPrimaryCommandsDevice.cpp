@@ -690,14 +690,14 @@ bool
 IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 {
 	
-	SCSI_Sense_Data				senseBuffer;
-	IOMemoryDescriptor *		bufferDesc;
-	SCSITaskIdentifier			request;
+	SCSI_Sense_Data				senseBuffer		= { 0 };
+	IOMemoryDescriptor *		bufferDesc		= NULL;
+	SCSITaskIdentifier			request			= NULL;
 	bool						driveReady 		= false;
 	bool						result 			= true;
 	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
-	bufferDesc = IOMemoryDescriptor::withAddress( ( void * ) &senseBuffer,
+	bufferDesc = IOMemoryDescriptor::withAddress ( ( void * ) &senseBuffer,
 													kSenseDefaultSize,
 													kIODirectionIn );
 	
@@ -807,14 +807,14 @@ IOSCSIPrimaryCommandsDevice::ClearPowerOnReset ( void )
 		else
 		{
 			
-			// the command failed - perhaps the device was hot unplugged
+			// The command failed - perhaps the device was hot unplugged
 			// give other threads some time to run.
 			IOSleep ( 200 );
 			
 		}
 	
-	// check isInactive in case device was hot unplugged during sleep
-	// and we are in an infinite loop here
+	// Check isInactive() in case device was hot unplugged during sleep
+	// and we are in an infinite loop here.
 	} while ( ( driveReady == false ) && ( isInactive ( ) == false ) );
 	
 	bufferDesc->release ( );
@@ -1098,34 +1098,42 @@ IOSCSIPrimaryCommandsDevice::FreeCommandSetObjects ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// ¥ TaskCallback - Called to complete a task.						[PROTECTED]
+//	¥ TaskCallback - Callback method for synchronous commands.		  [PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-void
+void 
 IOSCSIPrimaryCommandsDevice::TaskCallback ( SCSITaskIdentifier completedTask )
 {
 	
-	SCSIServiceResponse 	serviceResponse;
-	SCSITask *				scsiRequest;
-	IOSyncer *				fSyncLock;
+	SCSITask *						scsiRequest	= NULL;
+	IOSCSIPrimaryCommandsDevice *	owner		= NULL;
 	
 	scsiRequest = OSDynamicCast ( SCSITask, completedTask );
 	require_nonzero ( scsiRequest, ErrorExit );
 	
-	fSyncLock = ( IOSyncer * ) scsiRequest->GetApplicationLayerReference ( );
-	check ( fSyncLock );
+	owner = ( IOSCSIPrimaryCommandsDevice * ) scsiRequest->GetTaskOwner ( );
+	require_nonzero ( owner, ErrorExit );
 	
-	serviceResponse = scsiRequest->GetServiceResponse ( );
-	fSyncLock->signal ( serviceResponse, false );
-	
-	return;
+	owner->TaskCompletion ( scsiRequest );
 	
 	
 ErrorExit:
 	
 	
-	IOPanic ( "IOSCSIPrimaryCommandsDevice::TaskCallback called with no SCSITask\n" );
 	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ TaskCompletion - Callback method for synchronous commands.	  [PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void 
+IOSCSIPrimaryCommandsDevice::TaskCompletion ( SCSITaskIdentifier completedTask )
+{
+	
+	fCommandGate->commandWakeup ( completedTask, true );
 	
 }
 
@@ -1140,19 +1148,12 @@ IOSCSIPrimaryCommandsDevice::SendCommand (
 					UInt32				timeoutDuration )
 {
 	
-	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-	IOSyncer *				fSyncLock		= NULL;
+	SCSIServiceResponse		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
 	require ( IsProtocolAccessEnabled ( ), ProtocolAccessDisabledError );
 	
-	fSyncLock = IOSyncer::create ( false );
-	require_nonzero ( fSyncLock, SyncerCreationFailedError );
-	
-	fSyncLock->signal ( kIOReturnSuccess, false );
-	
 	SetTimeoutDuration ( request, timeoutDuration );
 	SetTaskCompletionCallback ( request, &IOSCSIPrimaryCommandsDevice::TaskCallback );
-	SetApplicationLayerReference ( request, ( void * ) fSyncLock );
 	
 	SetAutosenseCommand ( request,
 						  kSCSICmd_REQUEST_SENSE,
@@ -1162,17 +1163,18 @@ IOSCSIPrimaryCommandsDevice::SendCommand (
 						  sizeof ( SCSI_Sense_Data ),
 						  0x00 );
 	
-	fSyncLock->reinit ( );
 	GetProtocolDriver ( )->ExecuteCommand ( request );
 	
 	// Wait for the completion routine to get called
-	serviceResponse = ( SCSIServiceResponse) fSyncLock->wait ( false );
-	fSyncLock->release ( );
+	fCommandGate->runAction ( ( IOCommandGate::Action )
+							  &IOSCSIPrimaryCommandsDevice::sWaitForTask,
+							  request );
+	
+	serviceResponse = GetServiceResponse ( request );
 	
 	return serviceResponse;
 	
 	
-SyncerCreationFailedError:
 ProtocolAccessDisabledError:
 	
 	
@@ -1224,6 +1226,37 @@ ProtocolAccessDisabledError:
 	TaskCompletedNotification ( request );
 	
 	return;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ GatedWaitForTask - Called to wait for a task to complete.		  [PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIPrimaryCommandsDevice::GatedWaitForTask ( SCSITaskIdentifier request )
+{
+	
+	SCSITask *		task	= OSDynamicCast ( SCSITask, request );
+	IOReturn		result	= kIOReturnBadArgument;
+	
+	if ( task != NULL )
+	{
+		
+		while ( task->GetTaskState ( ) != kSCSITaskState_ENDED )
+		{
+			
+			result = fCommandGate->commandSleep ( task, THREAD_UNINT );
+			
+		}
+		
+	}
+	
+	if ( result == THREAD_AWAKENED )
+		result = kIOReturnSuccess;
+	
+	return result;
 	
 }
 
@@ -2134,7 +2167,7 @@ IOSCSIPrimaryCommandsDevice::GetCMDQUE ( void )
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// ¥ SetANSIVersion - Sets the CMDQUE bit from the INQUIRY data.	[PROTECTED]
+// ¥ SetCMDQUE - Sets the CMDQUE bit from the INQUIRY data.			[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
@@ -2474,6 +2507,28 @@ IOSCSIPrimaryCommandsDevice::ServerKeyswitchCallback (
 	return true;
 	
 }
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+// ¥ sWaitForTask -	Called to wait for a task until it completes.
+//															  [STATIC][PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+IOSCSIPrimaryCommandsDevice::sWaitForTask (
+									void * 				object,
+									SCSITaskIdentifier 	request )
+{
+	
+	IOSCSIPrimaryCommandsDevice *	device = NULL;
+	
+	device = OSDynamicCast ( IOSCSIPrimaryCommandsDevice, ( OSObject * ) object );
+	
+	return device->GatedWaitForTask ( request );
+	
+}
+
+
 
 
 #if 0

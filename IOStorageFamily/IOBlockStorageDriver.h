@@ -405,15 +405,17 @@ protected:
             UInt8                type;
             UInt8                typeSub[3];
         } block;
-    
+
         struct
         {
             UInt64               byteStart;
             IOMemoryDescriptor * buffer;
             IOStorageCompletion  completion;
         } original;
-        
-        UInt32 reserved[8];
+
+        AbsoluteTime timeStart;
+
+        UInt32 reserved[6];
     };
 
     static const UInt8 kBlockTypeStandard = 0x00;

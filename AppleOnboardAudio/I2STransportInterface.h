@@ -28,7 +28,12 @@ typedef enum ClockSource
 //	are used to determine the externally clocked sample rate by
 //	comparing the least sigificant 12 bits of the serial format
 //	register against the limits described here.
+//
+//	1/18432000 = 54.25347222222222e-09 = t18mHz
+//
 typedef enum ExternalSampleRate {
+	kSampleRate_8Khz_LowerLimt		=	2302,	/*	( Sample Subframe Time: 0.000125000 ) / t18mhz	*/
+	kSampleRate_8Khz_UpperLimt		=	2306,
 	kSampleRate_11Khz_LowerLimt		=	1663,
 	kSampleRate_11Khz_UpperLimt		=	1682,
 	kSampleRate_16Khz_LowerLimt		=	1146,
@@ -148,11 +153,14 @@ public:
 	virtual bool		init (PlatformInterface * inPlatformInterface);
 	virtual void		free ( void );
 	
+	virtual IOReturn	restartTransport ( void );			//  [3683602]
+
 	virtual IOReturn	transportSetSampleRate ( UInt32 sampleRate );
 	virtual IOReturn	transportSetSampleWidth ( UInt32 sampleWidth, UInt32 dmaWidth );
 	
 	virtual IOReturn	performTransportSleep ( void );
 	virtual IOReturn	performTransportWake ( void );
+	virtual IOReturn	performTransportPostWake ( void ) { return kIOReturnSuccess; }
 	
 	virtual IOReturn	transportBreakClockSelect ( UInt32 clockSource );
 	virtual	IOReturn	transportMakeClockSelect ( UInt32 clockSource );
@@ -164,13 +172,15 @@ public:
 	IOReturn			transportSetPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue );
 	UInt32				transportGetPeakLevel ( UInt32 channelTarget );
 	
+	virtual void		poll ( void );
+
 	//	------------------------------
 	//	USER CLIENT
 	//	------------------------------
 	virtual	IOReturn		getTransportInterfaceState ( TransportStateStructPtr outState );
 	virtual IOReturn		setTransportInterfaceState ( TransportStateStructPtr inState );
 	
-private:
+protected:
 	UInt32				mMclkMultiplier;
 	UInt32				mSclkMultiplier;
 	UInt32				mMClkFrequency;

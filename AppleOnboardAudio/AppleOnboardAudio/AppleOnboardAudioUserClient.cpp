@@ -183,6 +183,9 @@ IOReturn AppleOnboardAudioUserClient::getState (UInt32 selector, UInt32 arg2, vo
 			case kSoftwareProcessingSelector:
 				err = mDriver->getSoftwareProcessingState ( arg2, outState );
 				break;
+			case kRealTimeCPUUsage:
+				err = mDriver->getRealTimeCPUUsage ( arg2, outState );
+				break;
 			case kAppleOnboardAudioSelector:
 				err = mDriver->getAOAState ( arg2, outState );
 				break;
@@ -215,7 +218,7 @@ IOReturn AppleOnboardAudioUserClient::setState (UInt32 selector, UInt32 arg2, vo
 				err = mDriver->setPluginState ( (HardwarePluginType)arg2, (HardwarePluginDescriptorPtr)inState );
 				break;
 			case kDMASelector:
-				err = mDriver->setDMAState ( arg2, inState );
+				err = mDriver->setDMAStateAndFormat ( arg2, inState );
 				break;
 			case kSoftwareProcessingSelector:
 				err = mDriver->setSoftwareProcessingState ( arg2, inState );
@@ -230,6 +233,9 @@ IOReturn AppleOnboardAudioUserClient::setState (UInt32 selector, UInt32 arg2, vo
 				debugIOLog (3, "Unknown user client selector (%ld)", selector);
 				break;
 		}
+	}
+	if ( kIOReturnSuccess != err ) {
+		debugIOLog ( 5, "AppleOnboardAudioUserClient::setState ( %d, %d, %p ) returns %lX", selector, arg2, inState, err );
 	}
 	return (err);
 }
